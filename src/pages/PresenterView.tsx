@@ -310,7 +310,7 @@ export default function PresenterView() {
               variant={editMode ? "default" : "outline"}
               size="sm"
               onClick={handleEditSermon}
-              className="rounded-xl"
+              className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white border-0"
             >
               {editMode ? <Check className="h-4 w-4 mr-2" /> : <Edit className="h-4 w-4 mr-2" />}
               {editMode ? "Done Editing" : "Edit Sermon"}
@@ -319,7 +319,7 @@ export default function PresenterView() {
               variant="outline"
               size="sm"
               onClick={() => setShowSettings(true)}
-              className="rounded-xl"
+              className="rounded-xl bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white border-0"
             >
               <Settings className="h-4 w-4 mr-2" />
               Presentation Settings
@@ -328,7 +328,7 @@ export default function PresenterView() {
               variant="outline"
               size="sm"
               onClick={handleClear}
-              className="rounded-xl"
+              className="rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 text-white border-0"
             >
               Clear Screen
             </Button>
@@ -620,7 +620,7 @@ export default function PresenterView() {
                   variant="outline"
                   size="sm"
                   onClick={handleClear}
-                  className="w-full rounded-xl"
+                  className="w-full rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 text-white border-0"
                 >
                   <Square className="h-4 w-4 mr-2" />
                   Clear Live Display
@@ -630,7 +630,7 @@ export default function PresenterView() {
                   variant="destructive"
                   size="sm"
                   onClick={() => setShowEndLiveDialog(true)}
-                  className="w-full rounded-xl"
+                  className="w-full rounded-xl bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600"
                 >
                   <Power className="h-4 w-4 mr-2" />
                   End Live Session

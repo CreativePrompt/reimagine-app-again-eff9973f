@@ -175,7 +175,7 @@ export default function SermonEditor() {
               variant="default"
               size="sm"
               onClick={() => setShowLiveSession(true)}
-              className="h-7 px-3 bg-primary hover:bg-primary/90 transition-all hover:shadow-md rounded-md text-xs"
+              className="h-7 px-3 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 transition-all hover:shadow-md hover:shadow-red-500/30 rounded-md text-xs border-0"
             >
               <Play className="h-3.5 w-3.5 mr-1.5" />
               Go Live
