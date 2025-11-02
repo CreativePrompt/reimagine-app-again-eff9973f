@@ -1,15 +1,23 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Sermon, SermonBlock } from "@/lib/blockTypes";
+import { Sermon, SermonBlock, BlockKind } from "@/lib/blockTypes";
 import { extractTextLines } from "@/lib/presentationUtils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Play, Square, Eye, Maximize2, Minimize2, Edit, Settings } from "lucide-react";
+import { ArrowLeft, Play, Square, Eye, Maximize2, Minimize2, Edit, Settings, Trash2, Plus, X, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { PresentationSettingsDialog } from "@/components/editor/PresentationSettingsDialog";
 import { loadSettings, saveSettings, PresentationSettings } from "@/lib/liveChannel";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
+import { nanoid } from "nanoid";
+import { InlineBlockEdit } from "@/components/editor/InlineBlockEdit";
+import { BlockDisplay } from "@/components/editor/BlockDisplay";
 
 export default function PresenterView() {
   const { sessionId } = useParams();
@@ -23,6 +31,8 @@ export default function PresenterView() {
   const [showAudiencePreview, setShowAudiencePreview] = useState(true);
   const [settings, setSettings] = useState<PresentationSettings>(loadSettings());
   const [showSettings, setShowSettings] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
 
   useEffect(() => {
     // Load sermon from sessionStorage
@@ -123,7 +133,74 @@ export default function PresenterView() {
   };
 
   const handleEditSermon = () => {
-    navigate(`/sermon/${sermon?.id}`);
+    setEditMode(!editMode);
+  };
+
+  const updateSermonData = (updatedSermon: Sermon) => {
+    setSermon(updatedSermon);
+    sessionStorage.setItem(`sermon-${sessionId}`, JSON.stringify(updatedSermon));
+    
+    // Refresh block lines
+    const lines = new Map<string, string[]>();
+    updatedSermon.blocks.forEach((block: SermonBlock) => {
+      lines.set(block.id, extractTextLines(block));
+    });
+    setBlockLines(lines);
+  };
+
+  const handleUpdateBlock = (blockId: string, updates: Partial<SermonBlock>) => {
+    if (!sermon) return;
+    const updatedBlocks = sermon.blocks.map(block =>
+      block.id === blockId ? { ...block, ...updates } as SermonBlock : block
+    );
+    updateSermonData({ ...sermon, blocks: updatedBlocks });
+  };
+
+  const handleDeleteBlock = (blockId: string) => {
+    if (!sermon) return;
+    const updatedBlocks = sermon.blocks.filter(block => block.id !== blockId);
+    updateSermonData({ ...sermon, blocks: updatedBlocks });
+    toast.success("Block deleted");
+  };
+
+  const handleAddBlock = (kind: BlockKind) => {
+    if (!sermon) return;
+    
+    let newBlock: SermonBlock;
+    const baseId = nanoid();
+    const order = sermon.blocks.length;
+    
+    switch (kind) {
+      case "point":
+        newBlock = { id: baseId, kind: "point", order, title: "", body: "", number: null };
+        break;
+      case "bible":
+        newBlock = { id: baseId, kind: "bible", order, reference: "", text: "", translation: null, notes: null };
+        break;
+      case "illustration":
+        newBlock = { id: baseId, kind: "illustration", order, title: "", body: "" };
+        break;
+      case "application":
+        newBlock = { id: baseId, kind: "application", order, title: "", body: "" };
+        break;
+      case "quote":
+        newBlock = { id: baseId, kind: "quote", order, text: "", author: null, source: null };
+        break;
+      case "media":
+        newBlock = { id: baseId, kind: "media", order, type: "image", url: "", caption: null };
+        break;
+      case "reader_note":
+        newBlock = { id: baseId, kind: "reader_note", order, title: "", summary: "", author: null, source: null };
+        break;
+      case "custom":
+        newBlock = { id: baseId, kind: "custom", order, title: "", body: "" };
+        break;
+    }
+    
+    const updatedBlocks = [...sermon.blocks, newBlock];
+    updateSermonData({ ...sermon, blocks: updatedBlocks });
+    setEditingBlockId(newBlock.id);
+    toast.success("Block added");
   };
 
   if (!sermon) {
@@ -172,24 +249,49 @@ export default function PresenterView() {
                 <div className="h-2 w-2 bg-white rounded-full mr-2 animate-pulse" />
                 LIVE
               </Badge>
-              <div>
-                <h1 className="font-semibold">{sermon.title}</h1>
-                {sermon.subtitle && (
-                  <p className="text-sm text-muted-foreground">{sermon.subtitle}</p>
-                )}
-              </div>
+              {editMode ? (
+                <div className="space-y-1">
+                  <Input
+                    value={sermon.title}
+                    onChange={(e) => {
+                      if (sermon) {
+                        updateSermonData({ ...sermon, title: e.target.value });
+                      }
+                    }}
+                    placeholder="Sermon Title"
+                    className="h-8 font-semibold"
+                  />
+                  <Input
+                    value={sermon.subtitle || ""}
+                    onChange={(e) => {
+                      if (sermon) {
+                        updateSermonData({ ...sermon, subtitle: e.target.value });
+                      }
+                    }}
+                    placeholder="Subtitle (optional)"
+                    className="h-7 text-sm"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <h1 className="font-semibold">{sermon.title}</h1>
+                  {sermon.subtitle && (
+                    <p className="text-sm text-muted-foreground">{sermon.subtitle}</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
+              variant={editMode ? "default" : "outline"}
               size="sm"
               onClick={handleEditSermon}
               className="rounded-xl"
             >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Sermon
+              {editMode ? <Check className="h-4 w-4 mr-2" /> : <Edit className="h-4 w-4 mr-2" />}
+              {editMode ? "Done Editing" : "Edit Sermon"}
             </Button>
             <Button
               variant="outline"
@@ -243,17 +345,18 @@ export default function PresenterView() {
                 <Card
                   key={block.id}
                   className={`
-                    overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer
+                    overflow-hidden rounded-2xl transition-all duration-300
+                    ${!editMode && 'cursor-pointer'}
                     ${isBlockActive 
                       ? "ring-4 ring-live-active shadow-xl shadow-live-active/20" 
                       : "hover:shadow-lg"
                     }
                   `}
-                  onClick={() => handleBlockClick(block.id)}
+                  onClick={() => !editMode && handleBlockClick(block.id)}
                 >
                   <div className="p-5">
                     <div className="flex items-center gap-3 mb-4">
-                      {isBlockActive && (
+                      {isBlockActive && !editMode && (
                         <div className="flex items-center gap-2 px-3 py-1 bg-live-active rounded-full">
                           <Play className="h-3 w-3 text-white fill-white animate-pulse" />
                           <span className="text-xs font-semibold text-white uppercase tracking-wide">
@@ -261,7 +364,7 @@ export default function PresenterView() {
                           </span>
                         </div>
                       )}
-                      {!isBlockActive && (
+                      {!isBlockActive && !editMode && (
                         <button className="flex items-center gap-2 px-3 py-1 bg-muted rounded-full hover:bg-muted/80 transition-colors">
                           <Play className="h-3 w-3 text-muted-foreground" />
                           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -272,49 +375,156 @@ export default function PresenterView() {
                       <Badge variant="outline" className="rounded-full">
                         {block.kind}
                       </Badge>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      {isExpanded ? (
-                        lines.map((line, index) => {
-                          const isLineActive = isBlockActive && currentLineIndex === index;
-                          
-                          return (
-                            <div
-                              key={index}
-                              className={`
-                                p-3 rounded-xl cursor-pointer transition-all duration-200
-                                ${isLineActive
-                                  ? "bg-live-active text-white ring-2 ring-live-active-border shadow-md"
-                                  : isBlockActive 
-                                    ? "bg-muted/50 hover:bg-muted"
-                                    : "hover:bg-muted/50"
-                                }
-                              `}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleLineClick(block.id, index);
-                              }}
-                            >
-                              <p className="whitespace-pre-wrap text-sm leading-relaxed">{line}</p>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="text-sm text-muted-foreground leading-relaxed">
-                          {lines[0] && <p className="font-medium">{lines[0]}</p>}
-                          {lines.length > 1 && (
-                            <p className="text-xs mt-2 opacity-70">
-                              +{lines.length - 1} more {lines.length === 2 ? 'line' : 'lines'}
-                            </p>
-                          )}
+                      
+                      {editMode && (
+                        <div className="ml-auto flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingBlockId(editingBlockId === block.id ? null : block.id);
+                            }}
+                          >
+                            {editingBlockId === block.id ? (
+                              <X className="h-4 w-4" />
+                            ) : (
+                              <Edit className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteBlock(block.id);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       )}
                     </div>
+                    
+                    {editMode && editingBlockId === block.id ? (
+                      <InlineBlockEdit
+                        block={block}
+                        onUpdate={(updates) => handleUpdateBlock(block.id, updates)}
+                      />
+                    ) : (
+                      <div className="space-y-2">
+                        {!editMode && isExpanded ? (
+                          lines.map((line, index) => {
+                            const isLineActive = isBlockActive && currentLineIndex === index;
+                            
+                            return (
+                              <div
+                                key={index}
+                                className={`
+                                  p-3 rounded-xl cursor-pointer transition-all duration-200
+                                  ${isLineActive
+                                    ? "bg-live-active text-white ring-2 ring-live-active-border shadow-md"
+                                    : isBlockActive 
+                                      ? "bg-muted/50 hover:bg-muted"
+                                      : "hover:bg-muted/50"
+                                  }
+                                `}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleLineClick(block.id, index);
+                                }}
+                              >
+                                <p className="whitespace-pre-wrap text-sm leading-relaxed">{line}</p>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="text-sm text-muted-foreground leading-relaxed">
+                            <BlockDisplay block={block} />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </Card>
               );
             })}
+            
+            {editMode && (
+              <Card className="p-4 border-dashed rounded-2xl">
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-sm mb-3">Add New Block</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddBlock("point")}
+                      className="justify-start"
+                    >
+                      Point
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddBlock("bible")}
+                      className="justify-start"
+                    >
+                      Scripture
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddBlock("illustration")}
+                      className="justify-start"
+                    >
+                      Illustration
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddBlock("application")}
+                      className="justify-start"
+                    >
+                      Application
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddBlock("quote")}
+                      className="justify-start"
+                    >
+                      Quote
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddBlock("media")}
+                      className="justify-start"
+                    >
+                      Media
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddBlock("custom")}
+                      className="justify-start"
+                    >
+                      Custom
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddBlock("reader_note")}
+                      className="justify-start"
+                    >
+                      Reader Note
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            )}
           </div>
         </div>
 
