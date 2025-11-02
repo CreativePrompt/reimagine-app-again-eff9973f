@@ -238,7 +238,7 @@ export default function SermonEditor() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
-                className="h-full bg-background"
+                className="h-full bg-background transition-all duration-500 ease-in-out"
                 style={{ zoom: `${zoom}%` }}
               >
                 {viewMode === "block" ? (
@@ -251,7 +251,11 @@ export default function SermonEditor() {
                     </div>
                     <div className="space-y-4">
                       {currentSermon.blocks.map((block) => (
-                        <div key={block.id} className="animate-fade-in bg-card rounded-2xl p-6 shadow-sm border">
+                        <div 
+                          key={block.id} 
+                          className="animate-fade-in bg-gradient-to-br from-card to-card/80 rounded-2xl p-6 border border-accent/20"
+                          style={{ boxShadow: 'var(--shadow-soft)' }}
+                        >
                           <BlockDisplay block={block} />
                         </div>
                       ))}
