@@ -605,6 +605,7 @@ export default function PresenterView() {
         open={showSettings}
         onOpenChange={setShowSettings}
         onSave={handleSettingsSave}
+        currentSettings={settings}
       />
     </div>
   );

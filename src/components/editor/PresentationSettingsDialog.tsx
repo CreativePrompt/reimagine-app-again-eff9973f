@@ -11,16 +11,18 @@ interface PresentationSettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave?: (settings: PresentationSettings) => void;
+  currentSettings?: PresentationSettings;
 }
 
-export function PresentationSettingsDialog({ open, onOpenChange, onSave }: PresentationSettingsDialogProps) {
-  const [settings, setSettings] = useState<PresentationSettings>(loadSettings());
+export function PresentationSettingsDialog({ open, onOpenChange, onSave, currentSettings }: PresentationSettingsDialogProps) {
+  const [settings, setSettings] = useState<PresentationSettings>(currentSettings || loadSettings());
 
   useEffect(() => {
     if (open) {
-      setSettings(loadSettings());
+      // Use current settings from parent if provided, otherwise load from localStorage
+      setSettings(currentSettings || loadSettings());
     }
-  }, [open]);
+  }, [open, currentSettings]);
 
   const handleSave = () => {
     saveSettings(settings);
