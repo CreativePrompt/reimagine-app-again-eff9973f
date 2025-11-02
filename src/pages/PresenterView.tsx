@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { nanoid } from "nanoid";
 import { InlineBlockEdit } from "@/components/editor/InlineBlockEdit";
 import { BlockDisplay } from "@/components/editor/BlockDisplay";
-import { Timer } from "@/components/editor/Timer";
+import { PresenterTimer } from "@/components/editor/PresenterTimer";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -132,12 +132,12 @@ export default function PresenterView() {
   };
 
   const handleEndLive = () => {
-    // Close channel and navigate back
+    // Close channel and navigate back to sermon page
     if (channel) {
       channel.unsubscribe();
     }
     sessionStorage.removeItem(`sermon-${sessionId}`);
-    navigate("/dashboard");
+    navigate(`/sermon/${sermon?.id}`);
     toast.success("Live session ended");
   };
 
@@ -609,13 +609,13 @@ export default function PresenterView() {
                 This is what your audience sees
               </div>
               
-              {/* Timer */}
-              <div className="flex justify-center my-4">
-                <Timer />
+              {/* Large Timer Display */}
+              <div className="mt-6">
+                <PresenterTimer />
               </div>
               
               {/* Action Buttons */}
-              <div className="space-y-2">
+              <div className="space-y-2 mt-4">
                 <Button
                   variant="outline"
                   size="sm"
@@ -654,7 +654,7 @@ export default function PresenterView() {
             <AlertDialogTitle>End Live Session?</AlertDialogTitle>
             <AlertDialogDescription>
               This will end the current live presentation and disconnect all viewers. 
-              You can always start a new session later.
+              You'll be returned to the sermon editor where you can make further changes.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
