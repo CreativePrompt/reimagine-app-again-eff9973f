@@ -1,6 +1,6 @@
 import { Home, FileText, FileCode, Lightbulb, BookOpen, Archive, LogOut, Moon, Sun } from "lucide-react";
 import { NavLink } from "react-router-dom";
-import { useTheme } from "next-themes";
+import { useState, useEffect } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -31,8 +31,14 @@ const resourceItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const { signOut } = useAuth();
-  const { theme, setTheme } = useTheme();
-  const isDark = theme === "dark";
+  const [isDark, setIsDark] = useState(() => {
+    const saved = localStorage.getItem("sidebar-theme");
+    return saved === "dark";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("sidebar-theme", isDark ? "dark" : "light");
+  }, [isDark]);
 
   const getNavClass = ({ isActive }: { isActive: boolean }) =>
     isActive 
@@ -40,15 +46,15 @@ export function AppSidebar() {
       : "hover:bg-accent hover:text-accent-foreground";
 
   const toggleTheme = () => {
-    setTheme(isDark ? "light" : "dark");
+    setIsDark(!isDark);
   };
 
   return (
     <Sidebar 
-      className={`${state === "collapsed" ? "w-14" : "w-60"}`} 
+      className={`${state === "collapsed" ? "w-14" : "w-60"} ${isDark ? "dark bg-slate-900 text-white" : "bg-background"}`} 
       collapsible="icon"
     >
-      <SidebarContent>
+      <SidebarContent className={isDark ? "dark" : ""}>
         {/* Header */}
         <div className="p-4 flex items-center justify-between border-b">
           <div className="flex items-center gap-2">
@@ -114,7 +120,7 @@ export function AppSidebar() {
               <Moon className="h-4 w-4" />
             )}
             {state !== "collapsed" && (
-              <span className="ml-2">{isDark ? "Light" : "Dark"} Mode</span>
+              <span className="ml-2">{isDark ? "Dark" : "Light"} Mode</span>
             )}
           </Button>
           <Button
