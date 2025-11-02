@@ -63,7 +63,10 @@ export function extractBlockContent(block: SermonBlock): string[] {
       }
       break;
     case "reader_note":
-      if (block.summary) lines.push(block.summary);
+      if (block.summary) {
+        const paragraphs = block.summary.split("\n\n").filter(p => p.trim());
+        lines.push(...paragraphs);
+      }
       break;
     case "media":
       if (block.url) lines.push(`Media: ${block.url}`);
@@ -133,7 +136,10 @@ export function extractTextLines(block: SermonBlock): string[] {
 
     case "reader_note":
       if (block.title) lines.push(block.title);
-      if (block.summary) lines.push(block.summary);
+      if (block.summary) {
+        const paragraphs = block.summary.split("\n\n").filter(p => p.trim());
+        lines.push(...paragraphs);
+      }
       break;
 
     case "media":
