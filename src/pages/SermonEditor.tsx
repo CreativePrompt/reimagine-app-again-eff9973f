@@ -345,25 +345,83 @@ export default function SermonEditor() {
                         <p className="text-xl text-muted-foreground">{currentSermon.subtitle}</p>
                       )}
                     </div>
-                    <div className="space-y-4">
-                      {currentSermon.blocks.map((block) => (
-                        <div 
-                          key={block.id} 
-                          className="animate-fade-in bg-gradient-to-br from-card to-card/80 rounded-2xl p-6 border border-accent/20"
-                          style={{ boxShadow: 'var(--shadow-soft)' }}
-                        >
-                          <BlockDisplay block={block} />
-                        </div>
-                      ))}
-                    </div>
+                    
+                    {/* Show pages if they exist */}
+                    {currentSermon.pages && currentSermon.pages.length > 0 ? (
+                      <div className="space-y-8">
+                        {/* Unorganized blocks */}
+                        {currentSermon.blocks.filter(b => !b.pageId).length > 0 && (
+                          <div className="space-y-4">
+                            <h2 className="text-2xl font-bold border-b pb-2 text-muted-foreground">Unorganized Content</h2>
+                            {currentSermon.blocks.filter(b => !b.pageId).map((block) => (
+                              <div 
+                                key={block.id} 
+                                className="animate-fade-in bg-gradient-to-br from-card to-card/80 rounded-2xl p-6 border border-accent/20"
+                                style={{ boxShadow: 'var(--shadow-soft)' }}
+                              >
+                                <BlockDisplay block={block} />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Pages with blocks */}
+                        {[...currentSermon.pages].sort((a, b) => a.order - b.order).map((page) => {
+                          const pageBlocks = currentSermon.blocks
+                            .filter(b => b.pageId === page.id)
+                            .sort((a, b) => a.order - b.order);
+                          
+                          if (pageBlocks.length === 0) return null;
+                          
+                          return (
+                            <div key={page.id} className="space-y-4">
+                              <h2 className="text-2xl font-bold border-b pb-2">{page.title}</h2>
+                              {pageBlocks.map((block) => (
+                                <div 
+                                  key={block.id} 
+                                  className="animate-fade-in bg-gradient-to-br from-card to-card/80 rounded-2xl p-6 border border-accent/20"
+                                  style={{ boxShadow: 'var(--shadow-soft)' }}
+                                >
+                                  <BlockDisplay block={block} />
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      /* No pages - show all blocks */
+                      <div className="space-y-4">
+                        {currentSermon.blocks.map((block) => (
+                          <div 
+                            key={block.id} 
+                            className="animate-fade-in bg-gradient-to-br from-card to-card/80 rounded-2xl p-6 border border-accent/20"
+                            style={{ boxShadow: 'var(--shadow-soft)' }}
+                          >
+                            <BlockDisplay block={block} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <DocumentView
-                    title={currentSermon.title}
-                    subtitle={currentSermon.subtitle}
-                    blocks={currentSermon.blocks}
-                    updatedAt={currentSermon.updatedAt}
-                  />
+                  /* Document view in preview */
+                  currentSermon.pages && currentSermon.pages.length > 0 ? (
+                    <PagesDocumentView
+                      title={currentSermon.title}
+                      subtitle={currentSermon.subtitle}
+                      blocks={currentSermon.blocks}
+                      pages={currentSermon.pages}
+                      updatedAt={currentSermon.updatedAt}
+                    />
+                  ) : (
+                    <DocumentView
+                      title={currentSermon.title}
+                      subtitle={currentSermon.subtitle}
+                      blocks={currentSermon.blocks}
+                      updatedAt={currentSermon.updatedAt}
+                    />
+                  )
                 )}
               </motion.div>
             ) : (
