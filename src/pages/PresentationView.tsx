@@ -135,7 +135,7 @@ export default function PresentationView() {
             
             {/* Content */}
             <div
-              className="relative text-2xl md:text-4xl lg:text-5xl font-bold leading-relaxed whitespace-pre-wrap p-8"
+              className="relative text-xl md:text-2xl lg:text-3xl font-bold leading-relaxed whitespace-pre-wrap p-8"
               style={textStyle}
             >
               {content}
