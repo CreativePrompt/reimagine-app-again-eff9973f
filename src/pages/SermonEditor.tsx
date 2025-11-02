@@ -234,12 +234,14 @@ export default function SermonEditor() {
               /* Preview Mode */
               <motion.div
                 key="preview-mode"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+                initial={{ opacity: 0, scale: 1 }}
+                animate={{ opacity: 1, scale: zoom / 100 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="h-full bg-background transition-all duration-500 ease-in-out"
-                style={{ zoom: `${zoom}%` }}
+                transition={{ 
+                  duration: 0.3,
+                  scale: { duration: 0.6, ease: [0.4, 0, 0.2, 1] }
+                }}
+                className="h-full bg-background origin-top"
               >
                 {viewMode === "block" ? (
                   <div className="max-w-5xl mx-auto px-6 py-8">
