@@ -373,10 +373,11 @@ export default function PresenterView() {
       </div>
 
       {/* Content */}
-      <ResizablePanelGroup direction="horizontal" className="p-6 gap-6">
-        {/* Blocks Section */}
+      <ResizablePanelGroup direction="horizontal" className="h-[calc(100vh-73px)]">
+        {/* Blocks Section - Scrollable */}
         <ResizablePanel defaultSize={showAudiencePreview ? 65 : 100} minSize={30}>
-          <div className="space-y-4">
+          <div className="h-full overflow-y-auto p-6">
+            <div className="space-y-4">
             {sermon.blocks.map((block) => {
               const lines = blockLines.get(block.id) || [];
               const isBlockActive = currentBlockId === block.id;
@@ -614,14 +615,16 @@ export default function PresenterView() {
               </Card>
             )}
           </div>
+          </div>
           </ResizablePanel>
         
-        {/* Audience View Preview */}
+        {/* Audience View Preview - Fixed */}
         {showAudiencePreview && (
           <>
             <ResizableHandle withHandle className="mx-2" />
             <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
-            <div className="sticky top-24 h-fit space-y-3">
+            <div className="h-full p-6 flex flex-col">
+            <div className="space-y-3 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Eye className="h-4 w-4 text-muted-foreground" />
@@ -704,6 +707,7 @@ export default function PresenterView() {
                   End Live Session
                 </Button>
               </div>
+            </div>
             </div>
             </ResizablePanel>
           </>
