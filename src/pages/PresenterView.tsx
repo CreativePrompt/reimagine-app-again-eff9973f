@@ -82,6 +82,13 @@ export default function PresenterView() {
             payload: { sermon: sermonData }
           });
         }
+        // Broadcast current settings to ensure audience has latest background/styling
+        const currentSettings = loadSettings();
+        realtimeChannel.send({
+          type: 'broadcast',
+          event: 'presentation-update',
+          payload: { type: 'settings', settings: currentSettings }
+        });
       }
     });
 
