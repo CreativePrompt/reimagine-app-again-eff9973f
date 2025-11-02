@@ -63,8 +63,8 @@ export function BlockItem({ block }: BlockItemProps) {
         ${isDragging ? 'shadow-2xl scale-105' : ''}
       `}
     >
-      <div className="p-4">{/* Reduced from p-5 to p-4 */}
-        <div className="flex items-start gap-4">
+      <div className="p-4">
+        <div className="flex items-start gap-3">
           {/* Drag Handle */}
           <button
             className="mt-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-all opacity-0 group-hover:opacity-100"
@@ -74,18 +74,15 @@ export function BlockItem({ block }: BlockItemProps) {
             <GripVertical className="h-5 w-5" />
           </button>
 
-          {/* Block Icon & Label */}
-          <div className="flex-shrink-0 mt-1">
-            <div className="flex items-center gap-2 mb-3">
-              <Icon className="h-4 w-4 text-muted-foreground" />
+          {/* Block Content with Icon */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 {config.label}
               </span>
             </div>
-          </div>
-
-          {/* Block Content */}
-          <div className="flex-1 min-w-0 -mt-6">
+            
             {isEditing ? (
               <BlockForm
                 block={block}
