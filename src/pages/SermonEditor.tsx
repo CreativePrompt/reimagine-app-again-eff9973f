@@ -100,112 +100,100 @@ export default function SermonEditor() {
     <AppLayout>
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Header */}
-          <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6 py-2.5 sticky top-0 z-10">
-          <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/dashboard")}
-              className="h-8 hover:bg-accent transition-colors rounded-lg text-sm"
-            >
-              <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
-              Back to Edit
-            </Button>
-            
-            <div className="flex items-center gap-2">
-              {/* View Mode Toggle */}
-              <div className="flex items-center gap-0.5 bg-muted p-0.5 rounded-md">
-                <Button
-                  variant={viewMode === "block" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("block")}
-                  className="h-7 px-3 rounded-md text-xs"
-                >
-                  <LayoutGrid className="h-3.5 w-3.5 mr-1" />
-                  Block
-                </Button>
-                <Button
-                  variant={viewMode === "document" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("document")}
-                  className="h-7 px-3 rounded-md text-xs"
-                >
-                  <FileText className="h-3.5 w-3.5 mr-1" />
-                  Document
-                </Button>
-              </div>
-
-              {/* Zoom Controls - shown in preview mode */}
-              {isPreviewMode && (
-                <>
-                  <div className="h-4 w-px bg-border" />
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setZoom(Math.max(50, zoom - 10))}
-                      className="h-7 w-7 rounded-md"
-                    >
-                      <ZoomOut className="h-3.5 w-3.5" />
-                    </Button>
-                    <span className="text-xs font-medium min-w-[3rem] text-center">
-                      {zoom}%
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setZoom(Math.min(200, zoom + 10))}
-                      className="h-7 w-7 rounded-md"
-                    >
-                      <ZoomIn className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </>
-              )}
-
-              <div className="h-4 w-px bg-border" />
-
+        <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6 py-4 sticky top-0 z-10">
+          <div className="flex items-center justify-end gap-2">
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-0.5 bg-muted p-0.5 rounded-md">
               <Button
-                variant="outline"
+                variant={viewMode === "block" ? "secondary" : "ghost"}
                 size="sm"
-                onClick={() => setShowSettings(true)}
-                className="h-7 px-3 hover:bg-accent transition-colors rounded-md text-xs"
+                onClick={() => setViewMode("block")}
+                className="h-7 px-3 rounded-md text-xs"
               >
-                <Settings className="h-3.5 w-3.5 mr-1.5" />
-                Settings
+                <LayoutGrid className="h-3.5 w-3.5 mr-1" />
+                Block
               </Button>
               <Button
-                variant={isPreviewMode ? "default" : "outline"}
+                variant={viewMode === "document" ? "secondary" : "ghost"}
                 size="sm"
-                onClick={() => setIsPreviewMode(!isPreviewMode)}
-                className="h-7 px-3 hover:bg-accent transition-colors rounded-md text-xs"
+                onClick={() => setViewMode("document")}
+                className="h-7 px-3 rounded-md text-xs"
               >
-                {isPreviewMode ? "Exit Preview" : "Preview"}
+                <FileText className="h-3.5 w-3.5 mr-1" />
+                Document
               </Button>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => setShowLiveSession(true)}
-                className="h-7 px-3 bg-primary hover:bg-primary/90 transition-all hover:shadow-md rounded-md text-xs"
-              >
-                <Play className="h-3.5 w-3.5 mr-1.5" />
-                Go Live
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleSave}
-                disabled={isSaving}
-                className="h-7 px-3 transition-all hover:shadow-md rounded-md text-xs"
-              >
-                <Save className="h-3.5 w-3.5 mr-1.5" />
-                {isSaving ? "Saving..." : "Save"}
-              </Button>
-
-              <div className="h-4 w-px bg-border" />
-
-              <Timer />
             </div>
+
+            {/* Zoom Controls - shown in preview mode */}
+            {isPreviewMode && (
+              <>
+                <div className="h-4 w-px bg-border" />
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setZoom(Math.max(50, zoom - 10))}
+                    className="h-7 w-7 rounded-md"
+                  >
+                    <ZoomOut className="h-3.5 w-3.5" />
+                  </Button>
+                  <span className="text-xs font-medium min-w-[3rem] text-center">
+                    {zoom}%
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setZoom(Math.min(200, zoom + 10))}
+                    className="h-7 w-7 rounded-md"
+                  >
+                    <ZoomIn className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </>
+            )}
+
+            <div className="h-4 w-px bg-border" />
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSettings(true)}
+              className="h-7 px-3 hover:bg-accent transition-colors rounded-md text-xs"
+            >
+              <Settings className="h-3.5 w-3.5 mr-1.5" />
+              Settings
+            </Button>
+            <Button
+              variant={isPreviewMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => setIsPreviewMode(!isPreviewMode)}
+              className="h-7 px-3 hover:bg-accent transition-colors rounded-md text-xs"
+            >
+              {isPreviewMode ? "Exit Preview" : "Preview"}
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setShowLiveSession(true)}
+              className="h-7 px-3 bg-primary hover:bg-primary/90 transition-all hover:shadow-md rounded-md text-xs"
+            >
+              <Play className="h-3.5 w-3.5 mr-1.5" />
+              Go Live
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleSave}
+              disabled={isSaving}
+              className="h-7 px-3 transition-all hover:shadow-md rounded-md text-xs"
+            >
+              <Save className="h-3.5 w-3.5 mr-1.5" />
+              {isSaving ? "Saving..." : "Save"}
+            </Button>
+
+            <div className="h-4 w-px bg-border" />
+
+            <Timer />
           </div>
           
           {!isPreviewMode && (

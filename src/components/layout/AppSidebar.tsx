@@ -52,13 +52,16 @@ export function AppSidebar() {
         <div className={`p-4 flex items-center justify-between border-b ${
           isDark ? "border-[hsl(222_30%_18%)]" : ""
         }`}>
-          {state !== "collapsed" && (
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">📖</span>
-              <span className="text-lg font-bold">Preachery</span>
-            </div>
-          )}
-          {state === "collapsed" && <span className="text-2xl">📖</span>}
+          <div className="flex items-center gap-2">
+            {state !== "collapsed" && (
+              <>
+                <span className="text-2xl">📖</span>
+                <span className="text-lg font-bold">Preachery</span>
+              </>
+            )}
+            {state === "collapsed" && <span className="text-2xl">📖</span>}
+          </div>
+          <SidebarTrigger className={isDark ? "hover:bg-white/10" : ""} />
         </div>
 
         {/* Main Navigation */}
