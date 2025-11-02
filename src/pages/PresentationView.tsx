@@ -39,6 +39,21 @@ export default function PresentationView() {
     });
     
     channel
+      .on('broadcast', { event: 'sermon-data' }, (payload) => {
+        console.log('Received sermon data:', payload);
+        const sermonData = payload.payload.sermon;
+        setSermon(sermonData);
+        
+        // Extract all lines from all blocks
+        const lines: Array<{ blockId: string; lineIndex: number; text: string }> = [];
+        sermonData.blocks.forEach((block: SermonBlock) => {
+          const blockLines = extractTextLines(block);
+          blockLines.forEach((text: string, index: number) => {
+            lines.push({ blockId: block.id, lineIndex: index, text });
+          });
+        });
+        setAllLines(lines);
+      })
       .on('broadcast', { event: 'presentation-update' }, (payload) => {
         console.log('Received message:', payload);
         const { type, blockId, lineIndex, settings: newSettings } = payload.payload;

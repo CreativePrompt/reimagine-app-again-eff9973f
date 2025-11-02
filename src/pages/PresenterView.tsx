@@ -25,8 +25,11 @@ export default function PresenterView() {
   useEffect(() => {
     // Load sermon from sessionStorage
     const storedSermon = sessionStorage.getItem(`sermon-${sessionId}`);
+    let sermonData: Sermon | null = null;
+    
     if (storedSermon) {
       const parsedSermon = JSON.parse(storedSermon);
+      sermonData = parsedSermon;
       setSermon(parsedSermon);
       
       // Extract lines for each block
@@ -47,6 +50,14 @@ export default function PresenterView() {
     realtimeChannel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
         console.log('Presenter connected to realtime channel');
+        // Broadcast sermon data to all connected clients
+        if (sermonData) {
+          realtimeChannel.send({
+            type: 'broadcast',
+            event: 'sermon-data',
+            payload: { sermon: sermonData }
+          });
+        }
       }
     });
 
