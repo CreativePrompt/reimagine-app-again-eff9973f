@@ -107,6 +107,28 @@ function SortablePage({ page, blocks, onUpdatePage, onDeletePage, onReorderBlock
               <GripVertical className="h-4 w-4 text-muted-foreground" />
             </div>
             
+            {/* Edit and Delete buttons on the left */}
+            {!isEditing && (
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={() => setIsEditing(true)}
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 text-destructive hover:text-destructive"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+            
             {isEditing ? (
               <div className="flex items-center gap-2 flex-1" onClick={(e) => e.stopPropagation()}>
                 <Input
@@ -137,32 +159,12 @@ function SortablePage({ page, blocks, onUpdatePage, onDeletePage, onReorderBlock
                 </Button>
               </div>
             ) : (
-              <>
-                <div className="flex items-center gap-2 flex-1">
-                  <span className="font-medium text-sm">{page.title}</span>
-                  <span className="text-xs text-muted-foreground">
-                    ({blocks.length} {blocks.length === 1 ? 'block' : 'blocks'})
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8"
-                    onClick={() => setIsEditing(true)}
-                  >
-                    <Edit2 className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
-                    onClick={() => setShowDeleteDialog(true)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </>
+              <div className="flex items-center gap-2 flex-1">
+                <span className="font-medium text-sm">{page.title}</span>
+                <span className="text-xs text-muted-foreground">
+                  ({blocks.length} {blocks.length === 1 ? 'block' : 'blocks'})
+                </span>
+              </div>
             )}
           </div>
         </AccordionTrigger>
