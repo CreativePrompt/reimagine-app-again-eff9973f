@@ -134,6 +134,16 @@ All colors MUST be HSL.
     animation: elegant-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
   
+  /* Smooth hover effects */
+  .smooth-hover {
+    @apply transition-all duration-300 ease-out hover:shadow-lg hover:scale-[1.02];
+  }
+  
+  /* Glass morphism effect */
+  .glass {
+    @apply bg-background/80 backdrop-blur-xl border border-white/10;
+  }
+  
   @keyframes elegant-enter {
     from {
       opacity: 0;

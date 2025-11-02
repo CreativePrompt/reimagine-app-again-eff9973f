@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { SermonBlock } from "@/lib/blockTypes";
+import { SermonBlock, BlockKind } from "@/lib/blockTypes";
 import { useSermonStore } from "@/lib/store/sermonStore";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { GripVertical, Trash2, Edit2, Check } from "lucide-react";
+import { GripVertical, Trash2, Edit2, Check, BookOpen, Lightbulb, Target, Quote, Image as ImageIcon, FileText, StickyNote } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { BlockForm } from "./BlockForm";
@@ -13,7 +13,20 @@ interface BlockItemProps {
   block: SermonBlock;
 }
 
+const blockConfig: Record<BlockKind, { color: string; icon: any; label: string }> = {
+  bible: { color: 'bg-block-bible border-block-bible-border', icon: BookOpen, label: 'Bible Passage' },
+  point: { color: 'bg-block-point border-block-point-border', icon: Target, label: 'Point' },
+  illustration: { color: 'bg-block-illustration border-block-illustration-border', icon: Lightbulb, label: 'Illustration' },
+  application: { color: 'bg-block-application border-block-application-border', icon: Target, label: 'Application' },
+  quote: { color: 'bg-muted border-muted', icon: Quote, label: 'Quote' },
+  media: { color: 'bg-muted border-muted', icon: ImageIcon, label: 'Media' },
+  custom: { color: 'bg-muted border-muted', icon: FileText, label: 'Custom' },
+  reader_note: { color: 'bg-muted border-muted', icon: StickyNote, label: 'Reader Note' },
+};
+
 export function BlockItem({ block }: BlockItemProps) {
+  const config = blockConfig[block.kind];
+  const Icon = config.icon;
   const [isEditing, setIsEditing] = useState(false);
   const { deleteBlock } = useSermonStore();
   
@@ -39,59 +52,80 @@ export function BlockItem({ block }: BlockItemProps) {
   };
 
   return (
-    <Card
+    <Card 
       ref={setNodeRef}
       style={style}
-      className="group relative hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 bg-card/50 backdrop-blur"
+      className={`
+        relative overflow-hidden group
+        smooth-hover
+        rounded-2xl shadow-sm
+        border-l-4 ${config.color}
+        ${isDragging ? 'shadow-2xl scale-105' : ''}
+      `}
     >
-      <div className="flex items-start gap-3 p-5">
-        {/* Drag Handle */}
-        <button
-          className="mt-1 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="h-5 w-5 text-muted-foreground" />
-        </button>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          {isEditing ? (
-            <BlockForm
-              block={block}
-              onComplete={() => setIsEditing(false)}
-            />
-          ) : (
-            <BlockDisplay block={block} />
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {isEditing ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsEditing(false)}
-            >
-              <Check className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsEditing(true)}
-            >
-              <Edit2 className="h-4 w-4" />
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDelete}
+      <div className="p-5">
+        <div className="flex items-start gap-4">
+          {/* Drag Handle */}
+          <button
+            className="mt-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-all opacity-0 group-hover:opacity-100"
+            {...attributes}
+            {...listeners}
           >
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
+            <GripVertical className="h-5 w-5" />
+          </button>
+
+          {/* Block Icon & Label */}
+          <div className="flex-shrink-0 mt-1">
+            <div className="flex items-center gap-2 mb-3">
+              <Icon className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                {config.label}
+              </span>
+            </div>
+          </div>
+
+          {/* Block Content */}
+          <div className="flex-1 min-w-0 -mt-6">
+            {isEditing ? (
+              <BlockForm
+                block={block}
+                onComplete={() => setIsEditing(false)}
+              />
+            ) : (
+              <BlockDisplay block={block} />
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+            {isEditing ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsEditing(false)}
+                className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary"
+              >
+                <Check className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsEditing(true)}
+                className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary"
+              >
+                <Edit2 className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleDelete}
+              className="h-9 w-9 rounded-xl text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
     </Card>

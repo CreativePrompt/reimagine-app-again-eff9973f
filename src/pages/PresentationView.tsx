@@ -88,18 +88,44 @@ export default function PresentationView() {
     textTransform: settings.uppercase ? "uppercase" : "none",
   };
 
+  const content = getCurrentContent();
+
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-8"
+      className="min-h-screen flex items-center justify-center p-12 relative overflow-hidden"
       style={backgroundStyle}
     >
-      <div className="max-w-5xl w-full">
-        <div
-          className="text-2xl md:text-4xl lg:text-5xl font-bold leading-relaxed whitespace-pre-wrap"
-          style={textStyle}
-        >
-          {getCurrentContent()}
-        </div>
+      {/* Gradient overlay for better text readability */}
+      {settings.bgType === "image" && settings.bgImageDataUrl && (
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/30 to-black/40" />
+      )}
+      
+      <div className="max-w-6xl w-full relative z-10">
+        {content ? (
+          <div className="relative">
+            {/* Text backdrop for readability */}
+            <div className="absolute inset-0 -m-8 bg-black/30 backdrop-blur-sm rounded-3xl" />
+            
+            {/* Content */}
+            <div
+              className="relative text-2xl md:text-4xl lg:text-5xl font-bold leading-relaxed whitespace-pre-wrap p-8"
+              style={textStyle}
+            >
+              {content}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center">
+            <div className="inline-block px-8 py-4 bg-black/30 backdrop-blur-sm rounded-2xl">
+              <p className="text-xl md:text-2xl text-white/70">
+                {settings.showWaitingMessage ? "Waiting for LIVE" : ""}
+              </p>
+              <p className="text-sm text-white/50 mt-2">
+                The presenter will display content here when ready
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

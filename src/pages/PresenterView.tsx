@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Sermon, SermonBlock } from "@/lib/blockTypes";
 import { extractTextLines } from "@/lib/presentationUtils";
+import { loadSettings } from "@/lib/liveChannel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Play, Square } from "lucide-react";
+import { ArrowLeft, Play, Square, Eye, Maximize2, Minimize2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export default function PresenterView() {
@@ -15,6 +16,9 @@ export default function PresenterView() {
   const [currentLineIndex, setCurrentLineIndex] = useState<number | null>(null);
   const [channel, setChannel] = useState<BroadcastChannel | null>(null);
   const [blockLines, setBlockLines] = useState<Map<string, string[]>>(new Map());
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showAudiencePreview, setShowAudiencePreview] = useState(true);
+  const settings = loadSettings();
 
   useEffect(() => {
     // Load sermon from sessionStorage
@@ -72,90 +76,233 @@ export default function PresenterView() {
     );
   }
 
+  const getCurrentContent = () => {
+    if (currentBlockId === null) return null;
+    const lines = blockLines.get(currentBlockId) || [];
+    if (currentLineIndex === null) {
+      return lines.join("\n");
+    }
+    return lines[currentLineIndex] || "";
+  };
+
+  const backgroundStyle: React.CSSProperties = {
+    backgroundColor: settings.bgType === "solid" ? settings.bgColor : undefined,
+    backgroundImage: settings.bgType === "image" && settings.bgImageDataUrl 
+      ? `url(${settings.bgImageDataUrl})` 
+      : undefined,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="border-b bg-background px-6 py-4">
+      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6 py-4 sticky top-0 z-50">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => navigate("/dashboard")}
+              className="rounded-xl"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Exit Presentation
+              Back to Edit
             </Button>
-            <div>
-              <h1 className="font-semibold">{sermon.title}</h1>
-              <p className="text-sm text-muted-foreground">Presenter View</p>
+            <div className="flex items-center gap-3">
+              <Badge variant="destructive" className="animate-pulse rounded-full">
+                <div className="h-2 w-2 bg-white rounded-full mr-2 animate-pulse" />
+                LIVE
+              </Badge>
+              <div>
+                <h1 className="font-semibold">{sermon.title}</h1>
+                {sermon.subtitle && (
+                  <p className="text-sm text-muted-foreground">{sermon.subtitle}</p>
+                )}
+              </div>
             </div>
           </div>
           
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleClear}
-          >
-            <Square className="h-4 w-4 mr-2" />
-            Clear Screen
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClear}
+              className="rounded-xl"
+            >
+              Clear Screen
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAudiencePreview(!showAudiencePreview)}
+              className="rounded-xl"
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              {showAudiencePreview ? "Hide" : "Show"} Preview
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="rounded-xl"
+            >
+              {isExpanded ? <Minimize2 className="h-4 w-4 mr-2" /> : <Maximize2 className="h-4 w-4 mr-2" />}
+              {isExpanded ? "Compact" : "Expand"} Layout
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-6">
-        <div className="max-w-5xl mx-auto space-y-4">
-          {sermon.blocks.map((block) => {
-            const lines = blockLines.get(block.id) || [];
-            const isBlockActive = currentBlockId === block.id;
-            
-            return (
-              <Card
-                key={block.id}
-                className={`p-4 cursor-pointer transition-all ${
-                  isBlockActive ? "ring-2 ring-primary" : ""
-                }`}
-                onClick={() => handleBlockClick(block.id)}
-              >
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Badge variant="outline">{block.kind}</Badge>
-                    {isBlockActive && currentLineIndex === null && (
-                      <Badge>
-                        <Play className="h-3 w-3 mr-1" />
-                        Live
-                      </Badge>
-                    )}
-                  </div>
-                  
-                  <div className="space-y-2">
-                    {lines.map((line, index) => {
-                      const isLineActive = isBlockActive && currentLineIndex === index;
-                      
-                      return (
-                        <div
-                          key={index}
-                          className={`p-2 rounded cursor-pointer transition-all ${
-                            isLineActive
-                              ? "bg-primary text-primary-foreground"
-                              : "hover:bg-muted"
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleLineClick(block.id, index);
-                          }}
-                        >
-                          <p className="whitespace-pre-wrap">{line}</p>
+      <div className="flex gap-6 p-6">
+        {/* Blocks Section */}
+        <div className={`${showAudiencePreview ? 'w-2/3' : 'w-full'} transition-all duration-300`}>
+          <div className="space-y-4">
+            {sermon.blocks.map((block) => {
+              const lines = blockLines.get(block.id) || [];
+              const isBlockActive = currentBlockId === block.id;
+              
+              return (
+                <Card
+                  key={block.id}
+                  className={`
+                    overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer
+                    ${isBlockActive 
+                      ? "ring-4 ring-live-active shadow-xl shadow-live-active/20" 
+                      : "hover:shadow-lg"
+                    }
+                  `}
+                  onClick={() => handleBlockClick(block.id)}
+                >
+                  <div className="p-5">
+                    <div className="flex items-center gap-3 mb-4">
+                      {isBlockActive && (
+                        <div className="flex items-center gap-2 px-3 py-1 bg-live-active rounded-full">
+                          <Play className="h-3 w-3 text-white fill-white animate-pulse" />
+                          <span className="text-xs font-semibold text-white uppercase tracking-wide">
+                            Broadcasting
+                          </span>
                         </div>
-                      );
-                    })}
+                      )}
+                      {!isBlockActive && (
+                        <button className="flex items-center gap-2 px-3 py-1 bg-muted rounded-full hover:bg-muted/80 transition-colors">
+                          <Play className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            Click to Broadcast
+                          </span>
+                        </button>
+                      )}
+                      <Badge variant="outline" className="rounded-full">
+                        {block.kind}
+                      </Badge>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {isExpanded ? (
+                        lines.map((line, index) => {
+                          const isLineActive = isBlockActive && currentLineIndex === index;
+                          
+                          return (
+                            <div
+                              key={index}
+                              className={`
+                                p-3 rounded-xl cursor-pointer transition-all duration-200
+                                ${isLineActive
+                                  ? "bg-live-active text-white ring-2 ring-live-active-border shadow-md"
+                                  : isBlockActive 
+                                    ? "bg-muted/50 hover:bg-muted"
+                                    : "hover:bg-muted/50"
+                                }
+                              `}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLineClick(block.id, index);
+                              }}
+                            >
+                              <p className="whitespace-pre-wrap text-sm leading-relaxed">{line}</p>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="text-sm text-muted-foreground leading-relaxed">
+                          {lines[0] && <p className="font-medium">{lines[0]}</p>}
+                          {lines.length > 1 && (
+                            <p className="text-xs mt-2 opacity-70">
+                              +{lines.length - 1} more {lines.length === 2 ? 'line' : 'lines'}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </Card>
-            );
-          })}
+                </Card>
+              );
+            })}
+          </div>
         </div>
+
+        {/* Audience View Preview */}
+        {showAudiencePreview && (
+          <div className="w-1/3 sticky top-24 h-fit">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="font-semibold text-sm">Audience View</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`h-2 w-2 rounded-full ${currentBlockId ? 'bg-live-active animate-pulse' : 'bg-muted-foreground'}`} />
+                  <span className="text-xs text-muted-foreground">
+                    {currentBlockId ? 'Broadcasting content' : 'Waiting for content'}
+                  </span>
+                </div>
+              </div>
+              
+              <div 
+                className="aspect-video rounded-2xl overflow-hidden shadow-xl border-2 border-border relative"
+                style={backgroundStyle}
+              >
+                {settings.bgType === "image" && settings.bgImageDataUrl && (
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/30 to-black/40" />
+                )}
+                
+                <div className="absolute inset-0 flex items-center justify-center p-6">
+                  {getCurrentContent() ? (
+                    <div className="relative w-full">
+                      <div className="absolute inset-0 -m-4 bg-black/30 backdrop-blur-sm rounded-2xl" />
+                      <div 
+                        className="relative text-white font-bold leading-relaxed text-center"
+                        style={{
+                          fontSize: '10px',
+                          textAlign: settings.align,
+                          textTransform: settings.uppercase ? 'uppercase' : 'none',
+                        }}
+                      >
+                        {getCurrentContent()}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <div className="inline-block px-4 py-2 bg-black/30 backdrop-blur-sm rounded-xl">
+                        <p className="text-xs text-white/70">
+                          Waiting for LIVE
+                        </p>
+                        <p className="text-[8px] text-white/50 mt-1">
+                          The presenter will display content here when ready
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="text-xs text-muted-foreground text-center">
+                This is what your audience sees
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
