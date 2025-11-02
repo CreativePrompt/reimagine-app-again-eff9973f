@@ -4,7 +4,7 @@ import { Sermon, SermonBlock, BlockKind } from "@/lib/blockTypes";
 import { extractTextLines } from "@/lib/presentationUtils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Play, Square, Eye, Maximize2, Minimize2, Edit, Settings, Trash2, Plus, X, Check } from "lucide-react";
+import { ArrowLeft, Play, Square, Eye, Maximize2, Minimize2, Edit, Settings, Trash2, Plus, X, Check, Power } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -18,6 +18,17 @@ import { toast } from "sonner";
 import { nanoid } from "nanoid";
 import { InlineBlockEdit } from "@/components/editor/InlineBlockEdit";
 import { BlockDisplay } from "@/components/editor/BlockDisplay";
+import { Timer } from "@/components/editor/Timer";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function PresenterView() {
   const { sessionId } = useParams();
@@ -33,6 +44,7 @@ export default function PresenterView() {
   const [showSettings, setShowSettings] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  const [showEndLiveDialog, setShowEndLiveDialog] = useState(false);
 
   useEffect(() => {
     // Load sermon from sessionStorage
@@ -117,6 +129,16 @@ export default function PresenterView() {
     setCurrentBlockId(null);
     setCurrentLineIndex(null);
     sendMessage("clear");
+  };
+
+  const handleEndLive = () => {
+    // Close channel and navigate back
+    if (channel) {
+      channel.unsubscribe();
+    }
+    sessionStorage.removeItem(`sermon-${sessionId}`);
+    navigate("/dashboard");
+    toast.success("Live session ended");
   };
 
   const handleSettingsSave = (newSettings: PresentationSettings) => {
@@ -587,15 +609,33 @@ export default function PresenterView() {
                 This is what your audience sees
               </div>
               
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleClear}
-                className="w-full rounded-xl mt-3"
-              >
-                <Square className="h-4 w-4 mr-2" />
-                Clear Live Display
-              </Button>
+              {/* Timer */}
+              <div className="flex justify-center my-4">
+                <Timer />
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClear}
+                  className="w-full rounded-xl"
+                >
+                  <Square className="h-4 w-4 mr-2" />
+                  Clear Live Display
+                </Button>
+                
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setShowEndLiveDialog(true)}
+                  className="w-full rounded-xl"
+                >
+                  <Power className="h-4 w-4 mr-2" />
+                  End Live Session
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -607,6 +647,27 @@ export default function PresenterView() {
         onSave={handleSettingsSave}
         currentSettings={settings}
       />
+
+      <AlertDialog open={showEndLiveDialog} onOpenChange={setShowEndLiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>End Live Session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will end the current live presentation and disconnect all viewers. 
+              You can always start a new session later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleEndLive}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              End Session
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
