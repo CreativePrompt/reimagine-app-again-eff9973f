@@ -33,6 +33,7 @@ export interface Message {
   blockId?: string | null;
   lineIndex?: number | null;
   settings?: PresentationSettings;
+  displayMode?: "title" | "content" | "both";
 }
 
 export class LiveChannel {

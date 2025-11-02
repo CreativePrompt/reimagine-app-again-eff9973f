@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { loadSettings, saveSettings, PresentationSettings } from "@/lib/liveChannel";
 import { Sermon, SermonBlock } from "@/lib/blockTypes";
-import { extractTextLines } from "@/lib/presentationUtils";
+import { extractTextLines, extractBlockTitle, extractBlockContent } from "@/lib/presentationUtils";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function PresentationView() {
@@ -11,6 +11,7 @@ export default function PresentationView() {
   const [sermon, setSermon] = useState<Sermon | null>(null);
   const [currentBlockId, setCurrentBlockId] = useState<string | null>(null);
   const [currentLineIndex, setCurrentLineIndex] = useState<number | null>(null);
+  const [displayMode, setDisplayMode] = useState<"title" | "content" | "both">("title");
   const [allLines, setAllLines] = useState<Array<{ blockId: string; lineIndex: number; text: string }>>([]);
 
   useEffect(() => {
@@ -56,11 +57,12 @@ export default function PresentationView() {
       })
       .on('broadcast', { event: 'presentation-update' }, (payload) => {
         console.log('Received message:', payload);
-        const { type, blockId, lineIndex, settings: newSettings } = payload.payload;
+        const { type, blockId, lineIndex, settings: newSettings, displayMode: newDisplayMode } = payload.payload;
         
         if (type === "block") {
           setCurrentBlockId(blockId);
           setCurrentLineIndex(null);
+          if (newDisplayMode) setDisplayMode(newDisplayMode);
         } else if (type === "line") {
           setCurrentBlockId(blockId);
           setCurrentLineIndex(lineIndex);
@@ -88,14 +90,25 @@ export default function PresentationView() {
       return settings.showWaitingMessage ? "Waiting for presentation to start..." : "";
     }
 
-    const currentLines = allLines.filter(l => l.blockId === currentBlockId);
-    
-    if (currentLineIndex === null) {
-      // Show entire block
-      return currentLines.map(l => l.text).join("\n");
-    } else {
-      // Show specific line
+    const block = sermon?.blocks.find(b => b.id === currentBlockId);
+    if (!block) return "";
+
+    // For line-by-line mode (expanded mode in presenter)
+    if (currentLineIndex !== null) {
+      const currentLines = allLines.filter(l => l.blockId === currentBlockId);
       return currentLines[currentLineIndex]?.text || "";
+    }
+
+    // For block mode with display options
+    if (displayMode === "title") {
+      return extractBlockTitle(block);
+    } else if (displayMode === "content") {
+      const content = extractBlockContent(block);
+      return content.join("\n");
+    } else { // both
+      const title = extractBlockTitle(block);
+      const content = extractBlockContent(block);
+      return title ? `${title}\n\n${content.join("\n")}` : content.join("\n");
     }
   };
 
@@ -135,7 +148,7 @@ export default function PresentationView() {
             
             {/* Content */}
             <div
-              className="relative text-xl md:text-2xl lg:text-3xl font-bold leading-relaxed whitespace-pre-wrap p-8"
+              className="relative text-lg md:text-xl lg:text-2xl font-bold leading-relaxed whitespace-pre-wrap p-8"
               style={textStyle}
             >
               {content}

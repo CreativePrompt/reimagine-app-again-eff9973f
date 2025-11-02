@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Sermon, SermonBlock, BlockKind } from "@/lib/blockTypes";
-import { extractTextLines } from "@/lib/presentationUtils";
+import { extractTextLines, extractBlockTitle, extractBlockContent } from "@/lib/presentationUtils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, Play, Square, Eye, Maximize2, Minimize2, Edit, Settings, Trash2, Plus, X, Check, Power } from "lucide-react";
@@ -36,6 +36,7 @@ export default function PresenterView() {
   const [sermon, setSermon] = useState<Sermon | null>(null);
   const [currentBlockId, setCurrentBlockId] = useState<string | null>(null);
   const [currentLineIndex, setCurrentLineIndex] = useState<number | null>(null);
+  const [displayMode, setDisplayMode] = useState<"title" | "content" | "both">("title");
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
   const [blockLines, setBlockLines] = useState<Map<string, string[]>>(new Map());
   const [isExpanded, setIsExpanded] = useState(false);
@@ -99,14 +100,14 @@ export default function PresenterView() {
     };
   }, [sessionId]);
 
-  const sendMessage = (type: string, blockId?: string | null, lineIndex?: number | null) => {
+  const sendMessage = (type: string, blockId?: string | null, lineIndex?: number | null, mode?: "title" | "content" | "both") => {
     if (channel) {
       channel.send({
         type: 'broadcast',
         event: 'presentation-update',
-        payload: { type, blockId, lineIndex }
+        payload: { type, blockId, lineIndex, displayMode: mode }
       });
-      console.log('Sent message:', { type, blockId, lineIndex });
+      console.log('Sent message:', { type, blockId, lineIndex, displayMode: mode });
     }
   };
 
@@ -117,7 +118,7 @@ export default function PresenterView() {
     } else {
       setCurrentBlockId(blockId);
       setCurrentLineIndex(null);
-      sendMessage("block", blockId);
+      sendMessage("block", blockId, null, displayMode);
     }
   };
 
@@ -385,7 +386,55 @@ export default function PresenterView() {
                 >
                   <div className="p-5">
                     <div className="flex items-center gap-3 mb-4">
-                      {isBlockActive && !editMode && (
+                      {isBlockActive && !editMode && !isExpanded && (
+                        <>
+                          <div className="flex items-center gap-2 px-3 py-1 bg-live-active rounded-full">
+                            <Play className="h-3 w-3 text-white fill-white animate-pulse" />
+                            <span className="text-xs font-semibold text-white uppercase tracking-wide">
+                              Broadcasting
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 bg-muted rounded-full p-1">
+                            <Button
+                              size="sm"
+                              variant={displayMode === "title" ? "default" : "ghost"}
+                              className="h-7 px-3 text-xs rounded-full"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDisplayMode("title");
+                                sendMessage("block", block.id, null, "title");
+                              }}
+                            >
+                              Title
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={displayMode === "content" ? "default" : "ghost"}
+                              className="h-7 px-3 text-xs rounded-full"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDisplayMode("content");
+                                sendMessage("block", block.id, null, "content");
+                              }}
+                            >
+                              Content
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={displayMode === "both" ? "default" : "ghost"}
+                              className="h-7 px-3 text-xs rounded-full"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDisplayMode("both");
+                                sendMessage("block", block.id, null, "both");
+                              }}
+                            >
+                              Both
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                      {isBlockActive && !editMode && isExpanded && (
                         <div className="flex items-center gap-2 px-3 py-1 bg-live-active rounded-full">
                           <Play className="h-3 w-3 text-white fill-white animate-pulse" />
                           <span className="text-xs font-semibold text-white uppercase tracking-wide">
