@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Sermon, SermonBlock } from "@/lib/blockTypes";
 import { extractTextLines } from "@/lib/presentationUtils";
-import { loadSettings } from "@/lib/liveChannel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Play, Square, Eye, Maximize2, Minimize2 } from "lucide-react";
+import { ArrowLeft, Play, Square, Eye, Maximize2, Minimize2, Edit, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { PresentationSettingsDialog } from "@/components/editor/PresentationSettingsDialog";
+import { loadSettings, saveSettings, PresentationSettings } from "@/lib/liveChannel";
 
 export default function PresenterView() {
   const { sessionId } = useParams();
@@ -20,7 +21,8 @@ export default function PresenterView() {
   const [blockLines, setBlockLines] = useState<Map<string, string[]>>(new Map());
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAudiencePreview, setShowAudiencePreview] = useState(true);
-  const settings = loadSettings();
+  const [settings, setSettings] = useState<PresentationSettings>(loadSettings());
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     // Load sermon from sessionStorage
@@ -80,21 +82,48 @@ export default function PresenterView() {
   };
 
   const handleBlockClick = (blockId: string) => {
-    setCurrentBlockId(blockId);
-    setCurrentLineIndex(null);
-    sendMessage("block", blockId);
+    // Toggle: if clicking the same block, clear it
+    if (currentBlockId === blockId && currentLineIndex === null) {
+      handleClear();
+    } else {
+      setCurrentBlockId(blockId);
+      setCurrentLineIndex(null);
+      sendMessage("block", blockId);
+    }
   };
 
   const handleLineClick = (blockId: string, lineIndex: number) => {
-    setCurrentBlockId(blockId);
-    setCurrentLineIndex(lineIndex);
-    sendMessage("line", blockId, lineIndex);
+    // Toggle: if clicking the same line, clear it
+    if (currentBlockId === blockId && currentLineIndex === lineIndex) {
+      handleClear();
+    } else {
+      setCurrentBlockId(blockId);
+      setCurrentLineIndex(lineIndex);
+      sendMessage("line", blockId, lineIndex);
+    }
   };
 
   const handleClear = () => {
     setCurrentBlockId(null);
     setCurrentLineIndex(null);
     sendMessage("clear");
+  };
+
+  const handleSettingsSave = (newSettings: PresentationSettings) => {
+    setSettings(newSettings);
+    saveSettings(newSettings);
+    // Broadcast settings to audience
+    if (channel) {
+      channel.send({
+        type: 'broadcast',
+        event: 'presentation-update',
+        payload: { type: 'settings', settings: newSettings }
+      });
+    }
+  };
+
+  const handleEditSermon = () => {
+    navigate(`/sermon/${sermon?.id}`);
   };
 
   if (!sermon) {
@@ -153,6 +182,24 @@ export default function PresenterView() {
           </div>
           
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleEditSermon}
+              className="rounded-xl"
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Edit Sermon
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSettings(true)}
+              className="rounded-xl"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Presentation Settings
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -329,10 +376,26 @@ export default function PresenterView() {
               <div className="text-xs text-muted-foreground text-center">
                 This is what your audience sees
               </div>
+              
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleClear}
+                className="w-full rounded-xl mt-3"
+              >
+                <Square className="h-4 w-4 mr-2" />
+                Clear Live Display
+              </Button>
             </div>
           </div>
         )}
       </div>
+
+      <PresentationSettingsDialog
+        open={showSettings}
+        onOpenChange={setShowSettings}
+        onSave={handleSettingsSave}
+      />
     </div>
   );
 }

@@ -10,9 +10,10 @@ import { loadSettings, saveSettings, PresentationSettings } from "@/lib/liveChan
 interface PresentationSettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSave?: (settings: PresentationSettings) => void;
 }
 
-export function PresentationSettingsDialog({ open, onOpenChange }: PresentationSettingsDialogProps) {
+export function PresentationSettingsDialog({ open, onOpenChange, onSave }: PresentationSettingsDialogProps) {
   const [settings, setSettings] = useState<PresentationSettings>(loadSettings());
 
   useEffect(() => {
@@ -23,6 +24,7 @@ export function PresentationSettingsDialog({ open, onOpenChange }: PresentationS
 
   const handleSave = () => {
     saveSettings(settings);
+    onSave?.(settings);
     onOpenChange(false);
   };
 
