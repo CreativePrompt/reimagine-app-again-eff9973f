@@ -297,30 +297,33 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
               <button
                 type="button"
                 onClick={() => {
-                  onUpdate({ summaries: [...block.summaries, ""] });
+                  const currentSummaries = block.summaries || [""];
+                  onUpdate({ summaries: [...currentSummaries, ""] });
                 }}
                 className="text-xs text-primary hover:underline"
               >
                 + Add Summary
               </button>
             </div>
-            {block.summaries.map((summary, index) => (
+            {(block.summaries || [""]).map((summary, index) => (
               <div key={`${block.id}-summary-${index}`} className="relative">
                 <Textarea
                   defaultValue={summary}
                   onBlur={(e) => {
-                    const newSummaries = [...block.summaries];
+                    const currentSummaries = block.summaries || [""];
+                    const newSummaries = [...currentSummaries];
                     newSummaries[index] = e.target.value;
                     onUpdate({ summaries: newSummaries });
                   }}
                   placeholder="Key insights from your reading..."
                   rows={3}
                 />
-                {block.summaries.length > 1 && (
+                {(block.summaries || [""]).length > 1 && (
                   <button
                     type="button"
                     onClick={() => {
-                      const newSummaries = block.summaries.filter((_, i) => i !== index);
+                      const currentSummaries = block.summaries || [""];
+                      const newSummaries = currentSummaries.filter((_, i) => i !== index);
                       onUpdate({ summaries: newSummaries });
                     }}
                     className="absolute top-2 right-2 text-xs text-destructive hover:underline"

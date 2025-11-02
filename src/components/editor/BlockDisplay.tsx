@@ -128,7 +128,7 @@ export function BlockDisplay({ block }: BlockDisplayProps) {
         <div className="space-y-3">
           <h3 className="font-semibold text-lg tracking-tight">{block.title}</h3>
           <div className="space-y-3">
-            {block.summaries.map((summary, index) => (
+            {(block.summaries || []).map((summary, index) => (
               <div key={`summary-${index}`} className="text-base text-foreground/90 whitespace-pre-wrap leading-7 pl-3 border-l-2 border-muted">
                 {summary}
               </div>

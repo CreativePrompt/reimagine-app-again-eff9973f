@@ -256,29 +256,34 @@ export function BlockForm({ block, onComplete }: BlockFormProps) {
               <Label>Summaries</Label>
               <button
                 type="button"
-                onClick={() => handleUpdate({ summaries: [...block.summaries, ""] })}
+                onClick={() => {
+                  const currentSummaries = block.summaries || [""];
+                  handleUpdate({ summaries: [...currentSummaries, ""] });
+                }}
                 className="text-xs text-primary hover:underline"
               >
                 + Add Summary
               </button>
             </div>
-            {block.summaries.map((summary, index) => (
+            {(block.summaries || [""]).map((summary, index) => (
               <div key={`summary-${index}`} className="relative">
                 <Textarea
                   value={summary}
                   onChange={(e) => {
-                    const newSummaries = [...block.summaries];
+                    const currentSummaries = block.summaries || [""];
+                    const newSummaries = [...currentSummaries];
                     newSummaries[index] = e.target.value;
                     handleUpdate({ summaries: newSummaries });
                   }}
                   placeholder="Key insights from your reading..."
                   rows={4}
                 />
-                {block.summaries.length > 1 && (
+                {(block.summaries || [""]).length > 1 && (
                   <button
                     type="button"
                     onClick={() => {
-                      const newSummaries = block.summaries.filter((_, i) => i !== index);
+                      const currentSummaries = block.summaries || [""];
+                      const newSummaries = currentSummaries.filter((_, i) => i !== index);
                       handleUpdate({ summaries: newSummaries });
                     }}
                     className="absolute top-2 right-2 text-xs text-destructive hover:underline"

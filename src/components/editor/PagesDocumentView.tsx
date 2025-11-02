@@ -160,7 +160,7 @@ export function PagesDocumentView({
               </h3>
             </div>
             <div className="space-y-2">
-              {block.summaries.map((summary, index) => (
+              {(block.summaries || []).map((summary, index) => (
                 <p key={`summary-${index}`} className="text-base pl-3 border-l-2 border-yellow-400/30">{summary}</p>
               ))}
             </div>
