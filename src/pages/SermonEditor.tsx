@@ -131,6 +131,37 @@ export default function SermonEditor() {
     });
   };
 
+  const handleReorderPages = (activeId: string, overId: string) => {
+    if (!currentSermon || !currentSermon.pages) return;
+    
+    const oldIndex = currentSermon.pages.findIndex(p => p.id === activeId);
+    const newIndex = currentSermon.pages.findIndex(p => p.id === overId);
+    
+    if (oldIndex === -1 || newIndex === -1) return;
+    
+    const newPages = [...currentSermon.pages];
+    const [movedPage] = newPages.splice(oldIndex, 1);
+    newPages.splice(newIndex, 0, movedPage);
+    
+    // Update order property
+    const updatedPages = newPages.map((page, index) => ({
+      ...page,
+      order: index,
+    }));
+    
+    setCurrentSermon({
+      ...currentSermon,
+      pages: updatedPages,
+    });
+  };
+
+  const handleReorderBlocksInPages = (activeId: string, overId: string) => {
+    if (!currentSermon) return;
+    
+    const reorderedBlocks = reorderBlocks(currentSermon.blocks, activeId, overId);
+    setCurrentSermon({ ...currentSermon, blocks: reorderedBlocks });
+  };
+
   if (authLoading || !user || !currentSermon) {
     return (
       <AppLayout>
@@ -362,6 +393,8 @@ export default function SermonEditor() {
                           onAddPage={handleAddPage}
                           onUpdatePage={handleUpdatePage}
                           onDeletePage={handleDeletePage}
+                          onReorderPages={handleReorderPages}
+                          onReorderBlocks={handleReorderBlocksInPages}
                         />
                       ) : (
                         <>
