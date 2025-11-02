@@ -152,6 +152,7 @@ export const useSermonStore = create<SermonState>()(
               kind: "point" as const,
               title: seed.title || "Untitled Point",
               body: seed.body || "",
+              number: null,
             };
           case "bible":
             return {

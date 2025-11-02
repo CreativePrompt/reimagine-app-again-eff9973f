@@ -10,6 +10,7 @@ export interface PointBlock extends BaseBlock {
   kind: "point";
   title: string;
   body: string;
+  number: number | null;
 }
 
 export interface BibleBlock extends BaseBlock {
