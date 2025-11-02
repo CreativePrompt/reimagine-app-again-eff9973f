@@ -47,6 +47,8 @@ export default function PresenterView() {
   const [editMode, setEditMode] = useState(false);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [showEndLiveDialog, setShowEndLiveDialog] = useState(false);
+  const [liveViewMode, setLiveViewMode] = useState<"blocks" | "pages">("blocks");
+  const [expandedPages, setExpandedPages] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     // Load sermon from sessionStorage
@@ -314,6 +316,24 @@ export default function PresenterView() {
     toast.success("Block added");
   };
 
+  const getCurrentPageId = () => {
+    if (!currentBlockId || !sermon) return null;
+    const block = sermon.blocks.find(b => b.id === currentBlockId);
+    return block?.pageId || null;
+  };
+
+  const togglePage = (pageId: string) => {
+    setExpandedPages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(pageId)) {
+        newSet.delete(pageId);
+      } else {
+        newSet.add(pageId);
+      }
+      return newSet;
+    });
+  };
+
   if (!sermon) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -464,8 +484,157 @@ export default function PresenterView() {
         {/* Blocks Section - Scrollable */}
         <ResizablePanel defaultSize={showAudiencePreview ? 65 : 100} minSize={30}>
           <div className="h-full overflow-y-auto p-6">
-            <div className="space-y-4">
-            {sermon.blocks.map((block) => {
+            {liveViewMode === "pages" && sermon.pages && sermon.pages.length > 0 ? (
+              /* Pages View */
+              <div className="space-y-4">
+                {/* Unorganized blocks */}
+                {sermon.blocks.filter(b => !b.pageId).length > 0 && (
+                  <div className="space-y-4">
+                    <div 
+                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors"
+                      onClick={() => togglePage("unorganized")}
+                    >
+                      <h3 className="text-sm font-semibold text-muted-foreground">Unorganized Content</h3>
+                      <span className="text-xs text-muted-foreground">
+                        ({sermon.blocks.filter(b => !b.pageId).length} blocks)
+                      </span>
+                    </div>
+                    
+                    {expandedPages.has("unorganized") && (
+                      <div className="space-y-4 pl-4">
+                        {sermon.blocks.filter(b => !b.pageId).map((block) => {
+                          const lines = blockLines.get(block.id) || [];
+                          const isBlockActive = currentBlockId === block.id;
+                          const BlockIcon = getBlockTypeIcon(block.kind);
+                          const blockColor = getBlockTypeColor(block.kind);
+                          const blockBorderColor = getBlockTypeBorderColor(block.kind);
+                          const blockLabel = getBlockTypeLabel(block.kind);
+                          
+                          return (
+                            <Card
+                              key={block.id}
+                              className={`
+                                overflow-hidden rounded-2xl transition-all duration-300 relative
+                                ${!editMode && "cursor-pointer"}
+                                ${isBlockActive 
+                                  ? "ring-4 ring-live-active shadow-xl shadow-live-active/20" 
+                                  : "hover:shadow-lg"
+                                }
+                              `}
+                              onClick={() => !editMode && handleBlockClick(block.id)}
+                            >
+                              <div className={`absolute left-0 top-0 bottom-0 w-1 ${blockBorderColor}`} />
+                              
+                              <div className="p-5 pl-7">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <div className={`flex items-center gap-1.5 px-2.5 py-1 ${blockColor} rounded-md text-xs font-medium border`}>
+                                    <BlockIcon className="h-3.5 w-3.5" />
+                                    <span>{blockLabel}</span>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-center gap-3 mb-4">
+                                  {isBlockActive && !editMode && !isExpanded && (
+                                    <>
+                                      <div className="flex items-center gap-2 px-3 py-1 bg-live-active rounded-full">
+                                        <Play className="h-3 w-3 text-white fill-white animate-pulse" />
+                                        <span className="text-xs font-semibold text-white uppercase tracking-wide">
+                                          Broadcasting
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-1 bg-muted rounded-full p-1">
+                                        <Button
+                                          size="sm"
+                                          variant={displayMode === "title" ? "default" : "ghost"}
+                                          className="h-7 px-3 text-xs rounded-full"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setDisplayMode("title");
+                                            sendMessage("block", block.id, null, "title");
+                                          }}
+                                        >
+                                          Title
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant={displayMode === "content" ? "default" : "ghost"}
+                                          className="h-7 px-3 text-xs rounded-full"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setDisplayMode("content");
+                                            sendMessage("block", block.id, null, "content");
+                                          }}
+                                        >
+                                          Content
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant={displayMode === "both" ? "default" : "ghost"}
+                                          className="h-7 px-3 text-xs rounded-full"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setDisplayMode("both");
+                                            sendMessage("block", block.id, null, "both");
+                                          }}
+                                        >
+                                          Both
+                                        </Button>
+                                      </div>
+                                    </>
+                                  )}
+                                  {!isBlockActive && !editMode && (
+                                    <button className="flex items-center gap-2 px-3 py-1 bg-muted rounded-full hover:bg-muted/80 transition-colors">
+                                      <Play className="h-3 w-3 text-muted-foreground" />
+                                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                        Click to Broadcast
+                                      </span>
+                                    </button>
+                                  )}
+                                </div>
+                                
+                                <div className="text-sm text-muted-foreground leading-relaxed">
+                                  <BlockDisplay block={block} />
+                                </div>
+                              </div>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Pages */}
+                {[...sermon.pages].sort((a, b) => a.order - b.order).map((page) => {
+                  const pageBlocks = sermon.blocks
+                    .filter(b => b.pageId === page.id)
+                    .sort((a, b) => a.order - b.order);
+                  
+                  if (pageBlocks.length === 0) return null;
+                  
+                  const isCurrentPage = getCurrentPageId() === page.id;
+                  
+                  return (
+                    <div key={page.id} className="space-y-4">
+                      <div 
+                        className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
+                          isCurrentPage 
+                            ? "bg-live-active/10 border-2 border-live-active" 
+                            : "bg-muted/50 hover:bg-muted/70"
+                        }`}
+                        onClick={() => togglePage(page.id)}
+                      >
+                        <h3 className={`text-lg font-bold ${isCurrentPage ? "text-live-active" : ""}`}>
+                          {page.title}
+                        </h3>
+                        <span className="text-xs text-muted-foreground">
+                          ({pageBlocks.length} {pageBlocks.length === 1 ? "block" : "blocks"})
+                        </span>
+                      </div>
+                      
+                      {expandedPages.has(page.id) && (
+                        <div className="space-y-4 pl-4">
+                          {pageBlocks.map((block) => {
               const lines = blockLines.get(block.id) || [];
               const isBlockActive = currentBlockId === block.id;
               const BlockIcon = getBlockTypeIcon(block.kind);
@@ -639,9 +808,194 @@ export default function PresenterView() {
                 </Card>
               );
             })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* Regular Blocks View */
+              <div className="space-y-4">
+              {sermon.blocks.map((block) => {
+              const lines = blockLines.get(block.id) || [];
+              const isBlockActive = currentBlockId === block.id;
+              const BlockIcon = getBlockTypeIcon(block.kind);
+              const blockColor = getBlockTypeColor(block.kind);
+              const blockBorderColor = getBlockTypeBorderColor(block.kind);
+              const blockLabel = getBlockTypeLabel(block.kind);
+              
+              return (
+                <Card
+                  key={block.id}
+                  className={`
+                    overflow-hidden rounded-2xl transition-all duration-300 relative
+                    ${!editMode && 'cursor-pointer'}
+                    ${isBlockActive 
+                      ? "ring-4 ring-live-active shadow-xl shadow-live-active/20" 
+                      : "hover:shadow-lg"
+                    }
+                  `}
+                  onClick={() => !editMode && handleBlockClick(block.id)}
+                >
+                  {/* Left border indicator */}
+                  <div className={`absolute left-0 top-0 bottom-0 w-1 ${blockBorderColor}`} />
+                  
+                  <div className="p-5 pl-7">
+                    {/* Block type indicator */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className={`flex items-center gap-1.5 px-2.5 py-1 ${blockColor} rounded-md text-xs font-medium border`}>
+                        <BlockIcon className="h-3.5 w-3.5" />
+                        <span>{blockLabel}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 mb-4">
+                      {isBlockActive && !editMode && !isExpanded && (
+                        <>
+                          <div className="flex items-center gap-2 px-3 py-1 bg-live-active rounded-full">
+                            <Play className="h-3 w-3 text-white fill-white animate-pulse" />
+                            <span className="text-xs font-semibold text-white uppercase tracking-wide">
+                              Broadcasting
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 bg-muted rounded-full p-1">
+                            <Button
+                              size="sm"
+                              variant={displayMode === "title" ? "default" : "ghost"}
+                              className="h-7 px-3 text-xs rounded-full"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDisplayMode("title");
+                                sendMessage("block", block.id, null, "title");
+                              }}
+                            >
+                              Title
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={displayMode === "content" ? "default" : "ghost"}
+                              className="h-7 px-3 text-xs rounded-full"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDisplayMode("content");
+                                sendMessage("block", block.id, null, "content");
+                              }}
+                            >
+                              Content
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={displayMode === "both" ? "default" : "ghost"}
+                              className="h-7 px-3 text-xs rounded-full"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDisplayMode("both");
+                                sendMessage("block", block.id, null, "both");
+                              }}
+                            >
+                              Both
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                      {isBlockActive && !editMode && isExpanded && (
+                        <div className="flex items-center gap-2 px-3 py-1 bg-live-active rounded-full">
+                          <Play className="h-3 w-3 text-white fill-white animate-pulse" />
+                          <span className="text-xs font-semibold text-white uppercase tracking-wide">
+                            Broadcasting
+                          </span>
+                        </div>
+                      )}
+                      {!isBlockActive && !editMode && (
+                        <button className="flex items-center gap-2 px-3 py-1 bg-muted rounded-full hover:bg-muted/80 transition-colors">
+                          <Play className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            Click to Broadcast
+                          </span>
+                        </button>
+                      )}
+                      
+                      {editMode && (
+                        <div className="ml-auto flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingBlockId(editingBlockId === block.id ? null : block.id);
+                            }}
+                          >
+                            {editingBlockId === block.id ? (
+                              <X className="h-4 w-4" />
+                            ) : (
+                              <Edit className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteBlock(block.id);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {editMode && editingBlockId === block.id ? (
+                      <InlineBlockEdit
+                        block={block}
+                        onSave={(updates) => {
+                          handleUpdateBlock(block.id, updates);
+                          setEditingBlockId(null);
+                        }}
+                        onCancel={() => setEditingBlockId(null)}
+                      />
+                    ) : (
+                      <div>
+                        {isExpanded ? (
+                          lines.map((line, index) => {
+                            const isLineActive = isBlockActive && currentLineIndex === index;
+                            return (
+                              <div
+                                key={index}
+                                className={`
+                                  p-3 rounded-xl cursor-pointer transition-all duration-200
+                                  ${isLineActive
+                                    ? "bg-live-active text-white ring-2 ring-live-active-border shadow-md"
+                                    : isBlockActive 
+                                      ? "bg-muted/50 hover:bg-muted"
+                                      : "hover:bg-muted/50"
+                                  }
+                                `}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleLineClick(block.id, index);
+                                }}
+                              >
+                                <p className="whitespace-pre-wrap text-sm leading-relaxed">{line}</p>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="text-sm text-muted-foreground leading-relaxed">
+                            <BlockDisplay block={block} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
             
             {editMode && (
-              <Card className="p-4 border-dashed rounded-2xl">
                 <div className="space-y-2">
                   <h3 className="font-semibold text-sm mb-3">Add New Block</h3>
                   <div className="grid grid-cols-2 gap-2">
@@ -713,9 +1067,10 @@ export default function PresenterView() {
                 </div>
               </Card>
             )}
+            </div>
+            )}
           </div>
-          </div>
-          </ResizablePanel>
+        </ResizablePanel>
         
         {/* Audience View Preview - Fixed */}
         {showAudiencePreview && (
