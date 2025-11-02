@@ -16,6 +16,7 @@ export interface PresentationSettings {
   showWaitingMessage: boolean;
   textBoxPadding: number;
   showTextBox: boolean;
+  lineHeight: number;
 }
 
 export const defaultSettings: PresentationSettings = {
@@ -30,6 +31,7 @@ export const defaultSettings: PresentationSettings = {
   showWaitingMessage: true,
   textBoxPadding: 8,
   showTextBox: true,
+  lineHeight: 1.8,
 };
 
 export interface Message {

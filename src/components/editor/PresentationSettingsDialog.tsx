@@ -201,6 +201,19 @@ export function PresentationSettingsDialog({ open, onOpenChange, onSave, current
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="lineHeight">Line Spacing</Label>
+            <Input
+              id="lineHeight"
+              type="number"
+              min="1.0"
+              max="3.0"
+              step="0.1"
+              value={settings.lineHeight}
+              onChange={(e) => setSettings({ ...settings, lineHeight: parseFloat(e.target.value) })}
+            />
+          </div>
+
           <Button onClick={handleSave} className="w-full">
             Save Settings
           </Button>

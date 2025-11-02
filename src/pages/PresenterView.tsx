@@ -682,6 +682,7 @@ export default function PresenterView() {
                           textTransform: settings.uppercase ? 'uppercase' : 'none',
                           color: settings.textColor,
                           padding: settings.showTextBox ? `${settings.textBoxPadding * 0.25}rem` : '0',
+                          lineHeight: settings.lineHeight,
                         }}
                       >
                         {getCurrentContent()}
