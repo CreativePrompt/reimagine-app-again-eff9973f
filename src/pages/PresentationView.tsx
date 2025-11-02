@@ -35,7 +35,7 @@ export default function PresentationView() {
     // Listen for presentation updates via Supabase Realtime
     const channel = supabase.channel(`presentation-${sessionId}`, {
       config: {
-        broadcast: { self: false }
+        broadcast: { self: true }
       }
     });
     
