@@ -58,12 +58,12 @@ export function BlockItem({ block }: BlockItemProps) {
       className={`
         relative overflow-hidden group
         smooth-hover
-        rounded-2xl shadow-sm
+        rounded-xl shadow-sm
         border-l-4 ${config.color}
         ${isDragging ? 'shadow-2xl scale-105' : ''}
       `}
     >
-      <div className="p-5">
+      <div className="p-4">{/* Reduced from p-5 to p-4 */}
         <div className="flex items-start gap-4">
           {/* Drag Handle */}
           <button

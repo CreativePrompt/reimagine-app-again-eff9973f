@@ -285,7 +285,7 @@ export default function SermonEditor() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
                       transition={{ duration: 0.3 }}
-                      className="max-w-4xl mx-auto space-y-4"
+                      className="max-w-4xl mx-auto space-y-2"
                     >
                       <DndContext
                         collisionDetection={closestCenter}
