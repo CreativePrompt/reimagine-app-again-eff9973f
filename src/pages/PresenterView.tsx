@@ -4,7 +4,7 @@ import { Sermon, SermonBlock, BlockKind } from "@/lib/blockTypes";
 import { extractTextLines, extractBlockTitle, extractBlockContent } from "@/lib/presentationUtils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Play, Square, Eye, Maximize2, Minimize2, Edit, Settings, Trash2, Plus, X, Check, Power } from "lucide-react";
+import { ArrowLeft, Play, Square, Eye, Maximize2, Minimize2, Edit, Settings, Trash2, Plus, X, Check, Power, BookOpen, Lightbulb, Quote, MessageSquare, Image as ImageIcon, FileText, StickyNote } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -154,6 +154,41 @@ export default function PresenterView() {
       reader_note: "Reader's Note"
     };
     return labels[blockKind] || blockKind;
+  };
+
+  const getBlockTypeIcon = (blockKind: BlockKind) => {
+    switch (blockKind) {
+      case "point":
+        return Lightbulb;
+      case "bible":
+        return BookOpen;
+      case "illustration":
+        return MessageSquare;
+      case "application":
+        return Check;
+      case "quote":
+        return Quote;
+      case "media":
+        return ImageIcon;
+      case "reader_note":
+        return StickyNote;
+      default:
+        return FileText;
+    }
+  };
+
+  const getBlockTypeColor = (blockKind: BlockKind) => {
+    const colors: Record<BlockKind, string> = {
+      point: "bg-blue-500",
+      bible: "bg-purple-500",
+      illustration: "bg-green-500",
+      application: "bg-orange-500",
+      quote: "bg-pink-500",
+      media: "bg-cyan-500",
+      custom: "bg-gray-500",
+      reader_note: "bg-yellow-500"
+    };
+    return colors[blockKind] || "bg-gray-500";
   };
 
   const getCurrentBlockType = () => {
@@ -419,12 +454,15 @@ export default function PresenterView() {
             {sermon.blocks.map((block) => {
               const lines = blockLines.get(block.id) || [];
               const isBlockActive = currentBlockId === block.id;
+              const BlockIcon = getBlockTypeIcon(block.kind);
+              const blockColor = getBlockTypeColor(block.kind);
+              const blockLabel = getBlockTypeLabel(block.kind);
               
               return (
                 <Card
                   key={block.id}
                   className={`
-                    overflow-hidden rounded-2xl transition-all duration-300
+                    overflow-hidden rounded-2xl transition-all duration-300 relative
                     ${!editMode && 'cursor-pointer'}
                     ${isBlockActive 
                       ? "ring-4 ring-live-active shadow-xl shadow-live-active/20" 
@@ -433,7 +471,18 @@ export default function PresenterView() {
                   `}
                   onClick={() => !editMode && handleBlockClick(block.id)}
                 >
-                  <div className="p-5">
+                  {/* Left border indicator */}
+                  <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${blockColor}`} />
+                  
+                  <div className="p-5 pl-7">
+                    {/* Block type indicator */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className={`flex items-center gap-1.5 px-2 py-1 ${blockColor} text-white rounded-md text-xs font-semibold`}>
+                        <BlockIcon className="h-3.5 w-3.5" />
+                        <span>{blockLabel}</span>
+                      </div>
+                    </div>
+                    
                     <div className="flex items-center gap-3 mb-4">
                       {isBlockActive && !editMode && !isExpanded && (
                         <>
@@ -499,9 +548,6 @@ export default function PresenterView() {
                           </span>
                         </button>
                       )}
-                      <Badge variant="outline" className="rounded-full">
-                        {block.kind}
-                      </Badge>
                       
                       {editMode && (
                         <div className="ml-auto flex gap-2">
