@@ -100,7 +100,7 @@ export default function SermonEditor() {
     <AppLayout>
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Header */}
-        <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6 py-4 sticky top-0 z-10">
+        <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6 py-4 sticky top-0 z-50">
           <div className="flex items-center justify-end gap-2">
             {/* View Mode Toggle */}
             <div className="flex items-center gap-0.5 bg-muted p-0.5 rounded-md">
