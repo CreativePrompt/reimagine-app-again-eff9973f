@@ -251,48 +251,15 @@ export function BlockForm({ block, onComplete }: BlockFormProps) {
               placeholder="Note title"
             />
           </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Summaries</Label>
-              <button
-                type="button"
-                onClick={() => {
-                  const currentSummaries = block.summaries || [""];
-                  handleUpdate({ summaries: [...currentSummaries, ""] });
-                }}
-                className="text-xs text-primary hover:underline"
-              >
-                + Add Summary
-              </button>
-            </div>
-            {(block.summaries || [""]).map((summary, index) => (
-              <div key={`summary-${index}`} className="relative">
-                <Textarea
-                  value={summary}
-                  onChange={(e) => {
-                    const currentSummaries = block.summaries || [""];
-                    const newSummaries = [...currentSummaries];
-                    newSummaries[index] = e.target.value;
-                    handleUpdate({ summaries: newSummaries });
-                  }}
-                  placeholder="Key insights from your reading..."
-                  rows={4}
-                />
-                {(block.summaries || [""]).length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const currentSummaries = block.summaries || [""];
-                      const newSummaries = currentSummaries.filter((_, i) => i !== index);
-                      handleUpdate({ summaries: newSummaries });
-                    }}
-                    className="absolute top-2 right-2 text-xs text-destructive hover:underline"
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
-            ))}
+          <div>
+            <Label htmlFor="summary">Summary</Label>
+            <Textarea
+              id="summary"
+              value={block.summary}
+              onChange={(e) => handleUpdate({ summary: e.target.value })}
+              placeholder="Key insights from your reading..."
+              rows={4}
+            />
           </div>
           <div>
             <Label htmlFor="author">Author (optional)</Label>

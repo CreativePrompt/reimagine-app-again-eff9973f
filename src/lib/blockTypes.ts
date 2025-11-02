@@ -57,7 +57,7 @@ export interface CustomBlock extends BaseBlock {
 export interface ReaderNoteBlock extends BaseBlock {
   kind: "reader_note";
   title: string;
-  summaries: string[];
+  summary: string;
   author?: string;
   source?: string;
 }

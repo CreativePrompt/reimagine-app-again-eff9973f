@@ -198,7 +198,7 @@ export const useSermonStore = create<SermonState>()(
               ...baseBlock,
               kind: "reader_note" as const,
               title: seed.title || "Reader's Note",
-              summaries: seed.body ? [seed.body] : [""],
+              summary: seed.body || "",
             };
           default:
             return {
