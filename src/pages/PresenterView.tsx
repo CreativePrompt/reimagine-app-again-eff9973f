@@ -623,7 +623,7 @@ export default function PresenterView() {
           <>
             <ResizableHandle withHandle className="mx-2" />
             <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
-            <div className="h-full p-6 overflow-hidden">
+            <div className="sticky top-0 h-screen p-6 overflow-hidden">
             <div className="space-y-3 h-full flex flex-col">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
