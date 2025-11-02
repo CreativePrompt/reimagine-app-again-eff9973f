@@ -143,27 +143,37 @@ export default function PresentationView() {
       <div className="max-w-6xl w-full relative z-10">
         {content ? (
           <div className="relative">
-            {/* Text backdrop for readability */}
-            <div className="absolute inset-0 -m-8 bg-black/30 backdrop-blur-sm rounded-3xl" />
+            {/* Text backdrop for readability - conditional based on settings */}
+            {settings.showTextBox && (
+              <div 
+                className="absolute inset-0 bg-black/30 backdrop-blur-sm rounded-3xl" 
+                style={{ margin: `-${settings.textBoxPadding * 0.25}rem` }}
+              />
+            )}
             
             {/* Content */}
             <div
-              className="relative text-sm md:text-base lg:text-lg font-bold leading-relaxed whitespace-pre-wrap p-8"
-              style={textStyle}
+              className="relative text-sm md:text-base lg:text-lg font-bold leading-relaxed whitespace-pre-wrap"
+              style={{
+                ...textStyle,
+                padding: settings.showTextBox ? `${settings.textBoxPadding * 0.25}rem` : '0',
+              }}
             >
               {content}
             </div>
           </div>
         ) : (
           <div className="text-center">
-            <div className="inline-block px-8 py-4 bg-black/30 backdrop-blur-sm rounded-2xl">
-              <p className="text-xl md:text-2xl text-white/70">
-                {settings.showWaitingMessage ? "Waiting for LIVE" : ""}
-              </p>
-              <p className="text-sm text-white/50 mt-2">
-                The presenter will display content here when ready
-              </p>
-            </div>
+            {settings.showWaitingMessage && (
+              <div className="inline-block px-8 py-4 bg-black/30 backdrop-blur-sm rounded-2xl">
+                <p className="text-xl md:text-2xl text-white/70">
+                  Waiting for LIVE
+                </p>
+                <p className="text-sm text-white/50 mt-2">
+                  The presenter will display content here when ready
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>

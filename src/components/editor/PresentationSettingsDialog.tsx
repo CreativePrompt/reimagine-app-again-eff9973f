@@ -178,6 +178,29 @@ export function PresentationSettingsDialog({ open, onOpenChange, onSave, current
             />
           </div>
 
+          <div className="flex items-center justify-between">
+            <Label htmlFor="showTextBox">Show Text Box Background</Label>
+            <Switch
+              id="showTextBox"
+              checked={settings.showTextBox}
+              onCheckedChange={(checked) => setSettings({ ...settings, showTextBox: checked })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="textBoxPadding">Text Box Padding (rem)</Label>
+            <Input
+              id="textBoxPadding"
+              type="number"
+              min="2"
+              max="16"
+              step="1"
+              value={settings.textBoxPadding}
+              onChange={(e) => setSettings({ ...settings, textBoxPadding: parseFloat(e.target.value) })}
+              disabled={!settings.showTextBox}
+            />
+          </div>
+
           <Button onClick={handleSave} className="w-full">
             Save Settings
           </Button>

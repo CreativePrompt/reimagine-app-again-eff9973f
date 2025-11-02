@@ -119,7 +119,9 @@ export default function PresenterView() {
     } else {
       setCurrentBlockId(blockId);
       setCurrentLineIndex(null);
-      sendMessage("block", blockId, null, displayMode);
+      // Default to "title" mode when clicking a block
+      setDisplayMode("title");
+      sendMessage("block", blockId, null, "title");
     }
   };
 
@@ -253,11 +255,27 @@ export default function PresenterView() {
 
   const getCurrentContent = () => {
     if (currentBlockId === null) return null;
-    const lines = blockLines.get(currentBlockId) || [];
-    if (currentLineIndex === null) {
-      return lines.join("\n");
+    
+    const block = sermon?.blocks.find(b => b.id === currentBlockId);
+    if (!block) return null;
+    
+    // For line-by-line mode (expanded mode)
+    if (currentLineIndex !== null) {
+      const lines = blockLines.get(currentBlockId) || [];
+      return lines[currentLineIndex] || "";
     }
-    return lines[currentLineIndex] || "";
+    
+    // For block mode with display options - match PresentationView logic exactly
+    if (displayMode === "title") {
+      return extractBlockTitle(block);
+    } else if (displayMode === "content") {
+      const content = extractBlockContent(block);
+      return content.join("\n");
+    } else { // both
+      const title = extractBlockTitle(block);
+      const content = extractBlockContent(block);
+      return title ? `${title}\n\n${content.join("\n")}` : content.join("\n");
+    }
   };
 
   const backgroundStyle: React.CSSProperties = {
@@ -648,14 +666,22 @@ export default function PresenterView() {
                 
                 <div className="absolute inset-0 flex items-center justify-center p-6">
                   {getCurrentContent() ? (
-                    <div className="relative w-full">
-                      <div className="absolute inset-0 -m-4 bg-black/30 backdrop-blur-sm rounded-2xl" />
+                    <div className="relative w-full max-w-6xl">
+                      {/* Text backdrop - conditional based on settings */}
+                      {settings.showTextBox && (
+                        <div 
+                          className="absolute inset-0 bg-black/30 backdrop-blur-sm rounded-3xl" 
+                          style={{ margin: `-${settings.textBoxPadding * 0.25}rem` }}
+                        />
+                      )}
                       <div 
-                        className="relative text-white font-bold leading-relaxed text-center"
+                        className="relative text-white font-bold leading-relaxed whitespace-pre-wrap"
                         style={{
                           fontSize: '10px',
                           textAlign: settings.align,
                           textTransform: settings.uppercase ? 'uppercase' : 'none',
+                          color: settings.textColor,
+                          padding: settings.showTextBox ? `${settings.textBoxPadding * 0.25}rem` : '0',
                         }}
                       >
                         {getCurrentContent()}
@@ -663,14 +689,16 @@ export default function PresenterView() {
                     </div>
                   ) : (
                     <div className="text-center">
-                      <div className="inline-block px-4 py-2 bg-black/30 backdrop-blur-sm rounded-xl">
-                        <p className="text-xs text-white/70">
-                          Waiting for LIVE
-                        </p>
-                        <p className="text-[8px] text-white/50 mt-1">
-                          The presenter will display content here when ready
-                        </p>
-                      </div>
+                      {settings.showWaitingMessage && (
+                        <div className="inline-block px-4 py-2 bg-black/30 backdrop-blur-sm rounded-xl">
+                          <p className="text-xs text-white/70">
+                            Waiting for LIVE
+                          </p>
+                          <p className="text-[8px] text-white/50 mt-1">
+                            The presenter will display content here when ready
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

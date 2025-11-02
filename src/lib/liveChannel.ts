@@ -14,6 +14,8 @@ export interface PresentationSettings {
   showFilmstrip: boolean;
   dimInactive: boolean;
   showWaitingMessage: boolean;
+  textBoxPadding: number;
+  showTextBox: boolean;
 }
 
 export const defaultSettings: PresentationSettings = {
@@ -26,6 +28,8 @@ export const defaultSettings: PresentationSettings = {
   showFilmstrip: false,
   dimInactive: false,
   showWaitingMessage: true,
+  textBoxPadding: 8,
+  showTextBox: true,
 };
 
 export interface Message {
