@@ -4,7 +4,7 @@ import { Sermon, SermonBlock, BlockKind } from "@/lib/blockTypes";
 import { extractTextLines, extractBlockTitle, extractBlockContent } from "@/lib/presentationUtils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Play, Square, Eye, Maximize2, Minimize2, Edit, Settings, Trash2, Plus, X, Check, Power, BookOpen, Lightbulb, Quote, MessageSquare, Image as ImageIcon, FileText, StickyNote, List, Layers } from "lucide-react";
+import { ArrowLeft, Play, Square, Eye, Maximize2, Minimize2, Edit, Settings, Trash2, Plus, X, Check, Power, BookOpen, Lightbulb, Quote, MessageSquare, Image as ImageIcon, FileText, StickyNote, List, Layers, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -49,6 +49,16 @@ export default function PresenterView() {
   const [showEndLiveDialog, setShowEndLiveDialog] = useState(false);
   const [liveViewMode, setLiveViewMode] = useState<"blocks" | "pages">("blocks");
   const [expandedPages, setExpandedPages] = useState<Set<string>>(new Set());
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update current time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     // Load sermon from sessionStorage
@@ -1176,8 +1186,19 @@ export default function PresenterView() {
                 This is what your audience sees
               </div>
               
-              {/* Large Timer Display */}
-              <div className="mt-6">
+              {/* Current Time and Timer Display */}
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center justify-center gap-2 p-3 bg-muted/50 rounded-xl">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-lg font-semibold tabular-nums">
+                    {currentTime.toLocaleTimeString('en-US', { 
+                      hour: 'numeric', 
+                      minute: '2-digit',
+                      second: '2-digit',
+                      hour12: true 
+                    })}
+                  </span>
+                </div>
                 <PresenterTimer />
               </div>
               
