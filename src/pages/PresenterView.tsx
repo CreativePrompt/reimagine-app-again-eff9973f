@@ -179,30 +179,30 @@ export default function PresenterView() {
 
   const getBlockTypeColor = (blockKind: BlockKind) => {
     const colors: Record<BlockKind, string> = {
-      point: "bg-blue-100 text-blue-600 border-blue-200",
-      bible: "bg-purple-100 text-purple-600 border-purple-200",
-      illustration: "bg-green-100 text-green-600 border-green-200",
-      application: "bg-orange-100 text-orange-600 border-orange-200",
-      quote: "bg-pink-100 text-pink-600 border-pink-200",
-      media: "bg-cyan-100 text-cyan-600 border-cyan-200",
-      custom: "bg-gray-100 text-gray-600 border-gray-200",
-      reader_note: "bg-yellow-100 text-yellow-700 border-yellow-200"
+      point: "bg-blue-50 text-blue-500 border-blue-100",
+      bible: "bg-purple-50 text-purple-500 border-purple-100",
+      illustration: "bg-green-50 text-green-500 border-green-100",
+      application: "bg-orange-50 text-orange-500 border-orange-100",
+      quote: "bg-pink-50 text-pink-500 border-pink-100",
+      media: "bg-cyan-50 text-cyan-500 border-cyan-100",
+      custom: "bg-gray-50 text-gray-500 border-gray-100",
+      reader_note: "bg-yellow-50 text-yellow-600 border-yellow-100"
     };
-    return colors[blockKind] || "bg-gray-100 text-gray-600 border-gray-200";
+    return colors[blockKind] || "bg-gray-50 text-gray-500 border-gray-100";
   };
 
   const getBlockTypeBorderColor = (blockKind: BlockKind) => {
     const colors: Record<BlockKind, string> = {
-      point: "bg-blue-200/40",
-      bible: "bg-purple-200/40",
-      illustration: "bg-green-200/40",
-      application: "bg-orange-200/40",
-      quote: "bg-pink-200/40",
-      media: "bg-cyan-200/40",
-      custom: "bg-gray-200/40",
-      reader_note: "bg-yellow-200/40"
+      point: "bg-blue-100/30",
+      bible: "bg-purple-100/30",
+      illustration: "bg-green-100/30",
+      application: "bg-orange-100/30",
+      quote: "bg-pink-100/30",
+      media: "bg-cyan-100/30",
+      custom: "bg-gray-100/30",
+      reader_note: "bg-yellow-100/30"
     };
-    return colors[blockKind] || "bg-gray-200/40";
+    return colors[blockKind] || "bg-gray-100/30";
   };
 
   const getCurrentBlockType = () => {
