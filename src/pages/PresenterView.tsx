@@ -19,6 +19,7 @@ import { nanoid } from "nanoid";
 import { InlineBlockEdit } from "@/components/editor/InlineBlockEdit";
 import { BlockDisplay } from "@/components/editor/BlockDisplay";
 import { PresenterTimer } from "@/components/editor/PresenterTimer";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -372,9 +373,9 @@ export default function PresenterView() {
       </div>
 
       {/* Content */}
-      <div className="flex gap-6 p-6">
+      <ResizablePanelGroup direction="horizontal" className="p-6 gap-6">
         {/* Blocks Section */}
-        <div className={`${showAudiencePreview ? 'w-2/3' : 'w-full'} transition-all duration-300`}>
+        <ResizablePanel defaultSize={showAudiencePreview ? 65 : 100} minSize={30}>
           <div className="space-y-4">
             {sermon.blocks.map((block) => {
               const lines = blockLines.get(block.id) || [];
@@ -613,12 +614,14 @@ export default function PresenterView() {
               </Card>
             )}
           </div>
-        </div>
-
+          </ResizablePanel>
+        
         {/* Audience View Preview */}
         {showAudiencePreview && (
-          <div className="w-1/3 sticky top-24 h-fit">
-            <div className="space-y-3">
+          <>
+            <ResizableHandle withHandle className="mx-2" />
+            <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
+            <div className="sticky top-24 h-fit space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Eye className="h-4 w-4 text-muted-foreground" />
@@ -702,9 +705,10 @@ export default function PresenterView() {
                 </Button>
               </div>
             </div>
-          </div>
+            </ResizablePanel>
+          </>
         )}
-      </div>
+      </ResizablePanelGroup>
 
       <PresentationSettingsDialog
         open={showSettings}
