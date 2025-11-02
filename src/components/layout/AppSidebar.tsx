@@ -1,6 +1,6 @@
-import { useState } from "react";
 import { Home, FileText, FileCode, Lightbulb, BookOpen, Archive, LogOut, Moon, Sun } from "lucide-react";
 import { NavLink } from "react-router-dom";
+import { useTheme } from "next-themes";
 import {
   Sidebar,
   SidebarContent,
@@ -31,27 +31,26 @@ const resourceItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const { signOut } = useAuth();
-  const [isDark, setIsDark] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const isDark = theme === "dark";
 
   const getNavClass = ({ isActive }: { isActive: boolean }) =>
     isActive 
-      ? `${isDark ? "bg-accent/20 text-accent" : "bg-accent text-accent-foreground"}`
-      : `${isDark ? "hover:bg-accent/10" : "hover:bg-accent/50"}`;
+      ? "bg-primary text-primary-foreground"
+      : "hover:bg-accent hover:text-accent-foreground";
+
+  const toggleTheme = () => {
+    setTheme(isDark ? "light" : "dark");
+  };
 
   return (
     <Sidebar 
-      className={`${state === "collapsed" ? "w-14" : "w-60"} ${
-        isDark 
-          ? "bg-[hsl(222_47%_12%)] border-[hsl(222_30%_18%)] text-[hsl(210_40%_98%)]" 
-          : "bg-background border-border"
-      }`} 
+      className={`${state === "collapsed" ? "w-14" : "w-60"}`} 
       collapsible="icon"
     >
-      <SidebarContent className={isDark ? "bg-[hsl(222_47%_12%)]" : ""}>
+      <SidebarContent>
         {/* Header */}
-        <div className={`p-4 flex items-center justify-between border-b ${
-          isDark ? "border-[hsl(222_30%_18%)]" : ""
-        }`}>
+        <div className="p-4 flex items-center justify-between border-b">
           <div className="flex items-center gap-2">
             {state !== "collapsed" && (
               <>
@@ -61,7 +60,7 @@ export function AppSidebar() {
             )}
             {state === "collapsed" && <span className="text-2xl">📖</span>}
           </div>
-          <SidebarTrigger className={isDark ? "hover:bg-white/10" : ""} />
+          <SidebarTrigger />
         </div>
 
         {/* Main Navigation */}
@@ -103,13 +102,11 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* Theme Toggle & Sign Out */}
-        <div className={`mt-auto space-y-2 p-4 border-t ${
-          isDark ? "border-[hsl(222_30%_18%)]" : ""
-        }`}>
+        <div className="mt-auto space-y-2 p-4 border-t">
           <Button
             variant="ghost"
-            className={`w-full justify-start ${isDark ? "hover:bg-white/10" : "hover:bg-accent/10"}`}
-            onClick={() => setIsDark(!isDark)}
+            className="w-full justify-start"
+            onClick={toggleTheme}
           >
             {isDark ? (
               <Sun className="h-4 w-4" />
@@ -122,7 +119,7 @@ export function AppSidebar() {
           </Button>
           <Button
             variant="ghost"
-            className={`w-full justify-start ${isDark ? "hover:bg-white/10" : "hover:bg-accent/10"}`}
+            className="w-full justify-start"
             onClick={signOut}
           >
             <LogOut className="h-4 w-4" />
