@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { BlockList } from "@/components/editor/BlockList";
 import { PagesList } from "@/components/editor/PagesList";
 import { DocumentView } from "@/components/editor/DocumentView";
+import { PagesDocumentView } from "@/components/editor/PagesDocumentView";
 import { AddBlockMenu } from "@/components/editor/AddBlockMenu";
 import { PresentationSettingsDialog } from "@/components/editor/PresentationSettingsDialog";
 import { LiveSessionDialog } from "@/components/editor/LiveSessionDialog";
@@ -388,12 +389,22 @@ export default function SermonEditor() {
                       exit={{ opacity: 0, y: -20 }}
                       transition={{ duration: 0.3 }}
                     >
-                      <DocumentView
-                        title={currentSermon.title}
-                        subtitle={currentSermon.subtitle}
-                        blocks={currentSermon.blocks}
-                        updatedAt={currentSermon.updatedAt}
-                      />
+                      {viewByPages && (currentSermon.pages?.length || 0) > 0 ? (
+                        <PagesDocumentView
+                          title={currentSermon.title}
+                          subtitle={currentSermon.subtitle}
+                          blocks={currentSermon.blocks}
+                          pages={currentSermon.pages || []}
+                          updatedAt={currentSermon.updatedAt}
+                        />
+                      ) : (
+                        <DocumentView
+                          title={currentSermon.title}
+                          subtitle={currentSermon.subtitle}
+                          blocks={currentSermon.blocks}
+                          updatedAt={currentSermon.updatedAt}
+                        />
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>

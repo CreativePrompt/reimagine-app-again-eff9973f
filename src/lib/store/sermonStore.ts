@@ -52,6 +52,7 @@ export const useSermonStore = create<SermonState>()(
             title: s.title,
             subtitle: s.subtitle,
             blocks: typeof s.blocks === 'string' ? JSON.parse(s.blocks) : s.blocks,
+            pages: s.pages ? (typeof s.pages === 'string' ? JSON.parse(s.pages) : s.pages) : [],
             createdAt: s.created_at,
             updatedAt: s.updated_at,
           })),
@@ -80,7 +81,7 @@ export const useSermonStore = create<SermonState>()(
           title: data.title,
           subtitle: data.subtitle,
           blocks: typeof data.blocks === 'string' ? JSON.parse(data.blocks) : data.blocks,
-          pages: data.pages ? (typeof data.pages === 'string' ? JSON.parse(data.pages) : data.pages) : [],
+          pages: (data as any).pages ? (typeof (data as any).pages === 'string' ? JSON.parse((data as any).pages) : (data as any).pages) : [],
           createdAt: data.created_at,
           updatedAt: data.updated_at,
         };
@@ -101,6 +102,7 @@ export const useSermonStore = create<SermonState>()(
         title,
         subtitle,
         blocks: [],
+        pages: [],
       };
 
       const { data, error } = await supabase
@@ -110,6 +112,7 @@ export const useSermonStore = create<SermonState>()(
           title: newSermon.title,
           subtitle: newSermon.subtitle,
           blocks: JSON.stringify(newSermon.blocks || []),
+          pages: JSON.stringify(newSermon.pages || []),
         })
         .select()
         .single();
@@ -122,6 +125,7 @@ export const useSermonStore = create<SermonState>()(
           title: data.title,
           subtitle: data.subtitle,
           blocks: typeof data.blocks === 'string' ? JSON.parse(data.blocks) : data.blocks,
+          pages: (data as any).pages ? (typeof (data as any).pages === 'string' ? JSON.parse((data as any).pages) : (data as any).pages) : [],
           createdAt: data.created_at,
           updatedAt: data.updated_at,
         };
@@ -225,6 +229,7 @@ export const useSermonStore = create<SermonState>()(
         title: data.title,
         subtitle: data.subtitle,
         blocks: typeof data.blocks === 'string' ? JSON.parse(data.blocks) : data.blocks,
+        pages: (data as any).pages ? (typeof (data as any).pages === 'string' ? JSON.parse((data as any).pages) : (data as any).pages) : [],
         createdAt: data.created_at,
         updatedAt: data.updated_at,
       };
@@ -244,6 +249,7 @@ export const useSermonStore = create<SermonState>()(
           title: updates.title,
           subtitle: updates.subtitle,
           blocks: updates.blocks ? JSON.stringify(updates.blocks) : undefined,
+          pages: updates.pages ? JSON.stringify(updates.pages) : undefined,
         })
         .eq("id", id);
 
