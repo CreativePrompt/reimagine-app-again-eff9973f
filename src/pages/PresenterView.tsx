@@ -808,15 +808,15 @@ export default function PresenterView() {
                 </Card>
               );
             })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              /* Regular Blocks View */
-              <div className="space-y-4">
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* Regular Blocks View */
+            <div className="space-y-4">
               {sermon.blocks.map((block) => {
               const lines = blockLines.get(block.id) || [];
               const isBlockActive = currentBlockId === block.id;
@@ -951,11 +951,10 @@ export default function PresenterView() {
                     {editMode && editingBlockId === block.id ? (
                       <InlineBlockEdit
                         block={block}
-                        onSave={(updates) => {
+                        onUpdate={(updates) => {
                           handleUpdateBlock(block.id, updates);
                           setEditingBlockId(null);
                         }}
-                        onCancel={() => setEditingBlockId(null)}
                       />
                     ) : (
                       <div>
@@ -1065,11 +1064,31 @@ export default function PresenterView() {
                     </Button>
                   </div>
                 </div>
-              </Card>
             )}
+            
+            {/* View Mode Toggle */}
+            <div className="mt-8 flex items-center justify-center gap-2">
+              <Button
+                variant={liveViewMode === "blocks" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setLiveViewMode("blocks")}
+                className="rounded-xl"
+              >
+                All Blocks
+              </Button>
+              <Button
+                variant={liveViewMode === "pages" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setLiveViewMode("pages")}
+                className="rounded-xl"
+                disabled={!sermon.pages || sermon.pages.length === 0}
+              >
+                Pages
+              </Button>
             </div>
-            )}
           </div>
+          )}
+        </div>
         </ResizablePanel>
         
         {/* Audience View Preview - Fixed */}
