@@ -4,7 +4,6 @@ import { Card } from "@/components/ui/card";
 import { Plus, ListOrdered, BookOpen, Lightbulb, Target, Quote, Image as ImageIcon, FileText, StickyNote } from "lucide-react";
 import { useSermonStore } from "@/lib/store/sermonStore";
 import { BlockKind } from "@/lib/blockTypes";
-import { nanoid } from "nanoid";
 
 const blockTypes: Array<{ kind: BlockKind; label: string; icon: any; description: string }> = [
   { kind: "point", label: "Point", icon: ListOrdered, description: "Add a main point" },
@@ -22,43 +21,7 @@ export function AddBlockMenu() {
   const { addBlock, currentSermon } = useSermonStore();
 
   const handleAddBlock = (kind: BlockKind) => {
-    const order = currentSermon?.blocks.length || 0;
-    const id = nanoid();
-    
-    let newBlock: any = {
-      id,
-      kind,
-      order,
-    };
-
-    switch (kind) {
-      case "point":
-        newBlock = { ...newBlock, title: "", body: "", number: null };
-        break;
-      case "bible":
-        newBlock = { ...newBlock, reference: "", text: "" };
-        break;
-      case "illustration":
-        newBlock = { ...newBlock, title: "", body: "" };
-        break;
-      case "application":
-        newBlock = { ...newBlock, title: "", body: "" };
-        break;
-      case "quote":
-        newBlock = { ...newBlock, text: "" };
-        break;
-      case "media":
-        newBlock = { ...newBlock, url: "", type: "image" };
-        break;
-      case "custom":
-        newBlock = { ...newBlock, title: "", body: "" };
-        break;
-      case "reader_note":
-        newBlock = { ...newBlock, title: "", summary: "" };
-        break;
-    }
-
-    addBlock(newBlock);
+    addBlock(kind);
     setIsOpen(false);
   };
 

@@ -303,6 +303,10 @@ export const useSermonStore = create<SermonState>()(
           case "quote":
             newBlock.text = "";
             break;
+          case "media":
+            newBlock.url = "";
+            newBlock.type = "image";
+            break;
           case "custom":
             newBlock.title = "Custom Block";
             newBlock.body = "";
