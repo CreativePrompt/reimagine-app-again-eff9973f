@@ -179,16 +179,30 @@ export default function PresenterView() {
 
   const getBlockTypeColor = (blockKind: BlockKind) => {
     const colors: Record<BlockKind, string> = {
-      point: "bg-blue-500",
-      bible: "bg-purple-500",
-      illustration: "bg-green-500",
-      application: "bg-orange-500",
-      quote: "bg-pink-500",
-      media: "bg-cyan-500",
-      custom: "bg-gray-500",
-      reader_note: "bg-yellow-500"
+      point: "bg-blue-100 text-blue-600 border-blue-200",
+      bible: "bg-purple-100 text-purple-600 border-purple-200",
+      illustration: "bg-green-100 text-green-600 border-green-200",
+      application: "bg-orange-100 text-orange-600 border-orange-200",
+      quote: "bg-pink-100 text-pink-600 border-pink-200",
+      media: "bg-cyan-100 text-cyan-600 border-cyan-200",
+      custom: "bg-gray-100 text-gray-600 border-gray-200",
+      reader_note: "bg-yellow-100 text-yellow-700 border-yellow-200"
     };
-    return colors[blockKind] || "bg-gray-500";
+    return colors[blockKind] || "bg-gray-100 text-gray-600 border-gray-200";
+  };
+
+  const getBlockTypeBorderColor = (blockKind: BlockKind) => {
+    const colors: Record<BlockKind, string> = {
+      point: "bg-blue-200/40",
+      bible: "bg-purple-200/40",
+      illustration: "bg-green-200/40",
+      application: "bg-orange-200/40",
+      quote: "bg-pink-200/40",
+      media: "bg-cyan-200/40",
+      custom: "bg-gray-200/40",
+      reader_note: "bg-yellow-200/40"
+    };
+    return colors[blockKind] || "bg-gray-200/40";
   };
 
   const getCurrentBlockType = () => {
@@ -456,6 +470,7 @@ export default function PresenterView() {
               const isBlockActive = currentBlockId === block.id;
               const BlockIcon = getBlockTypeIcon(block.kind);
               const blockColor = getBlockTypeColor(block.kind);
+              const blockBorderColor = getBlockTypeBorderColor(block.kind);
               const blockLabel = getBlockTypeLabel(block.kind);
               
               return (
@@ -472,12 +487,12 @@ export default function PresenterView() {
                   onClick={() => !editMode && handleBlockClick(block.id)}
                 >
                   {/* Left border indicator */}
-                  <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${blockColor}`} />
+                  <div className={`absolute left-0 top-0 bottom-0 w-1 ${blockBorderColor}`} />
                   
                   <div className="p-5 pl-7">
                     {/* Block type indicator */}
                     <div className="flex items-center gap-2 mb-3">
-                      <div className={`flex items-center gap-1.5 px-2 py-1 ${blockColor} text-white rounded-md text-xs font-semibold`}>
+                      <div className={`flex items-center gap-1.5 px-2.5 py-1 ${blockColor} rounded-md text-xs font-medium border`}>
                         <BlockIcon className="h-3.5 w-3.5" />
                         <span>{blockLabel}</span>
                       </div>
