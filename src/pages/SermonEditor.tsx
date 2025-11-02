@@ -1,36 +1,41 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSermonStore } from "@/lib/store/sermonStore";
+import { useEditorStore } from "@/lib/store/editorStore";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { BlockList } from "@/components/editor/BlockList";
+import { PagesList } from "@/components/editor/PagesList";
 import { DocumentView } from "@/components/editor/DocumentView";
 import { AddBlockMenu } from "@/components/editor/AddBlockMenu";
 import { PresentationSettingsDialog } from "@/components/editor/PresentationSettingsDialog";
 import { LiveSessionDialog } from "@/components/editor/LiveSessionDialog";
 import { Timer } from "@/components/editor/Timer";
 import { BlockDisplay } from "@/components/editor/BlockDisplay";
-import { Play, Save, ArrowLeft, Settings, LayoutGrid, FileText, ZoomIn, ZoomOut } from "lucide-react";
+import { Play, Save, ArrowLeft, Settings, LayoutGrid, FileText, ZoomIn, ZoomOut, List, FolderTree } from "lucide-react";
 import { toast } from "sonner";
 import { DndContext, DragEndEvent, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { reorderBlocks } from "@/lib/arrayUtils";
 import { motion, AnimatePresence } from "framer-motion";
+import { nanoid } from "nanoid";
 
 export default function SermonEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { currentSermon, loadSermon, saveCurrentSermon, setCurrentSermon, reorderBlocks: reorderInStore } = useSermonStore();
+  const { addPage, updatePage, deletePage } = useEditorStore();
   
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showLiveSession, setShowLiveSession] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [viewMode, setViewMode] = useState<"block" | "document">("block");
+  const [viewByPages, setViewByPages] = useState(false);
   const [zoom, setZoom] = useState(100);
 
   useEffect(() => {
@@ -83,6 +88,48 @@ export default function SermonEditor() {
     }
   };
 
+  const handleAddPage = () => {
+    if (!currentSermon) return;
+    
+    const newPage = {
+      id: nanoid(),
+      title: `Section ${(currentSermon.pages?.length || 0) + 1}`,
+      order: currentSermon.pages?.length || 0,
+      isExpanded: true,
+    };
+    
+    setCurrentSermon({
+      ...currentSermon,
+      pages: [...(currentSermon.pages || []), newPage],
+    });
+  };
+
+  const handleUpdatePage = (pageId: string, title: string) => {
+    if (!currentSermon || !currentSermon.pages) return;
+    
+    setCurrentSermon({
+      ...currentSermon,
+      pages: currentSermon.pages.map(p => 
+        p.id === pageId ? { ...p, title } : p
+      ),
+    });
+  };
+
+  const handleDeletePage = (pageId: string) => {
+    if (!currentSermon || !currentSermon.pages) return;
+    
+    // Remove blocks from the page (unassign them)
+    const updatedBlocks = currentSermon.blocks.map(b => 
+      b.pageId === pageId ? { ...b, pageId: undefined } : b
+    );
+    
+    setCurrentSermon({
+      ...currentSermon,
+      blocks: updatedBlocks,
+      pages: currentSermon.pages.filter(p => p.id !== pageId),
+    });
+  };
+
   if (authLoading || !user || !currentSermon) {
     return (
       <AppLayout>
@@ -123,6 +170,33 @@ export default function SermonEditor() {
                 Document
               </Button>
             </div>
+
+            {/* Pages/List View Toggle - only in block edit mode */}
+            {!isPreviewMode && viewMode === "block" && (
+              <>
+                <div className="h-4 w-px bg-border" />
+                <div className="flex items-center gap-0.5 bg-muted p-0.5 rounded-md">
+                  <Button
+                    variant={!viewByPages ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setViewByPages(false)}
+                    className="h-7 px-3 rounded-md text-xs"
+                  >
+                    <List className="h-3.5 w-3.5 mr-1" />
+                    See All
+                  </Button>
+                  <Button
+                    variant={viewByPages ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setViewByPages(true)}
+                    className="h-7 px-3 rounded-md text-xs"
+                  >
+                    <FolderTree className="h-3.5 w-3.5 mr-1" />
+                    Pages
+                  </Button>
+                </div>
+              </>
+            )}
 
             {/* Zoom Controls - shown in preview mode */}
             {isPreviewMode && (
@@ -280,19 +354,31 @@ export default function SermonEditor() {
                       transition={{ duration: 0.3 }}
                       className="max-w-4xl mx-auto space-y-2"
                     >
-                      <DndContext
-                        collisionDetection={closestCenter}
-                        onDragEnd={handleDragEnd}
-                      >
-                        <SortableContext
-                          items={currentSermon.blocks.map(b => b.id)}
-                          strategy={verticalListSortingStrategy}
-                        >
-                          <BlockList blocks={currentSermon.blocks} />
-                        </SortableContext>
-                      </DndContext>
-                      
-                      <AddBlockMenu />
+                      {viewByPages ? (
+                        <PagesList
+                          pages={currentSermon.pages || []}
+                          blocks={currentSermon.blocks}
+                          onAddPage={handleAddPage}
+                          onUpdatePage={handleUpdatePage}
+                          onDeletePage={handleDeletePage}
+                        />
+                      ) : (
+                        <>
+                          <DndContext
+                            collisionDetection={closestCenter}
+                            onDragEnd={handleDragEnd}
+                          >
+                            <SortableContext
+                              items={currentSermon.blocks.map(b => b.id)}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              <BlockList blocks={currentSermon.blocks} />
+                            </SortableContext>
+                          </DndContext>
+                          
+                          <AddBlockMenu />
+                        </>
+                      )}
                     </motion.div>
                   ) : (
                     <motion.div

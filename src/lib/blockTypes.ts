@@ -4,6 +4,7 @@ export interface BaseBlock {
   id: string;
   kind: BlockKind;
   order: number;
+  pageId?: string;
 }
 
 export interface PointBlock extends BaseBlock {
@@ -71,12 +72,20 @@ export type SermonBlock =
   | CustomBlock
   | ReaderNoteBlock;
 
+export interface SermonPage {
+  id: string;
+  title: string;
+  order: number;
+  isExpanded?: boolean;
+}
+
 export interface Sermon {
   id: string;
   userId: string;
   title: string;
   subtitle?: string;
   blocks: SermonBlock[];
+  pages?: SermonPage[];
   createdAt: string;
   updatedAt: string;
 }

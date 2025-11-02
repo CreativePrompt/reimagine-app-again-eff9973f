@@ -19,7 +19,7 @@ interface SermonState {
   deleteSermon: (id: string) => Promise<void>;
   
   // Block actions
-  addBlock: (kind: BlockKind, afterBlockId?: string) => void;
+  addBlock: (kind: BlockKind, afterBlockId?: string, pageId?: string) => void;
   updateBlock: (blockId: string, updates: Partial<SermonBlock>) => void;
   deleteBlock: (blockId: string) => void;
   reorderBlocks: (blockId: string, newOrder: number) => void;
@@ -80,6 +80,7 @@ export const useSermonStore = create<SermonState>()(
           title: data.title,
           subtitle: data.subtitle,
           blocks: typeof data.blocks === 'string' ? JSON.parse(data.blocks) : data.blocks,
+          pages: data.pages ? (typeof data.pages === 'string' ? JSON.parse(data.pages) : data.pages) : [],
           createdAt: data.created_at,
           updatedAt: data.updated_at,
         };
@@ -272,7 +273,7 @@ export const useSermonStore = create<SermonState>()(
       });
     },
 
-    addBlock: (kind: BlockKind, afterBlockId?: string) => {
+    addBlock: (kind: BlockKind, afterBlockId?: string, pageId?: string) => {
       set((state) => {
         if (!state.currentSermon) return;
 
@@ -280,6 +281,7 @@ export const useSermonStore = create<SermonState>()(
           id: nanoid(),
           kind,
           order: state.currentSermon.blocks.length,
+          ...(pageId && { pageId }),
         };
 
         // Initialize block based on kind

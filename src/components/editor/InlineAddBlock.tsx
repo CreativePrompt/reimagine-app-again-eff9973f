@@ -18,14 +18,15 @@ const blockTypes: Array<{ kind: BlockKind; label: string; icon: any }> = [
 
 interface InlineAddBlockProps {
   afterBlockId?: string;
+  pageId?: string;
 }
 
-export function InlineAddBlock({ afterBlockId }: InlineAddBlockProps) {
+export function InlineAddBlock({ afterBlockId, pageId }: InlineAddBlockProps) {
   const [open, setOpen] = useState(false);
   const { addBlock } = useSermonStore();
 
   const handleAddBlock = (kind: BlockKind) => {
-    addBlock(kind, afterBlockId);
+    addBlock(kind, afterBlockId, pageId);
     setOpen(false);
   };
 

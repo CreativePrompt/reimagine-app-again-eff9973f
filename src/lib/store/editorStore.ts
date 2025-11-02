@@ -1,12 +1,13 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
-import { Sermon, SermonBlock, BlockKind } from "../blockTypes";
+import { Sermon, SermonBlock, SermonPage, BlockKind } from "../blockTypes";
 import { nanoid } from "nanoid";
 
 interface EditorState {
   currentSermon: Sermon | null;
   previewMode: boolean;
   isLoading: boolean;
+  viewByPages: boolean;
   
   // Actions
   initialize: (userId?: string) => void;
@@ -14,13 +15,20 @@ interface EditorState {
   setTitle: (title: string) => void;
   setSeries: (series: string) => void;
   togglePreview: () => void;
+  setViewByPages: (viewByPages: boolean) => void;
   
   // Block operations
-  addBlock: (kind: BlockKind, afterBlockId?: string) => void;
+  addBlock: (kind: BlockKind, afterBlockId?: string, pageId?: string) => void;
   updateBlock: (blockId: string, updates: Partial<SermonBlock>) => void;
   deleteBlock: (blockId: string) => void;
   duplicateBlock: (blockId: string) => void;
   reorderBlocks: (activeId: string, overId: string) => void;
+  
+  // Page operations
+  addPage: (title?: string) => void;
+  updatePage: (pageId: string, updates: Partial<SermonPage>) => void;
+  deletePage: (pageId: string) => void;
+  reorderPages: (activeId: string, overId: string) => void;
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -28,6 +36,7 @@ export const useEditorStore = create<EditorState>()(
     currentSermon: null,
     previewMode: false,
     isLoading: false,
+    viewByPages: false,
 
     initialize: (userId?: string) => {
       // Initialize editor - in production this would load from Supabase
@@ -64,11 +73,17 @@ export const useEditorStore = create<EditorState>()(
       });
     },
 
-    addBlock: (kind, afterBlockId) => {
+    setViewByPages: (viewByPages) => {
+      set((state) => {
+        state.viewByPages = viewByPages;
+      });
+    },
+
+    addBlock: (kind, afterBlockId, pageId) => {
       set((state) => {
         if (!state.currentSermon) return;
 
-        const newBlock = createBlock(kind);
+        const newBlock = createBlock(kind, pageId);
         
         if (afterBlockId) {
           const afterIndex = state.currentSermon.blocks.findIndex(
@@ -163,15 +178,92 @@ export const useEditorStore = create<EditorState>()(
         });
       });
     },
+
+    addPage: (title = "New Page") => {
+      set((state) => {
+        if (!state.currentSermon) return;
+        
+        if (!state.currentSermon.pages) {
+          state.currentSermon.pages = [];
+        }
+
+        const newPage: SermonPage = {
+          id: nanoid(),
+          title,
+          order: state.currentSermon.pages.length,
+          isExpanded: true,
+        };
+
+        state.currentSermon.pages.push(newPage);
+      });
+    },
+
+    updatePage: (pageId, updates) => {
+      set((state) => {
+        if (!state.currentSermon || !state.currentSermon.pages) return;
+
+        const page = state.currentSermon.pages.find((p) => p.id === pageId);
+        if (page) {
+          Object.assign(page, updates);
+        }
+      });
+    },
+
+    deletePage: (pageId) => {
+      set((state) => {
+        if (!state.currentSermon || !state.currentSermon.pages) return;
+
+        // Remove the page
+        state.currentSermon.pages = state.currentSermon.pages.filter(
+          (p) => p.id !== pageId
+        );
+
+        // Unassign blocks from this page
+        state.currentSermon.blocks.forEach((block) => {
+          if (block.pageId === pageId) {
+            delete block.pageId;
+          }
+        });
+
+        // Reorder pages
+        state.currentSermon.pages.forEach((page, index) => {
+          page.order = index;
+        });
+      });
+    },
+
+    reorderPages: (activeId, overId) => {
+      set((state) => {
+        if (!state.currentSermon || !state.currentSermon.pages) return;
+
+        const oldIndex = state.currentSermon.pages.findIndex(
+          (p) => p.id === activeId
+        );
+        const newIndex = state.currentSermon.pages.findIndex(
+          (p) => p.id === overId
+        );
+
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        const [movedPage] = state.currentSermon.pages.splice(oldIndex, 1);
+        state.currentSermon.pages.splice(newIndex, 0, movedPage);
+
+        // Update order
+        state.currentSermon.pages.forEach((page, index) => {
+          page.order = index;
+        });
+      });
+    },
   }))
 );
 
 // Helper function to create a new block
-function createBlock(kind: BlockKind): SermonBlock {
+function createBlock(kind: BlockKind, pageId?: string): SermonBlock {
   const baseBlock = {
     id: nanoid(),
     kind,
     order: 0,
+    ...(pageId && { pageId }),
   };
 
   switch (kind) {

@@ -16,13 +16,20 @@ const blockTypes: Array<{ kind: BlockKind; label: string; icon: any; description
   { kind: "custom", label: "Custom", icon: FileText, description: "Add custom content" },
 ];
 
-export function AddBlockMenu() {
+interface AddBlockMenuProps {
+  afterBlockId?: string;
+  pageId?: string;
+  onClose?: () => void;
+}
+
+export function AddBlockMenu({ afterBlockId, pageId, onClose }: AddBlockMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { addBlock, currentSermon } = useSermonStore();
 
   const handleAddBlock = (kind: BlockKind) => {
-    addBlock(kind);
+    addBlock(kind, afterBlockId, pageId);
     setIsOpen(false);
+    onClose?.();
   };
 
   if (!isOpen) {
