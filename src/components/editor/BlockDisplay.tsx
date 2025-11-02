@@ -125,9 +125,15 @@ export function BlockDisplay({ block }: BlockDisplayProps) {
       )}
       
       {block.kind === "reader_note" && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <h3 className="font-semibold text-lg tracking-tight">{block.title}</h3>
-          <p className="text-base text-foreground/90 whitespace-pre-wrap leading-7">{block.summary}</p>
+          <div className="space-y-3">
+            {block.summaries.map((summary, index) => (
+              <div key={`summary-${index}`} className="text-base text-foreground/90 whitespace-pre-wrap leading-7 pl-3 border-l-2 border-muted">
+                {summary}
+              </div>
+            ))}
+          </div>
           {block.author && (
             <p className="text-sm text-muted-foreground">
               — {block.author}

@@ -326,7 +326,7 @@ function createBlock(kind: BlockKind, pageId?: string): SermonBlock {
         ...baseBlock,
         kind: "reader_note",
         title: "",
-        summary: "",
+        summaries: [""],
         author: "",
         source: "",
       };

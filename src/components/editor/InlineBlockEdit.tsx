@@ -291,19 +291,45 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
               className="h-8"
             />
           </div>
-          <div>
-            <Label className="text-xs">Summary</Label>
-            <Textarea
-              key={`${block.id}-summary`}
-              defaultValue={block.summary}
-              onBlur={(e) => {
-                if (e.target.value !== block.summary) {
-                  onUpdate({ summary: e.target.value });
-                }
-              }}
-              placeholder="Key insights from your reading..."
-              rows={3}
-            />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Summaries</Label>
+              <button
+                type="button"
+                onClick={() => {
+                  onUpdate({ summaries: [...block.summaries, ""] });
+                }}
+                className="text-xs text-primary hover:underline"
+              >
+                + Add Summary
+              </button>
+            </div>
+            {block.summaries.map((summary, index) => (
+              <div key={`${block.id}-summary-${index}`} className="relative">
+                <Textarea
+                  defaultValue={summary}
+                  onBlur={(e) => {
+                    const newSummaries = [...block.summaries];
+                    newSummaries[index] = e.target.value;
+                    onUpdate({ summaries: newSummaries });
+                  }}
+                  placeholder="Key insights from your reading..."
+                  rows={3}
+                />
+                {block.summaries.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newSummaries = block.summaries.filter((_, i) => i !== index);
+                      onUpdate({ summaries: newSummaries });
+                    }}
+                    className="absolute top-2 right-2 text-xs text-destructive hover:underline"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
         </>
       )}

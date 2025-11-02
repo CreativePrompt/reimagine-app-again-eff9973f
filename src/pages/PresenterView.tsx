@@ -313,7 +313,7 @@ export default function PresenterView() {
         newBlock = { id: baseId, kind: "media", order, type: "image", url: "", caption: null };
         break;
       case "reader_note":
-        newBlock = { id: baseId, kind: "reader_note", order, title: "", summary: "", author: null, source: null };
+        newBlock = { id: baseId, kind: "reader_note", order, title: "", summaries: [""], author: null, source: null };
         break;
       case "custom":
         newBlock = { id: baseId, kind: "custom", order, title: "", body: "" };

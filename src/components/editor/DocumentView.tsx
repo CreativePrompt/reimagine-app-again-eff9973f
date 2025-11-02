@@ -132,9 +132,13 @@ export function DocumentView({ title, subtitle, blocks, updatedAt }: DocumentVie
             className={`border-l-4 ${getBlockBorderColor(block.kind)} pl-6 py-4 mb-8 bg-indigo-50/50 dark:bg-indigo-950/20`}
           >
             <h3 className="font-semibold text-lg mb-2">{block.title}</h3>
-            <p className="text-base leading-relaxed text-foreground/90 whitespace-pre-wrap">
-              {block.summary}
-            </p>
+            <div className="space-y-3">
+              {block.summaries.map((summary, index) => (
+                <p key={`summary-${index}`} className="text-base leading-relaxed text-foreground/90 whitespace-pre-wrap pl-3 border-l-2 border-muted">
+                  {summary}
+                </p>
+              ))}
+            </div>
             {block.author && (
               <p className="text-sm text-muted-foreground mt-3">
                 — {block.author}

@@ -159,7 +159,11 @@ export function PagesDocumentView({
                 {block.title}
               </h3>
             </div>
-            <p className="text-base">{block.summary}</p>
+            <div className="space-y-2">
+              {block.summaries.map((summary, index) => (
+                <p key={`summary-${index}`} className="text-base pl-3 border-l-2 border-yellow-400/30">{summary}</p>
+              ))}
+            </div>
             {block.author && (
               <p className="text-sm text-muted-foreground">Author: {block.author}</p>
             )}
