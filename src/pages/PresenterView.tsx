@@ -270,7 +270,7 @@ export default function PresenterView() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Header */}
       <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6 py-4 sticky top-0 z-50">
         <div className="flex items-center justify-between">
@@ -373,7 +373,7 @@ export default function PresenterView() {
       </div>
 
       {/* Content */}
-      <ResizablePanelGroup direction="horizontal" className="h-[calc(100vh-73px)]">
+      <ResizablePanelGroup direction="horizontal" className="flex-1">
         {/* Blocks Section - Scrollable */}
         <ResizablePanel defaultSize={showAudiencePreview ? 65 : 100} minSize={30}>
           <div className="h-full overflow-y-auto p-6">
@@ -623,8 +623,8 @@ export default function PresenterView() {
           <>
             <ResizableHandle withHandle className="mx-2" />
             <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
-            <div className="sticky top-0 h-screen p-6 overflow-hidden">
-            <div className="space-y-3 h-full flex flex-col">
+            <div className="h-full p-6 overflow-hidden flex flex-col">
+            <div className="space-y-3 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Eye className="h-4 w-4 text-muted-foreground" />
