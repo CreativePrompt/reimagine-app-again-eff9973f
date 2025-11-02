@@ -249,9 +249,9 @@ export default function SermonEditor() {
                         <p className="text-xl text-muted-foreground">{currentSermon.subtitle}</p>
                       )}
                     </div>
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                       {currentSermon.blocks.map((block) => (
-                        <div key={block.id} className="animate-fade-in">
+                        <div key={block.id} className="animate-fade-in bg-card rounded-2xl p-6 shadow-sm border">
                           <BlockDisplay block={block} />
                         </div>
                       ))}

@@ -37,10 +37,10 @@ export function AppSidebar() {
     isActive ? "bg-accent text-accent-foreground" : "hover:bg-accent/50";
 
   return (
-    <Sidebar className={state === "collapsed" ? "w-14" : "w-60"} collapsible="icon">
-      <SidebarContent>
+    <Sidebar className={`${state === "collapsed" ? "w-14" : "w-60"} dark:bg-[hsl(var(--sidebar-background))] dark:border-[hsl(var(--sidebar-border))]`} collapsible="icon">
+      <SidebarContent className="dark:bg-[hsl(var(--sidebar-background))]">
         {/* Header */}
-        <div className="p-4 flex items-center justify-between border-b">
+        <div className="p-4 flex items-center justify-between border-b dark:border-[hsl(var(--sidebar-border))]">
           {state !== "collapsed" && (
             <div className="flex items-center gap-2">
               <span className="text-2xl">📖</span>
@@ -89,10 +89,10 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* Theme Toggle & Sign Out */}
-        <div className="mt-auto space-y-2 p-4 border-t">
+        <div className="mt-auto space-y-2 p-4 border-t dark:border-[hsl(var(--sidebar-border))]">
           <Button
             variant="ghost"
-            className="w-full justify-start"
+            className="w-full justify-start hover:bg-accent/10"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           >
             {theme === "dark" ? (
@@ -106,7 +106,7 @@ export function AppSidebar() {
           </Button>
           <Button
             variant="ghost"
-            className="w-full justify-start"
+            className="w-full justify-start hover:bg-accent/10"
             onClick={signOut}
           >
             <LogOut className="h-4 w-4" />
