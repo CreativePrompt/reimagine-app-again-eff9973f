@@ -17,26 +17,26 @@ export default {
         sans: ["Inter", "sans-serif"],
       },
       colors: {
-        // Semantic block colors
+        // Semantic block colors - subtle pastels
         'block-bible': {
-          light: 'hsl(340, 85%, 97%)',
-          DEFAULT: 'hsl(340, 75%, 92%)',
-          border: 'hsl(340, 60%, 85%)',
+          light: 'hsl(340, 30%, 98%)',
+          DEFAULT: 'hsl(340, 25%, 96%)',
+          border: 'hsl(340, 30%, 88%)',
         },
         'block-point': {
-          light: 'hsl(45, 93%, 97%)',
-          DEFAULT: 'hsl(45, 93%, 90%)',
-          border: 'hsl(45, 80%, 80%)',
+          light: 'hsl(45, 40%, 98%)',
+          DEFAULT: 'hsl(45, 35%, 95%)',
+          border: 'hsl(45, 40%, 85%)',
         },
         'block-illustration': {
-          light: 'hsl(200, 90%, 97%)',
-          DEFAULT: 'hsl(200, 90%, 92%)',
-          border: 'hsl(200, 75%, 85%)',
+          light: 'hsl(200, 35%, 98%)',
+          DEFAULT: 'hsl(200, 30%, 95%)',
+          border: 'hsl(200, 35%, 88%)',
         },
         'block-application': {
-          light: 'hsl(160, 80%, 97%)',
-          DEFAULT: 'hsl(160, 70%, 92%)',
-          border: 'hsl(160, 60%, 85%)',
+          light: 'hsl(160, 30%, 98%)',
+          DEFAULT: 'hsl(160, 25%, 95%)',
+          border: 'hsl(160, 30%, 88%)',
         },
         'live-active': {
           DEFAULT: 'hsl(142, 76%, 36%)',

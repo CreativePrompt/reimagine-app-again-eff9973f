@@ -9,11 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { BlockList } from "@/components/editor/BlockList";
 import { DocumentView } from "@/components/editor/DocumentView";
 import { AddBlockMenu } from "@/components/editor/AddBlockMenu";
-import { PreviewDialog } from "@/components/editor/PreviewDialog";
 import { PresentationSettingsDialog } from "@/components/editor/PresentationSettingsDialog";
 import { LiveSessionDialog } from "@/components/editor/LiveSessionDialog";
 import { Timer } from "@/components/editor/Timer";
-import { Eye, Play, Save, ArrowLeft, Settings, LayoutGrid, FileText } from "lucide-react";
+import { BlockDisplay } from "@/components/editor/BlockDisplay";
+import { Play, Save, ArrowLeft, Settings, LayoutGrid, FileText, ZoomIn, ZoomOut } from "lucide-react";
 import { toast } from "sonner";
 import { DndContext, DragEndEvent, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -26,11 +26,12 @@ export default function SermonEditor() {
   const { user, loading: authLoading } = useAuth();
   const { currentSermon, loadSermon, saveCurrentSermon, setCurrentSermon, reorderBlocks: reorderInStore } = useSermonStore();
   
-  const [showPreview, setShowPreview] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showLiveSession, setShowLiveSession] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [viewMode, setViewMode] = useState<"block" | "document">("block");
+  const [zoom, setZoom] = useState(100);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -100,15 +101,15 @@ export default function SermonEditor() {
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Header */}
         <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6 py-4 sticky top-0 z-10">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => navigate("/dashboard")}
-              className="hover:bg-accent transition-colors"
+              className="hover:bg-accent transition-colors rounded-xl"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
+              Back to {isPreviewMode ? "Edit" : "Dashboard"}
             </Button>
             
             <div className="flex items-center gap-3">
@@ -118,7 +119,7 @@ export default function SermonEditor() {
                   variant={viewMode === "block" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("block")}
-                  className="h-8"
+                  className="h-8 rounded-lg"
                 >
                   <LayoutGrid className="h-4 w-4 mr-1" />
                   Block
@@ -127,12 +128,40 @@ export default function SermonEditor() {
                   variant={viewMode === "document" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("document")}
-                  className="h-8"
+                  className="h-8 rounded-lg"
                 >
                   <FileText className="h-4 w-4 mr-1" />
                   Document
                 </Button>
               </div>
+
+              {/* Zoom Controls - shown in preview mode */}
+              {isPreviewMode && (
+                <>
+                  <div className="h-6 w-px bg-border" />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setZoom(Math.max(50, zoom - 10))}
+                      className="h-8 w-8 rounded-lg"
+                    >
+                      <ZoomOut className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm font-medium min-w-[4rem] text-center">
+                      {zoom}%
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setZoom(Math.min(200, zoom + 10))}
+                      className="h-8 w-8 rounded-lg"
+                    >
+                      <ZoomIn className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </>
+              )}
 
               <div className="h-6 w-px bg-border" />
 
@@ -140,25 +169,25 @@ export default function SermonEditor() {
                 variant="outline"
                 size="sm"
                 onClick={() => setShowSettings(true)}
-                className="hover:bg-accent transition-colors"
+                className="hover:bg-accent transition-colors rounded-xl"
               >
                 <Settings className="h-4 w-4 mr-2" />
                 Settings
               </Button>
               <Button
-                variant="outline"
+                variant={isPreviewMode ? "default" : "outline"}
                 size="sm"
-                onClick={() => setShowPreview(true)}
-                className="hover:bg-accent transition-colors"
+                onClick={() => setIsPreviewMode(!isPreviewMode)}
+                className="hover:bg-accent transition-colors rounded-xl"
               >
-                <Eye className="h-4 w-4 mr-2" />
-                Preview
+                <LayoutGrid className="h-4 w-4 mr-2" />
+                {isPreviewMode ? "Exit Preview" : "Preview"}
               </Button>
               <Button
                 variant="default"
                 size="sm"
                 onClick={() => setShowLiveSession(true)}
-                className="bg-primary hover:bg-primary/90 transition-all hover:shadow-lg"
+                className="bg-primary hover:bg-primary/90 transition-all hover:shadow-lg rounded-xl"
               >
                 <Play className="h-4 w-4 mr-2" />
                 Go Live
@@ -168,7 +197,7 @@ export default function SermonEditor() {
                 size="sm"
                 onClick={handleSave}
                 disabled={isSaving}
-                className="transition-all hover:shadow-lg"
+                className="transition-all hover:shadow-lg rounded-xl"
               >
                 <Save className="h-4 w-4 mr-2" />
                 {isSaving ? "Saving..." : "Save"}
@@ -180,74 +209,120 @@ export default function SermonEditor() {
             </div>
           </div>
           
-          <div className="space-y-2">
-            <Input
-              value={currentSermon.title}
-              onChange={(e) => handleTitleChange(e.target.value)}
-              placeholder="Sermon Title"
-              className="text-2xl font-bold border-0 px-0 focus-visible:ring-0"
-            />
-            <Textarea
-              value={currentSermon.subtitle || ""}
-              onChange={(e) => handleSubtitleChange(e.target.value)}
-              placeholder="Add a subtitle or description..."
-              className="border-0 px-0 resize-none focus-visible:ring-0 text-muted-foreground"
-              rows={2}
-            />
-          </div>
+          {!isPreviewMode && (
+            <div className="space-y-2 mt-4">
+              <Input
+                value={currentSermon.title}
+                onChange={(e) => handleTitleChange(e.target.value)}
+                placeholder="Sermon Title"
+                className="text-2xl font-bold border-0 px-0 focus-visible:ring-0"
+              />
+              <Textarea
+                value={currentSermon.subtitle || ""}
+                onChange={(e) => handleSubtitleChange(e.target.value)}
+                placeholder="Add a subtitle or description..."
+                className="border-0 px-0 resize-none focus-visible:ring-0 text-muted-foreground"
+                rows={2}
+              />
+            </div>
+          )}
         </div>
 
-        {/* Editor Content */}
-        <div className="flex-1 overflow-auto px-6 py-8 bg-gradient-to-b from-background to-background/95">
+        {/* Editor/Preview Content */}
+        <div className="flex-1 overflow-auto">
           <AnimatePresence mode="wait">
-            {viewMode === "block" ? (
+            {isPreviewMode ? (
+              /* Preview Mode */
               <motion.div
-                key="block-view"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
+                key="preview-mode"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
-                className="max-w-4xl mx-auto space-y-4"
+                className="h-full bg-background"
+                style={{ zoom: `${zoom}%` }}
               >
-                <DndContext
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={currentSermon.blocks.map(b => b.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <BlockList blocks={currentSermon.blocks} />
-                  </SortableContext>
-                </DndContext>
-                
-                <AddBlockMenu />
+                {viewMode === "block" ? (
+                  <div className="max-w-5xl mx-auto px-6 py-8">
+                    <div className="mb-8">
+                      <h1 className="text-4xl font-bold mb-2">{currentSermon.title}</h1>
+                      {currentSermon.subtitle && (
+                        <p className="text-xl text-muted-foreground">{currentSermon.subtitle}</p>
+                      )}
+                    </div>
+                    <div className="space-y-6">
+                      {currentSermon.blocks.map((block) => (
+                        <div key={block.id} className="animate-fade-in">
+                          <BlockDisplay block={block} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <DocumentView
+                    title={currentSermon.title}
+                    subtitle={currentSermon.subtitle}
+                    blocks={currentSermon.blocks}
+                    updatedAt={currentSermon.updatedAt}
+                  />
+                )}
               </motion.div>
             ) : (
+              /* Edit Mode */
               <motion.div
-                key="document-view"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
+                key="edit-mode"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
+                className="px-6 py-8 bg-gradient-to-b from-background to-background/95"
               >
-                <DocumentView
-                  title={currentSermon.title}
-                  subtitle={currentSermon.subtitle}
-                  blocks={currentSermon.blocks}
-                  updatedAt={currentSermon.updatedAt}
-                />
+                <AnimatePresence mode="wait">
+                  {viewMode === "block" ? (
+                    <motion.div
+                      key="block-view"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                      className="max-w-4xl mx-auto space-y-4"
+                    >
+                      <DndContext
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <SortableContext
+                          items={currentSermon.blocks.map(b => b.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <BlockList blocks={currentSermon.blocks} />
+                        </SortableContext>
+                      </DndContext>
+                      
+                      <AddBlockMenu />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="document-view"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <DocumentView
+                        title={currentSermon.title}
+                        subtitle={currentSermon.subtitle}
+                        blocks={currentSermon.blocks}
+                        updatedAt={currentSermon.updatedAt}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
       </div>
-
-      <PreviewDialog
-        open={showPreview}
-        onOpenChange={setShowPreview}
-        sermon={currentSermon}
-      />
       
       <PresentationSettingsDialog
         open={showSettings}
