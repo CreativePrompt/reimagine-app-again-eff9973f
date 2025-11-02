@@ -409,9 +409,10 @@ export default function PresenterView() {
               {editMode ? (
                 <div className="space-y-1">
                   <Input
-                    value={sermon.title}
-                    onChange={(e) => {
-                      if (sermon) {
+                    key="title-input"
+                    defaultValue={sermon.title}
+                    onBlur={(e) => {
+                      if (sermon && e.target.value !== sermon.title) {
                         updateSermonData({ ...sermon, title: e.target.value });
                       }
                     }}
@@ -419,9 +420,10 @@ export default function PresenterView() {
                     className="h-8 font-semibold"
                   />
                   <Input
-                    value={sermon.subtitle || ""}
-                    onChange={(e) => {
-                      if (sermon) {
+                    key="subtitle-input"
+                    defaultValue={sermon.subtitle || ""}
+                    onBlur={(e) => {
+                      if (sermon && e.target.value !== sermon.subtitle) {
                         updateSermonData({ ...sermon, subtitle: e.target.value });
                       }
                     }}
