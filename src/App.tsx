@@ -8,6 +8,10 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Templates from "./pages/Templates";
+import SermonEditor from "./pages/SermonEditor";
+import SermonsList from "./pages/SermonsList";
+import PresentationView from "./pages/PresentationView";
+import PresenterView from "./pages/PresenterView";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,7 +28,10 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/templates" element={<Templates />} />
-            <Route path="/sermons" element={<Dashboard />} />
+            <Route path="/sermons" element={<SermonsList />} />
+            <Route path="/sermon/:id" element={<SermonEditor />} />
+            <Route path="/present/:sessionId" element={<PresentationView />} />
+            <Route path="/presenter/:sessionId" element={<PresenterView />} />
             <Route path="/ideas" element={<Dashboard />} />
             <Route path="/resources" element={<Dashboard />} />
             <Route path="/archive" element={<Dashboard />} />
