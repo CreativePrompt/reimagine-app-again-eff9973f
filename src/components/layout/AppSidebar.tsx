@@ -1,5 +1,6 @@
-import { Home, FileText, FileCode, Lightbulb, BookOpen, Archive, LogOut } from "lucide-react";
+import { Home, FileText, FileCode, Lightbulb, BookOpen, Archive, LogOut, Moon, Sun } from "lucide-react";
 import { NavLink } from "react-router-dom";
+import { useTheme } from "next-themes";
 import {
   Sidebar,
   SidebarContent,
@@ -30,6 +31,7 @@ const resourceItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const { signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
 
   const getNavClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? "bg-accent text-accent-foreground" : "hover:bg-accent/50";
@@ -86,8 +88,22 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Sign Out */}
-        <div className="mt-auto p-4 border-t">
+        {/* Theme Toggle & Sign Out */}
+        <div className="mt-auto space-y-2 p-4 border-t">
+          <Button
+            variant="ghost"
+            className="w-full justify-start"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          >
+            {theme === "dark" ? (
+              <Sun className="h-4 w-4" />
+            ) : (
+              <Moon className="h-4 w-4" />
+            )}
+            {state !== "collapsed" && (
+              <span className="ml-2">{theme === "dark" ? "Light" : "Dark"} Mode</span>
+            )}
+          </Button>
           <Button
             variant="ghost"
             className="w-full justify-start"

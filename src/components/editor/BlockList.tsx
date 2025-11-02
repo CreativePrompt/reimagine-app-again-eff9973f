@@ -1,5 +1,6 @@
 import { SermonBlock } from "@/lib/blockTypes";
 import { BlockItem } from "./BlockItem";
+import { InlineAddBlock } from "./InlineAddBlock";
 
 interface BlockListProps {
   blocks: SermonBlock[];
@@ -16,9 +17,12 @@ export function BlockList({ blocks }: BlockListProps) {
   }
 
   return (
-    <div className="space-y-3">
-      {blocks.map((block) => (
-        <BlockItem key={block.id} block={block} />
+    <div className="space-y-2 group/list">
+      {blocks.map((block, index) => (
+        <div key={block.id}>
+          <BlockItem block={block} />
+          {index < blocks.length - 1 && <InlineAddBlock afterBlockId={block.id} />}
+        </div>
       ))}
     </div>
   );
