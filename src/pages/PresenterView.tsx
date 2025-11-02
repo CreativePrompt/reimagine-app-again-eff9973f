@@ -176,6 +176,15 @@ export default function PresenterView() {
       lines.set(block.id, extractTextLines(block));
     });
     setBlockLines(lines);
+
+    // Broadcast sermon updates to audience
+    if (channel) {
+      channel.send({
+        type: 'broadcast',
+        event: 'sermon-data',
+        payload: { sermon: updatedSermon }
+      });
+    }
   };
 
   const handleUpdateBlock = (blockId: string, updates: Partial<SermonBlock>) => {
