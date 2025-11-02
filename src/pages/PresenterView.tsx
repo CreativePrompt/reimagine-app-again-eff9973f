@@ -4,7 +4,7 @@ import { Sermon, SermonBlock, BlockKind } from "@/lib/blockTypes";
 import { extractTextLines, extractBlockTitle, extractBlockContent } from "@/lib/presentationUtils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Play, Square, Eye, Maximize2, Minimize2, Edit, Settings, Trash2, Plus, X, Check, Power, BookOpen, Lightbulb, Quote, MessageSquare, Image as ImageIcon, FileText, StickyNote } from "lucide-react";
+import { ArrowLeft, Play, Square, Eye, Maximize2, Minimize2, Edit, Settings, Trash2, Plus, X, Check, Power, BookOpen, Lightbulb, Quote, MessageSquare, Image as ImageIcon, FileText, StickyNote, List, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -440,6 +440,30 @@ export default function PresenterView() {
               {editMode ? <Check className="h-4 w-4 mr-2" /> : <Edit className="h-4 w-4 mr-2" />}
               {editMode ? "Done Editing" : "Edit Sermon"}
             </Button>
+            
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-1 border rounded-xl p-1">
+              <Button
+                variant={liveViewMode === "blocks" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setLiveViewMode("blocks")}
+                className="h-8 px-3 rounded-lg"
+              >
+                <List className="h-4 w-4 mr-1.5" />
+                All Blocks
+              </Button>
+              <Button
+                variant={liveViewMode === "pages" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setLiveViewMode("pages")}
+                className="h-8 px-3 rounded-lg"
+                disabled={!sermon.pages || sermon.pages.length === 0}
+              >
+                <Layers className="h-4 w-4 mr-1.5" />
+                Pages
+              </Button>
+            </div>
+            
             <Button
               variant="outline"
               size="sm"
@@ -1065,27 +1089,6 @@ export default function PresenterView() {
                   </div>
                 </div>
             )}
-            
-            {/* View Mode Toggle */}
-            <div className="mt-8 flex items-center justify-center gap-2">
-              <Button
-                variant={liveViewMode === "blocks" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setLiveViewMode("blocks")}
-                className="rounded-xl"
-              >
-                All Blocks
-              </Button>
-              <Button
-                variant={liveViewMode === "pages" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setLiveViewMode("pages")}
-                className="rounded-xl"
-                disabled={!sermon.pages || sermon.pages.length === 0}
-              >
-                Pages
-              </Button>
-            </div>
           </div>
           )}
         </div>
