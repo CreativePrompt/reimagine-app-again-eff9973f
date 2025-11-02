@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { loadSettings, saveSettings, PresentationSettings } from "@/lib/liveChannel";
 import { Sermon, SermonBlock } from "@/lib/blockTypes";
 import { extractTextLines } from "@/lib/presentationUtils";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function PresentationView() {
   const { sessionId } = useParams();
@@ -30,29 +31,40 @@ export default function PresentationView() {
       setAllLines(lines);
     }
 
-    // Listen for presentation updates via BroadcastChannel
-    const channel = new BroadcastChannel(`presentation-${sessionId}`);
-    
-    channel.onmessage = (event) => {
-      const { type, blockId, lineIndex, settings: newSettings } = event.data;
-      
-      if (type === "block") {
-        setCurrentBlockId(blockId);
-        setCurrentLineIndex(null);
-      } else if (type === "line") {
-        setCurrentBlockId(blockId);
-        setCurrentLineIndex(lineIndex);
-      } else if (type === "clear") {
-        setCurrentBlockId(null);
-        setCurrentLineIndex(null);
-      } else if (type === "settings") {
-        setSettings(newSettings);
-        saveSettings(newSettings);
+    // Listen for presentation updates via Supabase Realtime
+    const channel = supabase.channel(`presentation-${sessionId}`, {
+      config: {
+        broadcast: { self: false }
       }
-    };
+    });
+    
+    channel
+      .on('broadcast', { event: 'presentation-update' }, (payload) => {
+        console.log('Received message:', payload);
+        const { type, blockId, lineIndex, settings: newSettings } = payload.payload;
+        
+        if (type === "block") {
+          setCurrentBlockId(blockId);
+          setCurrentLineIndex(null);
+        } else if (type === "line") {
+          setCurrentBlockId(blockId);
+          setCurrentLineIndex(lineIndex);
+        } else if (type === "clear") {
+          setCurrentBlockId(null);
+          setCurrentLineIndex(null);
+        } else if (type === "settings") {
+          setSettings(newSettings);
+          saveSettings(newSettings);
+        }
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Audience connected to realtime channel');
+        }
+      });
 
     return () => {
-      channel.close();
+      channel.unsubscribe();
     };
   }, [sessionId]);
 

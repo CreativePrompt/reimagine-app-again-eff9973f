@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, Play, Square, Eye, Maximize2, Minimize2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export default function PresenterView() {
   const { sessionId } = useParams();
@@ -14,7 +16,7 @@ export default function PresenterView() {
   const [sermon, setSermon] = useState<Sermon | null>(null);
   const [currentBlockId, setCurrentBlockId] = useState<string | null>(null);
   const [currentLineIndex, setCurrentLineIndex] = useState<number | null>(null);
-  const [channel, setChannel] = useState<BroadcastChannel | null>(null);
+  const [channel, setChannel] = useState<RealtimeChannel | null>(null);
   const [blockLines, setBlockLines] = useState<Map<string, string[]>>(new Map());
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAudiencePreview, setShowAudiencePreview] = useState(true);
@@ -35,18 +37,34 @@ export default function PresenterView() {
       setBlockLines(lines);
     }
 
-    // Set up broadcast channel
-    const bc = new BroadcastChannel(`presentation-${sessionId}`);
-    setChannel(bc);
+    // Set up Supabase Realtime channel for cross-device broadcasting
+    const realtimeChannel = supabase.channel(`presentation-${sessionId}`, {
+      config: {
+        broadcast: { self: true }
+      }
+    });
+
+    realtimeChannel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log('Presenter connected to realtime channel');
+      }
+    });
+
+    setChannel(realtimeChannel);
 
     return () => {
-      bc.close();
+      realtimeChannel.unsubscribe();
     };
   }, [sessionId]);
 
   const sendMessage = (type: string, blockId?: string | null, lineIndex?: number | null) => {
     if (channel) {
-      channel.postMessage({ type, blockId, lineIndex });
+      channel.send({
+        type: 'broadcast',
+        event: 'presentation-update',
+        payload: { type, blockId, lineIndex }
+      });
+      console.log('Sent message:', { type, blockId, lineIndex });
     }
   };
 
