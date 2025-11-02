@@ -227,6 +227,24 @@ export function PresentationSettingsDialog({ open, onOpenChange, onSave, current
             />
           </div>
 
+          <div className="pt-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setSettings({
+                  ...settings,
+                  textBoxPadding: 12,
+                  showTextBox: false,
+                  lineHeight: 1.6,
+                  wordSpacing: 3,
+                });
+              }}
+              className="w-full"
+            >
+              Reset Text Formatting
+            </Button>
+          </div>
+
           <Button onClick={handleSave} className="w-full">
             Save Settings
           </Button>

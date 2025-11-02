@@ -26,14 +26,14 @@ export const defaultSettings: PresentationSettings = {
   textColor: "white",
   uppercase: false,
   align: "center",
-  sizeScale: 1.0,
+  sizeScale: 1.5,
   showFilmstrip: false,
   dimInactive: false,
   showWaitingMessage: true,
-  textBoxPadding: 8,
-  showTextBox: true,
-  lineHeight: 1.8,
-  wordSpacing: 0,
+  textBoxPadding: 12,
+  showTextBox: false,
+  lineHeight: 1.6,
+  wordSpacing: 3,
 };
 
 export interface Message {
