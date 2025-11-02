@@ -142,6 +142,26 @@ export default function PresenterView() {
     sendMessage("clear");
   };
 
+  const getBlockTypeLabel = (blockKind: BlockKind) => {
+    const labels: Record<BlockKind, string> = {
+      point: "Main Point",
+      bible: "Bible Verse",
+      illustration: "Illustration",
+      application: "Application",
+      quote: "Quote",
+      media: "Media",
+      custom: "Custom",
+      reader_note: "Reader's Note"
+    };
+    return labels[blockKind] || blockKind;
+  };
+
+  const getCurrentBlockType = () => {
+    if (!currentBlockId || !sermon) return null;
+    const block = sermon.blocks.find(b => b.id === currentBlockId);
+    return block ? getBlockTypeLabel(block.kind) : null;
+  };
+
   const handleEndLive = () => {
     // Close channel and navigate back to sermon page
     if (channel) {
@@ -655,6 +675,14 @@ export default function PresenterView() {
                   </span>
                 </div>
               </div>
+
+              {getCurrentBlockType() && (
+                <div className="flex items-center justify-center">
+                  <Badge variant="secondary" className="text-xs font-semibold px-3 py-1">
+                    Currently Showing: {getCurrentBlockType()}
+                  </Badge>
+                </div>
+              )}
               
               <div 
                 className="aspect-video rounded-2xl overflow-hidden shadow-xl border-2 border-border relative"
