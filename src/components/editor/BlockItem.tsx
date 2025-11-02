@@ -42,9 +42,9 @@ export function BlockItem({ block }: BlockItemProps) {
     <Card
       ref={setNodeRef}
       style={style}
-      className="group relative hover:shadow-md transition-shadow"
+      className="group relative hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 bg-card/50 backdrop-blur"
     >
-      <div className="flex items-start gap-2 p-4">
+      <div className="flex items-start gap-3 p-5">
         {/* Drag Handle */}
         <button
           className="mt-1 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"

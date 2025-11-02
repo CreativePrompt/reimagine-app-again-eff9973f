@@ -7,15 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { BlockList } from "@/components/editor/BlockList";
+import { DocumentView } from "@/components/editor/DocumentView";
 import { AddBlockMenu } from "@/components/editor/AddBlockMenu";
 import { PreviewDialog } from "@/components/editor/PreviewDialog";
 import { PresentationSettingsDialog } from "@/components/editor/PresentationSettingsDialog";
 import { LiveSessionDialog } from "@/components/editor/LiveSessionDialog";
-import { Eye, Play, Save, ArrowLeft, Settings } from "lucide-react";
+import { Timer } from "@/components/editor/Timer";
+import { Eye, Play, Save, ArrowLeft, Settings, LayoutGrid, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { DndContext, DragEndEvent, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { reorderBlocks } from "@/lib/arrayUtils";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function SermonEditor() {
   const { id } = useParams();
@@ -27,6 +30,7 @@ export default function SermonEditor() {
   const [showSettings, setShowSettings] = useState(false);
   const [showLiveSession, setShowLiveSession] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [viewMode, setViewMode] = useState<"block" | "document">("block");
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -95,22 +99,48 @@ export default function SermonEditor() {
     <AppLayout>
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Header */}
-        <div className="border-b bg-background px-6 py-4">
+        <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6 py-4 sticky top-0 z-10">
           <div className="flex items-center justify-between mb-4">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => navigate("/dashboard")}
+              className="hover:bg-accent transition-colors"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Dashboard
             </Button>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-1 bg-muted p-1 rounded-lg">
+                <Button
+                  variant={viewMode === "block" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("block")}
+                  className="h-8"
+                >
+                  <LayoutGrid className="h-4 w-4 mr-1" />
+                  Block
+                </Button>
+                <Button
+                  variant={viewMode === "document" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("document")}
+                  className="h-8"
+                >
+                  <FileText className="h-4 w-4 mr-1" />
+                  Document
+                </Button>
+              </div>
+
+              <div className="h-6 w-px bg-border" />
+
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowSettings(true)}
+                className="hover:bg-accent transition-colors"
               >
                 <Settings className="h-4 w-4 mr-2" />
                 Settings
@@ -119,6 +149,7 @@ export default function SermonEditor() {
                 variant="outline"
                 size="sm"
                 onClick={() => setShowPreview(true)}
+                className="hover:bg-accent transition-colors"
               >
                 <Eye className="h-4 w-4 mr-2" />
                 Preview
@@ -127,6 +158,7 @@ export default function SermonEditor() {
                 variant="default"
                 size="sm"
                 onClick={() => setShowLiveSession(true)}
+                className="bg-primary hover:bg-primary/90 transition-all hover:shadow-lg"
               >
                 <Play className="h-4 w-4 mr-2" />
                 Go Live
@@ -136,10 +168,15 @@ export default function SermonEditor() {
                 size="sm"
                 onClick={handleSave}
                 disabled={isSaving}
+                className="transition-all hover:shadow-lg"
               >
                 <Save className="h-4 w-4 mr-2" />
                 {isSaving ? "Saving..." : "Save"}
               </Button>
+
+              <div className="h-6 w-px bg-border" />
+
+              <Timer />
             </div>
           </div>
           
@@ -161,22 +198,48 @@ export default function SermonEditor() {
         </div>
 
         {/* Editor Content */}
-        <div className="flex-1 overflow-auto px-6 py-6">
-          <div className="max-w-4xl mx-auto space-y-4">
-            <DndContext
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={currentSermon.blocks.map(b => b.id)}
-                strategy={verticalListSortingStrategy}
+        <div className="flex-1 overflow-auto px-6 py-8 bg-gradient-to-b from-background to-background/95">
+          <AnimatePresence mode="wait">
+            {viewMode === "block" ? (
+              <motion.div
+                key="block-view"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="max-w-4xl mx-auto space-y-4"
               >
-                <BlockList blocks={currentSermon.blocks} />
-              </SortableContext>
-            </DndContext>
-            
-            <AddBlockMenu />
-          </div>
+                <DndContext
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={currentSermon.blocks.map(b => b.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <BlockList blocks={currentSermon.blocks} />
+                  </SortableContext>
+                </DndContext>
+                
+                <AddBlockMenu />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="document-view"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <DocumentView
+                  title={currentSermon.title}
+                  subtitle={currentSermon.subtitle}
+                  blocks={currentSermon.blocks}
+                  updatedAt={currentSermon.updatedAt}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 

@@ -37,98 +37,109 @@ const kindColors = {
   reader_note: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300",
 };
 
+const kindBorderColors = {
+  point: "border-l-amber-500",
+  bible: "border-l-blue-500",
+  illustration: "border-l-yellow-500",
+  application: "border-l-green-500",
+  quote: "border-l-pink-500",
+  media: "border-l-orange-500",
+  custom: "border-l-gray-500",
+  reader_note: "border-l-indigo-500",
+};
+
 export function BlockDisplay({ block }: BlockDisplayProps) {
   const Icon = kindIcons[block.kind];
+  const borderColor = kindBorderColors[block.kind];
   
   return (
-    <div className="space-y-2">
+    <div className={`border-l-4 ${borderColor} pl-4 space-y-3`}>
       <div className="flex items-center gap-2">
-        <Badge variant="outline" className={kindColors[block.kind]}>
-          <Icon className="h-3 w-3 mr-1" />
-          {block.kind}
-        </Badge>
+        <Icon className="h-4 w-4 text-muted-foreground" />
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          {block.kind === "bible" ? "Bible Passage" : block.kind}
+        </span>
       </div>
       
       {block.kind === "point" && (
         <div>
-          <h3 className="font-semibold text-lg">
+          <h3 className="font-bold text-xl mb-2">
             {block.number !== null && `${block.number}. `}
             {block.title}
           </h3>
-          <p className="text-muted-foreground whitespace-pre-wrap">{block.body}</p>
+          <p className="text-foreground/80 whitespace-pre-wrap leading-relaxed">{block.body}</p>
         </div>
       )}
       
       {block.kind === "bible" && (
         <div>
-          <h3 className="font-semibold text-lg">{block.reference}</h3>
-          <p className="text-muted-foreground whitespace-pre-wrap italic">"{block.text}"</p>
-          {block.translation && (
-            <p className="text-sm text-muted-foreground mt-1">— {block.translation}</p>
-          )}
+          <h3 className="font-semibold text-lg mb-2">{block.reference}</h3>
+          <blockquote className="text-foreground/80 whitespace-pre-wrap italic leading-relaxed">
+            "{block.text}"
+          </blockquote>
           {block.notes && (
-            <p className="text-sm text-muted-foreground mt-2">{block.notes}</p>
+            <p className="text-sm text-muted-foreground mt-3">
+              <span className="font-medium">Notes:</span> {block.notes}
+            </p>
           )}
         </div>
       )}
       
       {block.kind === "illustration" && (
         <div>
-          <h3 className="font-semibold text-lg">{block.title}</h3>
-          <p className="text-muted-foreground whitespace-pre-wrap">{block.body}</p>
+          <p className="text-foreground/80 whitespace-pre-wrap leading-relaxed">{block.body}</p>
         </div>
       )}
       
       {block.kind === "application" && (
         <div>
-          <h3 className="font-semibold text-lg">{block.title}</h3>
-          <p className="text-muted-foreground whitespace-pre-wrap">{block.body}</p>
+          <p className="text-foreground/80 whitespace-pre-wrap leading-relaxed">{block.body}</p>
         </div>
       )}
       
       {block.kind === "quote" && (
         <div>
-          <blockquote className="border-l-4 border-primary pl-4 italic text-muted-foreground">
+          <blockquote className="text-foreground/80 italic text-lg leading-relaxed">
             "{block.text}"
           </blockquote>
           {block.author && (
-            <p className="text-sm text-muted-foreground mt-2">— {block.author}</p>
-          )}
-          {block.source && (
-            <p className="text-xs text-muted-foreground">{block.source}</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              — {block.author}
+              {block.source && `, ${block.source}`}
+            </p>
           )}
         </div>
       )}
       
       {block.kind === "media" && (
         <div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
             <ImageIcon className="h-4 w-4" />
-            <span>{block.type}</span>
+            <span className="capitalize">{block.type}</span>
           </div>
-          <p className="font-mono text-sm break-all">{block.url}</p>
+          <p className="font-mono text-sm break-all text-foreground/70">{block.url}</p>
           {block.caption && (
-            <p className="text-sm text-muted-foreground mt-1">{block.caption}</p>
+            <p className="text-sm text-muted-foreground mt-2">{block.caption}</p>
           )}
         </div>
       )}
       
       {block.kind === "custom" && (
         <div>
-          <h3 className="font-semibold text-lg">{block.title}</h3>
-          <p className="text-muted-foreground whitespace-pre-wrap">{block.body}</p>
+          <h3 className="font-semibold text-lg mb-2">{block.title}</h3>
+          <p className="text-foreground/80 whitespace-pre-wrap leading-relaxed">{block.body}</p>
         </div>
       )}
       
       {block.kind === "reader_note" && (
         <div>
-          <h3 className="font-semibold text-lg">{block.title}</h3>
-          <p className="text-muted-foreground whitespace-pre-wrap">{block.summary}</p>
+          <h3 className="font-semibold text-lg mb-2">{block.title}</h3>
+          <p className="text-foreground/80 whitespace-pre-wrap leading-relaxed">{block.summary}</p>
           {block.author && (
-            <p className="text-sm text-muted-foreground mt-2">— {block.author}</p>
-          )}
-          {block.source && (
-            <p className="text-xs text-muted-foreground">{block.source}</p>
+            <p className="text-sm text-muted-foreground mt-3">
+              — {block.author}
+              {block.source && `, ${block.source}`}
+            </p>
           )}
         </div>
       )}
