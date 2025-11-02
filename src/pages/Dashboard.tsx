@@ -53,7 +53,7 @@ export default function Dashboard() {
 
   return (
     <AppLayout>
-      <div className="flex-1 px-6 md:px-10 py-8 overflow-auto">
+      <div className="flex-1 px-6 md:px-10 py-8 overflow-auto bg-background">
         {/* Hero Section */}
         <motion.div
           className="mb-12"
@@ -62,18 +62,18 @@ export default function Dashboard() {
           transition={{ duration: 0.5 }}
         >
           <div className="text-center max-w-2xl mx-auto">
-            <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
+            <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
               Welcome to Preachery
             </h1>
             <p className="text-lg text-muted-foreground mb-8">
               Your powerful sermon preparation tool. Turn inspiration into impactful messages with our intuitive block editor.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="rounded-xl px-8" onClick={handleNewSermon}>
+              <Button size="lg" className="rounded-xl px-8 shadow-md hover:shadow-lg transition-shadow" onClick={handleNewSermon}>
                 <Plus className="mr-2 h-5 w-5" />
                 Start New Sermon
               </Button>
-              <Button size="lg" variant="outline" className="rounded-xl px-8" onClick={() => navigate("/templates")}>
+              <Button size="lg" variant="outline" className="rounded-xl px-8 hover:bg-primary/5" onClick={() => navigate("/templates")}>
                 <FileText className="mr-2 h-5 w-5" />
                 Browse Templates
               </Button>
@@ -88,16 +88,18 @@ export default function Dashboard() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Sermons
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  <span className="text-3xl font-bold">{stats.total}</span>
+            <Card className="border-none shadow-md hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">
+                      Total Sermons
+                    </p>
+                    <p className="text-3xl font-bold">{stats.total}</p>
+                  </div>
+                  <div className="h-12 w-12 rounded-xl bg-[hsl(var(--soft-blue-light))] flex items-center justify-center">
+                    <FileText className="h-6 w-6 text-[hsl(var(--soft-blue))]" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -108,16 +110,18 @@ export default function Dashboard() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  This Week
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-green-500" />
-                  <span className="text-3xl font-bold">{stats.thisWeek}</span>
+            <Card className="border-none shadow-md hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">
+                      This Week
+                    </p>
+                    <p className="text-3xl font-bold">{stats.thisWeek}</p>
+                  </div>
+                  <div className="h-12 w-12 rounded-xl bg-[hsl(var(--green-light))] flex items-center justify-center">
+                    <TrendingUp className="h-6 w-6 text-[hsl(var(--green-fresh))]" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -128,16 +132,18 @@ export default function Dashboard() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Blocks
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5 text-blue-500" />
-                  <span className="text-3xl font-bold">{stats.totalBlocks}</span>
+            <Card className="border-none shadow-md hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">
+                      Total Blocks
+                    </p>
+                    <p className="text-3xl font-bold">{stats.totalBlocks}</p>
+                  </div>
+                  <div className="h-12 w-12 rounded-xl bg-[hsl(var(--orange-light))] flex items-center justify-center">
+                    <BookOpen className="h-6 w-6 text-[hsl(var(--orange-warm))]" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -149,7 +155,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-semibold">Recent Sermons</h2>
             {sermons.length > 0 && (
-              <Button variant="ghost" onClick={() => navigate("/sermons")}>
+              <Button variant="ghost" onClick={() => navigate("/sermons")} className="hover:bg-primary/5">
                 View All
               </Button>
             )}
@@ -168,7 +174,7 @@ export default function Dashboard() {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                  <Card className="border-none shadow-md hover:shadow-lg transition-shadow cursor-pointer">
                     <CardHeader>
                       <CardTitle className="line-clamp-1">{sermon.title}</CardTitle>
                       <CardDescription className="line-clamp-2">
@@ -176,7 +182,7 @@ export default function Dashboard() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           <span>{formatDistanceToNow(new Date(sermon.updatedAt), { addSuffix: true })}</span>
@@ -187,9 +193,9 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <Button 
-                        variant="ghost" 
+                        variant="default" 
                         size="sm" 
-                        className="w-full mt-4"
+                        className="w-full shadow-sm"
                         onClick={() => navigate(`/sermon/${sermon.id}`)}
                       >
                         <Edit className="mr-2 h-4 w-4" />
@@ -201,14 +207,14 @@ export default function Dashboard() {
               ))}
             </div>
           ) : (
-            <Card>
+            <Card className="border-none shadow-md">
               <CardContent className="py-12 text-center">
                 <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-semibold mb-2">No sermons yet</h3>
                 <p className="text-muted-foreground mb-6">
                   Create your first sermon to get started
                 </p>
-                <Button onClick={handleNewSermon}>
+                <Button onClick={handleNewSermon} className="shadow-md">
                   <Plus className="mr-2 h-4 w-4" />
                   Create Sermon
                 </Button>
@@ -219,27 +225,35 @@ export default function Dashboard() {
 
         {/* Quick Links */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate("/templates")}>
+          <Card className="border-none shadow-md hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate("/templates")}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileCode className="h-5 w-5" />
-                Sermon Templates
-              </CardTitle>
-              <CardDescription>
-                Start with proven sermon structures
-              </CardDescription>
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 rounded-xl bg-[hsl(var(--purple-light))] flex items-center justify-center shrink-0">
+                  <FileCode className="h-6 w-6 text-[hsl(var(--purple-soft))]" />
+                </div>
+                <div>
+                  <CardTitle className="mb-2">Sermon Templates</CardTitle>
+                  <CardDescription>
+                    Start with proven sermon structures
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
           </Card>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate("/resources")}>
+          <Card className="border-none shadow-md hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate("/resources")}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5" />
-                Resources
-              </CardTitle>
-              <CardDescription>
-                Access study materials and references
-              </CardDescription>
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 rounded-xl bg-[hsl(var(--orange-light))] flex items-center justify-center shrink-0">
+                  <BookOpen className="h-6 w-6 text-[hsl(var(--orange-warm))]" />
+                </div>
+                <div>
+                  <CardTitle className="mb-2">Resources</CardTitle>
+                  <CardDescription>
+                    Access study materials and references
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
           </Card>
         </div>

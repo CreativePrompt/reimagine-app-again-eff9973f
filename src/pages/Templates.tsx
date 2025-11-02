@@ -36,10 +36,10 @@ export default function Templates() {
 
   return (
     <AppLayout>
-      <div className="flex-1 px-6 md:px-10 py-8 overflow-auto">
+      <div className="flex-1 px-6 md:px-10 py-8 overflow-auto bg-background">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold mb-2">Sermon Templates</h1>
+          <h1 className="text-3xl font-bold mb-2">Sermon Templates</h1>
           <p className="text-muted-foreground">
             Choose from proven sermon structures to jumpstart your writing
           </p>
@@ -54,14 +54,16 @@ export default function Templates() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: index * 0.1 }}
             >
-              <Card className="hover:shadow-lg transition-shadow">
+              <Card className="border-none shadow-md hover:shadow-lg transition-shadow">
                 <CardHeader>
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-4 mb-2">
+                    <div className="h-12 w-12 rounded-xl bg-[hsl(var(--soft-blue-light))] flex items-center justify-center shrink-0">
+                      <FileText className="h-6 w-6 text-[hsl(var(--soft-blue))]" />
+                    </div>
                     <div className="flex-1">
                       <CardTitle className="mb-2">{template.name}</CardTitle>
                       <CardDescription>{template.description}</CardDescription>
                     </div>
-                    <FileText className="h-5 w-5 text-muted-foreground" />
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -90,7 +92,7 @@ export default function Templates() {
 
                   {/* Use Template Button */}
                   <Button
-                    className="w-full"
+                    className="w-full shadow-sm"
                     onClick={() => handleUseTemplate(template.key)}
                   >
                     Use Template
