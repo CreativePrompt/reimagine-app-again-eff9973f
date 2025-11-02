@@ -202,7 +202,7 @@ export function PresentationSettingsDialog({ open, onOpenChange, onSave, current
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="lineHeight">Line Spacing</Label>
+            <Label htmlFor="lineHeight">Line Spacing (Height)</Label>
             <Input
               id="lineHeight"
               type="number"
@@ -211,6 +211,19 @@ export function PresentationSettingsDialog({ open, onOpenChange, onSave, current
               step="0.1"
               value={settings.lineHeight}
               onChange={(e) => setSettings({ ...settings, lineHeight: parseFloat(e.target.value) })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="wordSpacing">Word Spacing (Width)</Label>
+            <Input
+              id="wordSpacing"
+              type="number"
+              min="-5"
+              max="50"
+              step="1"
+              value={settings.wordSpacing}
+              onChange={(e) => setSettings({ ...settings, wordSpacing: parseFloat(e.target.value) })}
             />
           </div>
 

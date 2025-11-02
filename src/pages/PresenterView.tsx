@@ -683,6 +683,7 @@ export default function PresenterView() {
                           color: settings.textColor,
                           padding: settings.showTextBox ? `${settings.textBoxPadding * 0.25}rem` : '0',
                           lineHeight: settings.lineHeight,
+                          wordSpacing: `${settings.wordSpacing}px`,
                         }}
                       >
                         {getCurrentContent()}

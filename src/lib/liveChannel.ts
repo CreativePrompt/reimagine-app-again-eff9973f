@@ -17,6 +17,7 @@ export interface PresentationSettings {
   textBoxPadding: number;
   showTextBox: boolean;
   lineHeight: number;
+  wordSpacing: number;
 }
 
 export const defaultSettings: PresentationSettings = {
@@ -32,6 +33,7 @@ export const defaultSettings: PresentationSettings = {
   textBoxPadding: 8,
   showTextBox: true,
   lineHeight: 1.8,
+  wordSpacing: 0,
 };
 
 export interface Message {

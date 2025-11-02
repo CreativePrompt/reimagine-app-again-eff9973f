@@ -127,6 +127,7 @@ export default function PresentationView() {
     fontSize: `${settings.sizeScale}em`,
     textTransform: settings.uppercase ? "uppercase" : "none",
     lineHeight: settings.lineHeight,
+    wordSpacing: `${settings.wordSpacing}px`,
   };
 
   const content = getCurrentContent();
