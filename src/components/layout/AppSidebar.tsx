@@ -1,6 +1,5 @@
-import { Home, FileText, FileCode, Lightbulb, BookOpen, Archive, LogOut, Moon, Sun } from "lucide-react";
+import { Home, FileText, FileCode, Lightbulb, BookOpen, Archive, LogOut } from "lucide-react";
 import { NavLink } from "react-router-dom";
-import { useState, useEffect } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -31,47 +30,57 @@ const resourceItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const { signOut } = useAuth();
-  const [isDark, setIsDark] = useState(() => {
-    const saved = localStorage.getItem("sidebar-theme");
-    return saved === "dark";
-  });
-
-  useEffect(() => {
-    localStorage.setItem("sidebar-theme", isDark ? "dark" : "light");
-  }, [isDark]);
 
   const getNavClass = ({ isActive }: { isActive: boolean }) =>
     isActive 
-      ? "bg-primary text-primary-foreground"
-      : "hover:bg-accent hover:text-accent-foreground";
-
-  const toggleTheme = () => {
-    setIsDark(!isDark);
-  };
+      ? "bg-[hsl(var(--green-accent))] text-white"
+      : "hover:bg-[hsl(var(--sidebar-dark-hover))]";
 
   return (
     <Sidebar 
-      className={`${state === "collapsed" ? "w-14" : "w-60"} ${isDark ? "dark bg-slate-900 text-white" : "bg-background"}`} 
+      className={`${state === "collapsed" ? "w-14" : "w-60"} bg-[hsl(var(--sidebar-dark))] text-white border-r border-[hsl(var(--sidebar-dark-hover))]`} 
       collapsible="icon"
     >
-      <SidebarContent className={isDark ? "dark" : ""}>
-        {/* Header */}
-        <div className="p-4 flex items-center justify-between border-b">
+      <SidebarContent>
+        {/* Header with Green Logo */}
+        <div className="p-4 flex items-center justify-between border-b border-[hsl(var(--sidebar-dark-hover))]">
           <div className="flex items-center gap-2">
             {state !== "collapsed" && (
               <>
-                <span className="text-2xl">📖</span>
-                <span className="text-lg font-bold">Preachery</span>
+                <div className="bg-[hsl(var(--green-accent))] text-white font-bold px-3 py-2 rounded-lg text-xl">
+                  📖
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-lg font-bold">Preachery</span>
+                  <span className="text-xs text-gray-400">Paperless & Easy</span>
+                </div>
               </>
             )}
-            {state === "collapsed" && <span className="text-2xl">📖</span>}
+            {state === "collapsed" && (
+              <div className="bg-[hsl(var(--green-accent))] text-white font-bold px-2 py-1 rounded text-xl">
+                📖
+              </div>
+            )}
           </div>
-          <SidebarTrigger />
+          <SidebarTrigger className="text-white hover:bg-[hsl(var(--sidebar-dark-hover))]" />
         </div>
+        
+        {/* Search Bar */}
+        {state !== "collapsed" && (
+          <div className="p-4">
+            <div className="relative">
+              <input 
+                type="text" 
+                placeholder="Search"
+                className="w-full bg-[hsl(var(--sidebar-dark-hover))] text-white placeholder-gray-400 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--green-accent))]"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Main Navigation */}
         <SidebarGroup>
-          {state !== "collapsed" && <SidebarGroupLabel>Main</SidebarGroupLabel>}
+          {state !== "collapsed" && <SidebarGroupLabel className="text-gray-400 text-xs uppercase">Main</SidebarGroupLabel>}
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => (
@@ -90,7 +99,7 @@ export function AppSidebar() {
 
         {/* Resources */}
         <SidebarGroup>
-          {state !== "collapsed" && <SidebarGroupLabel>Resources</SidebarGroupLabel>}
+          {state !== "collapsed" && <SidebarGroupLabel className="text-gray-400 text-xs uppercase">Resources</SidebarGroupLabel>}
           <SidebarGroupContent>
             <SidebarMenu>
               {resourceItems.map((item) => (
@@ -107,25 +116,11 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Theme Toggle & Sign Out */}
-        <div className="mt-auto space-y-2 p-4 border-t">
+        {/* Sign Out */}
+        <div className="mt-auto p-4 border-t border-[hsl(var(--sidebar-dark-hover))]">
           <Button
             variant="ghost"
-            className="w-full justify-start"
-            onClick={toggleTheme}
-          >
-            {isDark ? (
-              <Sun className="h-4 w-4" />
-            ) : (
-              <Moon className="h-4 w-4" />
-            )}
-            {state !== "collapsed" && (
-              <span className="ml-2">{isDark ? "Dark" : "Light"} Mode</span>
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            className="w-full justify-start"
+            className="w-full justify-start text-white hover:bg-[hsl(var(--sidebar-dark-hover))] hover:text-white"
             onClick={signOut}
           >
             <LogOut className="h-4 w-4" />

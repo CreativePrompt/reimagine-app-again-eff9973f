@@ -1,24 +1,59 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useSermonStore } from "@/lib/store/sermonStore";
-import { Plus, FileText, Clock, TrendingUp, BookOpen, Edit, FileCode } from "lucide-react";
+import { Plus, FileText, Clock, TrendingUp, BookOpen, Edit, FileCode, Upload, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { sermons, isLoading, loadUserSermons, createSermonFromTemplate } = useSermonStore();
+  const [heroImage, setHeroImage] = useState(() => 
+    localStorage.getItem("dashboard-hero-image") || ""
+  );
+  const [heroDim, setHeroDim] = useState(() => 
+    Number(localStorage.getItem("dashboard-hero-dim")) || 50
+  );
   
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth");
     }
   }, [user, authLoading, navigate]);
+  
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setHeroImage(result);
+        localStorage.setItem("dashboard-hero-image", result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
+  const handleDimChange = (value: number[]) => {
+    setHeroDim(value[0]);
+    localStorage.setItem("dashboard-hero-dim", value[0].toString());
+  };
 
   useEffect(() => {
     if (user && !authLoading) {
@@ -53,36 +88,104 @@ export default function Dashboard() {
 
   return (
     <AppLayout>
-      <div className="flex-1 px-6 md:px-10 py-8 overflow-auto bg-background">
-        {/* Hero Section */}
+      <div className="flex-1 overflow-auto bg-background">
+        {/* Hero Section with Background Image */}
         <motion.div
-          className="mb-12"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          className="relative min-h-[400px] flex items-center justify-center overflow-hidden mb-12"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
+          style={{
+            backgroundImage: heroImage ? `url(${heroImage})` : 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--purple-soft)) 100%)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
         >
-          <div className="text-center max-w-2xl mx-auto">
-            <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-              Welcome to Preachery
-            </h1>
-            <p className="text-lg text-muted-foreground mb-8">
-              Your powerful sermon preparation tool. Turn inspiration into impactful messages with our intuitive block editor.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="rounded-xl px-8 shadow-md hover:shadow-lg transition-shadow" onClick={handleNewSermon}>
+          {/* Overlay with adjustable dimming */}
+          <div 
+            className="absolute inset-0 bg-black transition-opacity duration-300"
+            style={{ opacity: heroDim / 100 }}
+          />
+          
+          {/* Hero Content */}
+          <div className="relative z-10 text-center max-w-3xl mx-auto px-6 py-16">
+            <motion.h1 
+              className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-white drop-shadow-lg"
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
+              Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}, {user?.email?.split('@')[0] || 'Friend'}.
+            </motion.h1>
+            <motion.p 
+              className="text-xl md:text-2xl text-white/90 mb-8 drop-shadow"
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            </motion.p>
+            
+            <motion.div 
+              className="flex flex-col sm:flex-row gap-4 justify-center"
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.4 }}
+            >
+              <Button 
+                size="lg" 
+                className="bg-[hsl(var(--green-accent))] hover:bg-[hsl(var(--green-fresh))] text-white rounded-xl px-8 shadow-lg hover:shadow-xl transition-all" 
+                onClick={handleNewSermon}
+              >
                 <Plus className="mr-2 h-5 w-5" />
                 Start New Sermon
               </Button>
-              <Button size="lg" variant="outline" className="rounded-xl px-8 hover:bg-primary/5" onClick={() => navigate("/templates")}>
-                <FileText className="mr-2 h-5 w-5" />
-                Browse Templates
-              </Button>
-            </div>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button size="lg" variant="outline" className="bg-white/10 hover:bg-white/20 text-white border-white/30 rounded-xl px-8 backdrop-blur-sm">
+                    <Settings className="mr-2 h-5 w-5" />
+                    Customize Hero
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Customize Hero Section</DialogTitle>
+                    <DialogDescription>
+                      Upload a background image and adjust the dimming effect
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-6">
+                    <div>
+                      <Label htmlFor="hero-image">Background Image</Label>
+                      <Input
+                        id="hero-image"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="mt-2"
+                      />
+                    </div>
+                    <div>
+                      <Label>Background Dimming: {heroDim}%</Label>
+                      <Slider
+                        value={[heroDim]}
+                        onValueChange={handleDimChange}
+                        max={80}
+                        min={0}
+                        step={5}
+                        className="mt-2"
+                      />
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </motion.div>
           </div>
         </motion.div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="px-6 md:px-10 pb-8">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -148,10 +251,10 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </motion.div>
-        </div>
+          </div>
 
-        {/* Recent Sermons */}
-        <div className="mb-12">
+          {/* Recent Sermons */}
+          <div className="mb-12">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-semibold">Recent Sermons</h2>
             {sermons.length > 0 && (
@@ -221,10 +324,10 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           )}
-        </div>
+          </div>
 
-        {/* Quick Links */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Quick Links */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card className="border-none shadow-md hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate("/templates")}>
             <CardHeader>
               <div className="flex items-start gap-4">
@@ -256,6 +359,7 @@ export default function Dashboard() {
               </div>
             </CardHeader>
           </Card>
+          </div>
         </div>
       </div>
     </AppLayout>
