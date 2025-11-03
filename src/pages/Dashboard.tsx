@@ -19,23 +19,57 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { sermons, isLoading, loadUserSermons, createSermonFromTemplate } = useSermonStore();
-  const [heroImage, setHeroImage] = useState(() => 
-    localStorage.getItem("dashboard-hero-image") || ""
-  );
-  const [heroDim, setHeroDim] = useState(() => 
-    Number(localStorage.getItem("dashboard-hero-dim")) || 50
-  );
+  const [heroImage, setHeroImage] = useState("");
+  const [heroDim, setHeroDim] = useState(50);
   
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth");
     }
   }, [user, authLoading, navigate]);
+
+  // Load hero settings from Supabase
+  useEffect(() => {
+    const loadHeroSettings = async () => {
+      if (user) {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("hero_image, hero_dimming")
+          .eq("id", user.id)
+          .single();
+        
+        if (data && !error) {
+          setHeroImage(data.hero_image || "");
+          setHeroDim(data.hero_dimming || 50);
+        }
+      }
+    };
+    
+    loadHeroSettings();
+  }, [user]);
+  
+  const saveHeroSettings = async (image?: string, dimming?: number) => {
+    if (!user) return;
+    
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        hero_image: image !== undefined ? image : heroImage,
+        hero_dimming: dimming !== undefined ? dimming : heroDim,
+      })
+      .eq("id", user.id);
+    
+    if (error) {
+      toast.error("Failed to save settings");
+    }
+  };
   
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -44,7 +78,7 @@ export default function Dashboard() {
       reader.onloadend = () => {
         const result = reader.result as string;
         setHeroImage(result);
-        localStorage.setItem("dashboard-hero-image", result);
+        saveHeroSettings(result, undefined);
       };
       reader.readAsDataURL(file);
     }
@@ -52,7 +86,7 @@ export default function Dashboard() {
   
   const handleDimChange = (value: number[]) => {
     setHeroDim(value[0]);
-    localStorage.setItem("dashboard-hero-dim", value[0].toString());
+    saveHeroSettings(undefined, value[0]);
   };
 
   useEffect(() => {
@@ -91,7 +125,7 @@ export default function Dashboard() {
       <div className="flex-1 overflow-auto bg-background">
         {/* Hero Section with Background Image */}
         <motion.div
-          className="relative min-h-[500px] flex items-center justify-center overflow-visible pb-32"
+          className="relative min-h-[400px] flex items-center justify-center overflow-visible pb-32"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
