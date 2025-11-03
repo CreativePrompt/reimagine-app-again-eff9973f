@@ -182,56 +182,58 @@ export default function Dashboard() {
             </motion.div>
           </div>
 
-          {/* Overlapping Quick Tips Section */}
-          <div className="absolute bottom-0 left-0 right-0 transform translate-y-1/2 z-20 px-6 md:px-10">
+          {/* Overlapping Quick Access Section */}
+          <div className="absolute bottom-0 left-0 right-0 transform translate-y-1/3 z-20 px-6 md:px-10">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.5 }}
             >
               <Card className="border-none shadow-2xl bg-card">
-                <CardHeader>
+                <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-xl">QUICK TIPS⚡</CardTitle>
+                    <CardTitle className="text-lg">QUICK ACCESS⚡</CardTitle>
                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                       <span className="text-xl">•••</span>
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <CardContent className="pb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <motion.div
-                      className="flex flex-col items-center text-center p-6 rounded-2xl bg-[hsl(var(--soft-blue-light))] hover:shadow-lg transition-all cursor-pointer"
+                      className="flex flex-col items-center text-center p-4 rounded-2xl bg-[hsl(var(--soft-blue-light))] hover:shadow-lg transition-all cursor-pointer"
                       whileHover={{ scale: 1.02 }}
+                      onClick={handleNewSermon}
                     >
-                      <div className="h-12 w-12 rounded-full bg-[hsl(var(--soft-blue))] flex items-center justify-center mb-4">
-                        <FileText className="h-6 w-6 text-white" />
+                      <div className="h-10 w-10 rounded-full bg-[hsl(var(--soft-blue))] flex items-center justify-center mb-3">
+                        <FileText className="h-5 w-5 text-white" />
                       </div>
-                      <h3 className="font-semibold mb-2">Start a sermon</h3>
-                      <p className="text-sm text-muted-foreground">Begin crafting your message...</p>
+                      <h3 className="font-semibold text-sm mb-1">Start a sermon</h3>
+                      <p className="text-xs text-muted-foreground">Begin crafting your message...</p>
                     </motion.div>
 
                     <motion.div
-                      className="flex flex-col items-center text-center p-6 rounded-2xl bg-[hsl(var(--gold))/0.2] hover:shadow-lg transition-all cursor-pointer"
+                      className="flex flex-col items-center text-center p-4 rounded-2xl bg-[hsl(var(--gold))/0.2] hover:shadow-lg transition-all cursor-pointer"
                       whileHover={{ scale: 1.02 }}
+                      onClick={() => navigate("/sermons")}
                     >
-                      <div className="h-12 w-12 rounded-full bg-[hsl(var(--gold))] flex items-center justify-center mb-4">
-                        <Edit className="h-6 w-6 text-white" />
+                      <div className="h-10 w-10 rounded-full bg-[hsl(var(--gold))] flex items-center justify-center mb-3">
+                        <Edit className="h-5 w-5 text-white" />
                       </div>
-                      <h3 className="font-semibold mb-2">Edit your notes</h3>
-                      <p className="text-sm text-muted-foreground">Refine your thoughts...</p>
+                      <h3 className="font-semibold text-sm mb-1">Edit your notes</h3>
+                      <p className="text-xs text-muted-foreground">Refine your thoughts...</p>
                     </motion.div>
 
                     <motion.div
-                      className="flex flex-col items-center text-center p-6 rounded-2xl bg-[hsl(var(--purple-light))] hover:shadow-lg transition-all cursor-pointer"
+                      className="flex flex-col items-center text-center p-4 rounded-2xl bg-[hsl(var(--purple-light))] hover:shadow-lg transition-all cursor-pointer"
                       whileHover={{ scale: 1.02 }}
                       onClick={() => navigate("/templates")}
                     >
-                      <div className="h-12 w-12 rounded-full bg-[hsl(var(--purple-soft))] flex items-center justify-center mb-4">
-                        <FileCode className="h-6 w-6 text-white" />
+                      <div className="h-10 w-10 rounded-full bg-[hsl(var(--purple-soft))] flex items-center justify-center mb-3">
+                        <FileCode className="h-5 w-5 text-white" />
                       </div>
-                      <h3 className="font-semibold mb-2">Use templates</h3>
-                      <p className="text-sm text-muted-foreground">Faster preparation with structure...</p>
+                      <h3 className="font-semibold text-sm mb-1">Use templates</h3>
+                      <p className="text-xs text-muted-foreground">Faster preparation with structure...</p>
                     </motion.div>
                   </div>
                 </CardContent>
@@ -241,7 +243,7 @@ export default function Dashboard() {
         </motion.div>
 
         {/* Main Content with top padding for overlapping card */}
-        <div className="px-6 md:px-10 pb-8 pt-24">
+        <div className="px-6 md:px-10 pb-8 pt-16">
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <motion.div
