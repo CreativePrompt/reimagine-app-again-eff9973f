@@ -91,7 +91,7 @@ export default function Dashboard() {
       <div className="flex-1 overflow-auto bg-background">
         {/* Hero Section with Background Image */}
         <motion.div
-          className="relative min-h-[400px] flex items-center justify-center overflow-hidden mb-12"
+          className="relative min-h-[500px] flex items-center justify-center overflow-visible pb-32"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
@@ -127,7 +127,7 @@ export default function Dashboard() {
             </motion.p>
             
             <motion.div 
-              className="flex flex-col sm:flex-row gap-4 justify-center"
+              className="flex flex-col sm:flex-row gap-4 justify-center mb-8"
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.4 }}
@@ -181,9 +181,67 @@ export default function Dashboard() {
               </Dialog>
             </motion.div>
           </div>
+
+          {/* Overlapping Quick Tips Section */}
+          <div className="absolute bottom-0 left-0 right-0 transform translate-y-1/2 z-20 px-6 md:px-10">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.5 }}
+            >
+              <Card className="border-none shadow-2xl bg-card">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-xl">QUICK TIPS⚡</CardTitle>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <span className="text-xl">•••</span>
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <motion.div
+                      className="flex flex-col items-center text-center p-6 rounded-2xl bg-[hsl(var(--soft-blue-light))] hover:shadow-lg transition-all cursor-pointer"
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      <div className="h-12 w-12 rounded-full bg-[hsl(var(--soft-blue))] flex items-center justify-center mb-4">
+                        <FileText className="h-6 w-6 text-white" />
+                      </div>
+                      <h3 className="font-semibold mb-2">Start a sermon</h3>
+                      <p className="text-sm text-muted-foreground">Begin crafting your message...</p>
+                    </motion.div>
+
+                    <motion.div
+                      className="flex flex-col items-center text-center p-6 rounded-2xl bg-[hsl(var(--gold))/0.2] hover:shadow-lg transition-all cursor-pointer"
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      <div className="h-12 w-12 rounded-full bg-[hsl(var(--gold))] flex items-center justify-center mb-4">
+                        <Edit className="h-6 w-6 text-white" />
+                      </div>
+                      <h3 className="font-semibold mb-2">Edit your notes</h3>
+                      <p className="text-sm text-muted-foreground">Refine your thoughts...</p>
+                    </motion.div>
+
+                    <motion.div
+                      className="flex flex-col items-center text-center p-6 rounded-2xl bg-[hsl(var(--purple-light))] hover:shadow-lg transition-all cursor-pointer"
+                      whileHover={{ scale: 1.02 }}
+                      onClick={() => navigate("/templates")}
+                    >
+                      <div className="h-12 w-12 rounded-full bg-[hsl(var(--purple-soft))] flex items-center justify-center mb-4">
+                        <FileCode className="h-6 w-6 text-white" />
+                      </div>
+                      <h3 className="font-semibold mb-2">Use templates</h3>
+                      <p className="text-sm text-muted-foreground">Faster preparation with structure...</p>
+                    </motion.div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
         </motion.div>
 
-        <div className="px-6 md:px-10 pb-8">
+        {/* Main Content with top padding for overlapping card */}
+        <div className="px-6 md:px-10 pb-8 pt-24">
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <motion.div
