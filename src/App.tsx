@@ -13,6 +13,8 @@ import Dashboard from "./pages/Dashboard";
 import Templates from "./pages/Templates";
 import SermonEditor from "./pages/SermonEditor";
 import SermonsList from "./pages/SermonsList";
+import Notes from "./pages/Notes";
+import NoteEditor from "./pages/NoteEditor";
 import PresentationView from "./pages/PresentationView";
 import PresenterView from "./pages/PresenterView";
 import NotFound from "./pages/NotFound";
@@ -39,6 +41,8 @@ const App = () => {
               <Route path="/templates" element={<Templates />} />
               <Route path="/sermons" element={<SermonsList />} />
               <Route path="/sermon/:id" element={<SermonEditor />} />
+              <Route path="/notes" element={<Notes />} />
+              <Route path="/notes/:id" element={<NoteEditor />} />
               <Route path="/present/:sessionId" element={<PresentationView />} />
               <Route path="/presenter/:sessionId" element={<PresenterView />} />
               <Route path="/ideas" element={<Dashboard />} />
