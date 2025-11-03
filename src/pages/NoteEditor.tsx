@@ -3,9 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { RichTextEditor } from "@/components/notes/RichTextEditor";
 import { useNotesStore } from "@/lib/store/notesStore";
 import { ArrowLeft, Trash2, Plus, X, Save } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -236,12 +235,11 @@ export default function NoteEditor() {
               </div>
             </div>
 
-            {/* Content */}
-            <Textarea
+            {/* Content - Rich Text Editor */}
+            <RichTextEditor
               value={content}
-              onChange={(e) => handleChange('content', e.target.value)}
+              onChange={(value) => handleChange('content', value)}
               placeholder="Start writing your note..."
-              className="min-h-[500px] border-none focus-visible:ring-0 px-0 text-base resize-none"
             />
           </motion.div>
         </div>
