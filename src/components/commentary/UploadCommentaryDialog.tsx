@@ -9,8 +9,11 @@ import { toast } from "sonner";
 import { useCommentaryStore } from "@/lib/store/commentaryStore";
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Configure PDF.js worker - use the local worker file
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.mjs',
+  import.meta.url
+).toString();
 
 export const UploadCommentaryDialog = () => {
   const [open, setOpen] = useState(false);
