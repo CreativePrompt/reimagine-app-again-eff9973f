@@ -19,6 +19,7 @@ const mainItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "Sermons", url: "/sermons", icon: FileText },
   { title: "Notes", url: "/notes", icon: StickyNote },
+  { title: "Commentary", url: "/commentary", icon: BookOpen },
   { title: "Templates", url: "/templates", icon: FileCode },
 ];
 

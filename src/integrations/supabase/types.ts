@@ -14,6 +14,83 @@ export type Database = {
   }
   public: {
     Tables: {
+      commentaries: {
+        Row: {
+          author: string | null
+          cover_image_url: string | null
+          created_at: string
+          extracted_text: string | null
+          id: string
+          pdf_url: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          author?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          extracted_text?: string | null
+          id?: string
+          pdf_url: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          author?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          extracted_text?: string | null
+          id?: string
+          pdf_url?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      commentary_highlights: {
+        Row: {
+          color: string | null
+          commentary_id: string
+          created_at: string
+          end_offset: number
+          id: string
+          start_offset: number
+          text: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          commentary_id: string
+          created_at?: string
+          end_offset: number
+          id?: string
+          start_offset: number
+          text: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          commentary_id?: string
+          created_at?: string
+          end_offset?: number
+          id?: string
+          start_offset?: number
+          text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commentary_highlights_commentary_id_fkey"
+            columns: ["commentary_id"]
+            isOneToOne: false
+            referencedRelation: "commentaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notes: {
         Row: {
           content: string | null
