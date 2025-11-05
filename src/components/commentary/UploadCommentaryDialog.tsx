@@ -32,33 +32,11 @@ export const UploadCommentaryDialog = () => {
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
-      
-      // Better text extraction that preserves structure
-      let lastY = -1;
-      let pageText = "";
-      
-      textContent.items.forEach((item: any, index: number) => {
-        const currentY = item.transform[5];
-        const text = item.str;
-        
-        // Detect new lines based on Y position changes
-        if (lastY !== -1 && Math.abs(currentY - lastY) > 5) {
-          pageText += "\n";
-        }
-        
-        // Add space between words if needed
-        if (index > 0 && !text.match(/^[.,;:!?)\]]/) && !pageText.endsWith(" ") && !pageText.endsWith("\n")) {
-          pageText += " ";
-        }
-        
-        pageText += text;
-        lastY = currentY;
-      });
-      
-      fullText += `\n\n--- Page ${i} ---\n\n${pageText.trim()}\n`;
+      const pageText = textContent.items.map((item: any) => item.str).join(" ");
+      fullText += pageText + "\n\n";
     }
 
-    return fullText.trim();
+    return fullText;
   };
 
   const handleUpload = async () => {

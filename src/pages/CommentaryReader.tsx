@@ -243,17 +243,15 @@ export default function CommentaryReader() {
           {/* Reader Content */}
           <div
             id="reader-content"
-            className="prose prose-lg dark:prose-invert max-w-none bg-card p-12 rounded-lg shadow-sm"
+            className="prose dark:prose-invert max-w-none bg-card p-8 rounded-lg shadow-sm"
             onMouseUp={handleTextSelection}
             style={{
-              lineHeight: "1.9",
-              fontSize: "17px",
-              fontFamily: "Georgia, Cambria, 'Times New Roman', Times, serif",
+              lineHeight: "1.8",
+              fontSize: "16px",
+              whiteSpace: "pre-wrap",
             }}
           >
-            <div className="whitespace-pre-wrap break-words">
-              {renderTextWithHighlights()}
-            </div>
+            {renderTextWithHighlights()}
           </div>
         </div>
       </div>
