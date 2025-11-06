@@ -4,7 +4,7 @@ import { Sermon, SermonBlock, BlockKind } from "@/lib/blockTypes";
 import { extractTextLines, extractBlockTitle, extractBlockContent } from "@/lib/presentationUtils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Play, Square, Eye, Maximize2, Minimize2, Edit, Settings, Trash2, Plus, X, Check, Power, BookOpen, Lightbulb, Quote, MessageSquare, Image as ImageIcon, FileText, StickyNote, List, Layers, Clock } from "lucide-react";
+import { ArrowLeft, Play, Square, Eye, Maximize2, Minimize2, Edit, Settings, Trash2, Plus, X, Check, Power, BookOpen, Lightbulb, Quote, MessageSquare, Image as ImageIcon, FileText, StickyNote } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -49,16 +49,6 @@ export default function PresenterView() {
   const [showEndLiveDialog, setShowEndLiveDialog] = useState(false);
   const [liveViewMode, setLiveViewMode] = useState<"blocks" | "pages">("blocks");
   const [expandedPages, setExpandedPages] = useState<Set<string>>(new Set());
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  // Update current time every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    
-    return () => clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     // Load sermon from sessionStorage
@@ -409,10 +399,9 @@ export default function PresenterView() {
               {editMode ? (
                 <div className="space-y-1">
                   <Input
-                    key="title-input"
-                    defaultValue={sermon.title}
-                    onBlur={(e) => {
-                      if (sermon && e.target.value !== sermon.title) {
+                    value={sermon.title}
+                    onChange={(e) => {
+                      if (sermon) {
                         updateSermonData({ ...sermon, title: e.target.value });
                       }
                     }}
@@ -420,10 +409,9 @@ export default function PresenterView() {
                     className="h-8 font-semibold"
                   />
                   <Input
-                    key="subtitle-input"
-                    defaultValue={sermon.subtitle || ""}
-                    onBlur={(e) => {
-                      if (sermon && e.target.value !== sermon.subtitle) {
+                    value={sermon.subtitle || ""}
+                    onChange={(e) => {
+                      if (sermon) {
                         updateSermonData({ ...sermon, subtitle: e.target.value });
                       }
                     }}
@@ -452,30 +440,6 @@ export default function PresenterView() {
               {editMode ? <Check className="h-4 w-4 mr-2" /> : <Edit className="h-4 w-4 mr-2" />}
               {editMode ? "Done Editing" : "Edit Sermon"}
             </Button>
-            
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 border rounded-xl p-1">
-              <Button
-                variant={liveViewMode === "blocks" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setLiveViewMode("blocks")}
-                className="h-8 px-3 rounded-lg"
-              >
-                <List className="h-4 w-4 mr-1.5" />
-                All Blocks
-              </Button>
-              <Button
-                variant={liveViewMode === "pages" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setLiveViewMode("pages")}
-                className="h-8 px-3 rounded-lg"
-                disabled={!sermon.pages || sermon.pages.length === 0}
-              >
-                <Layers className="h-4 w-4 mr-1.5" />
-                Pages
-              </Button>
-            </div>
-            
             <Button
               variant="outline"
               size="sm"
@@ -1101,6 +1065,27 @@ export default function PresenterView() {
                   </div>
                 </div>
             )}
+            
+            {/* View Mode Toggle */}
+            <div className="mt-8 flex items-center justify-center gap-2">
+              <Button
+                variant={liveViewMode === "blocks" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setLiveViewMode("blocks")}
+                className="rounded-xl"
+              >
+                All Blocks
+              </Button>
+              <Button
+                variant={liveViewMode === "pages" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setLiveViewMode("pages")}
+                className="rounded-xl"
+                disabled={!sermon.pages || sermon.pages.length === 0}
+              >
+                Pages
+              </Button>
+            </div>
           </div>
           )}
         </div>
@@ -1188,19 +1173,8 @@ export default function PresenterView() {
                 This is what your audience sees
               </div>
               
-              {/* Current Time and Timer Display */}
-              <div className="mt-6 space-y-3">
-                <div className="flex items-center justify-center gap-2 p-3 bg-muted/50 rounded-xl">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-lg font-semibold tabular-nums">
-                    {currentTime.toLocaleTimeString('en-US', { 
-                      hour: 'numeric', 
-                      minute: '2-digit',
-                      second: '2-digit',
-                      hour12: true 
-                    })}
-                  </span>
-                </div>
+              {/* Large Timer Display */}
+              <div className="mt-6">
                 <PresenterTimer />
               </div>
               

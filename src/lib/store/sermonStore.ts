@@ -380,7 +380,6 @@ export const useSermonStore = create<SermonState>()(
         title: currentSermon.title,
         subtitle: currentSermon.subtitle,
         blocks: currentSermon.blocks,
-        pages: currentSermon.pages,
       });
     },
   }))

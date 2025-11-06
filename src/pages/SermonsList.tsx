@@ -60,7 +60,7 @@ export default function SermonsList() {
 
   return (
     <AppLayout>
-      <div className="flex-1 px-6 md:px-10 py-8 overflow-auto bg-background">
+      <div className="flex-1 px-6 md:px-10 py-8 overflow-auto">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -69,7 +69,7 @@ export default function SermonsList() {
                 {sermons.length} {sermons.length === 1 ? "sermon" : "sermons"} total
               </p>
             </div>
-            <Button onClick={handleNewSermon} className="shadow-md hover:shadow-lg transition-shadow">
+            <Button onClick={handleNewSermon}>
               <Plus className="h-4 w-4 mr-2" />
               New Sermon
             </Button>
@@ -81,7 +81,7 @@ export default function SermonsList() {
               placeholder="Search sermons..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 border-none shadow-sm"
+              className="pl-10"
             />
           </div>
         </div>
@@ -95,7 +95,7 @@ export default function SermonsList() {
             {filteredSermons.map((sermon) => (
               <Card
                 key={sermon.id}
-                className="border-none shadow-md hover:shadow-lg transition-shadow"
+                className="hover:shadow-lg transition-shadow"
               >
                 <CardHeader>
                   <CardTitle className="line-clamp-2">{sermon.title}</CardTitle>
@@ -119,7 +119,7 @@ export default function SermonsList() {
                     <Button
                       variant="default"
                       size="sm"
-                      className="flex-1 shadow-sm"
+                      className="flex-1"
                       onClick={() => navigate(`/sermon/${sermon.id}`)}
                     >
                       <Edit className="mr-2 h-4 w-4" />
@@ -129,7 +129,6 @@ export default function SermonsList() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleDelete(sermon.id, sermon.title)}
-                      className="hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -139,7 +138,7 @@ export default function SermonsList() {
             ))}
           </div>
         ) : (
-          <Card className="border-none shadow-md">
+          <Card>
             <CardContent className="py-12 text-center">
               <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-semibold mb-2">
@@ -151,7 +150,7 @@ export default function SermonsList() {
                   : "Create your first sermon to get started"}
               </p>
               {!searchQuery && (
-                <Button onClick={handleNewSermon} className="shadow-md">
+                <Button onClick={handleNewSermon}>
                   <Plus className="mr-2 h-4 w-4" />
                   Create Sermon
                 </Button>

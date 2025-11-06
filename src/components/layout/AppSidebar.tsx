@@ -1,4 +1,5 @@
-import { Home, FileText, FileCode, Lightbulb, BookOpen, Archive, LogOut, StickyNote } from "lucide-react";
+import { useState } from "react";
+import { Home, FileText, FileCode, Lightbulb, BookOpen, Archive, LogOut, Moon, Sun } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
   Sidebar,
@@ -18,8 +19,6 @@ import { Button } from "@/components/ui/button";
 const mainItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "Sermons", url: "/sermons", icon: FileText },
-  { title: "Notes", url: "/notes", icon: StickyNote },
-  { title: "Commentary", url: "/commentary", icon: BookOpen },
   { title: "Templates", url: "/templates", icon: FileCode },
 ];
 
@@ -32,57 +31,42 @@ const resourceItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const { signOut } = useAuth();
+  const [isDark, setIsDark] = useState(false);
 
   const getNavClass = ({ isActive }: { isActive: boolean }) =>
     isActive 
-      ? "bg-[hsl(var(--green-accent))] text-white"
-      : "hover:bg-[hsl(var(--sidebar-dark-hover))]";
+      ? `${isDark ? "bg-accent/20 text-accent" : "bg-accent text-accent-foreground"}`
+      : `${isDark ? "hover:bg-accent/10" : "hover:bg-accent/50"}`;
 
   return (
     <Sidebar 
-      className={`${state === "collapsed" ? "w-14" : "w-60"} bg-[hsl(var(--sidebar-dark))] text-white border-r border-[hsl(var(--sidebar-dark-hover))]`} 
+      className={`${state === "collapsed" ? "w-14" : "w-60"} ${
+        isDark 
+          ? "bg-[hsl(222_47%_12%)] border-[hsl(222_30%_18%)] text-[hsl(210_40%_98%)]" 
+          : "bg-background border-border"
+      }`} 
       collapsible="icon"
     >
-      <SidebarContent>
-        {/* Header with Green Logo */}
-        <div className="p-4 flex items-center justify-between border-b border-[hsl(var(--sidebar-dark-hover))]">
+      <SidebarContent className={isDark ? "bg-[hsl(222_47%_12%)]" : ""}>
+        {/* Header */}
+        <div className={`p-4 flex items-center justify-between border-b ${
+          isDark ? "border-[hsl(222_30%_18%)]" : ""
+        }`}>
           <div className="flex items-center gap-2">
             {state !== "collapsed" && (
               <>
-                <div className="bg-[hsl(var(--green-accent))] text-white font-bold px-3 py-2 rounded-lg text-xl">
-                  📖
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-lg font-bold">Preachery</span>
-                  <span className="text-xs text-gray-400">Paperless & Easy</span>
-                </div>
+                <span className="text-2xl">📖</span>
+                <span className="text-lg font-bold">Preachery</span>
               </>
             )}
-            {state === "collapsed" && (
-              <div className="bg-[hsl(var(--green-accent))] text-white font-bold px-2 py-1 rounded text-xl">
-                📖
-              </div>
-            )}
+            {state === "collapsed" && <span className="text-2xl">📖</span>}
           </div>
-          <SidebarTrigger className="text-white hover:bg-[hsl(var(--sidebar-dark-hover))]" />
+          <SidebarTrigger className={isDark ? "hover:bg-white/10" : ""} />
         </div>
-        
-        {/* Search Bar */}
-        {state !== "collapsed" && (
-          <div className="p-4">
-            <div className="relative">
-              <input 
-                type="text" 
-                placeholder="Search"
-                className="w-full bg-[hsl(var(--sidebar-dark-hover))] text-white placeholder-gray-400 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--green-accent))]"
-              />
-            </div>
-          </div>
-        )}
 
         {/* Main Navigation */}
         <SidebarGroup>
-          {state !== "collapsed" && <SidebarGroupLabel className="text-gray-400 text-xs uppercase">Main</SidebarGroupLabel>}
+          {state !== "collapsed" && <SidebarGroupLabel>Main</SidebarGroupLabel>}
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => (
@@ -101,7 +85,7 @@ export function AppSidebar() {
 
         {/* Resources */}
         <SidebarGroup>
-          {state !== "collapsed" && <SidebarGroupLabel className="text-gray-400 text-xs uppercase">Resources</SidebarGroupLabel>}
+          {state !== "collapsed" && <SidebarGroupLabel>Resources</SidebarGroupLabel>}
           <SidebarGroupContent>
             <SidebarMenu>
               {resourceItems.map((item) => (
@@ -118,11 +102,27 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Sign Out */}
-        <div className="mt-auto p-4 border-t border-[hsl(var(--sidebar-dark-hover))]">
+        {/* Theme Toggle & Sign Out */}
+        <div className={`mt-auto space-y-2 p-4 border-t ${
+          isDark ? "border-[hsl(222_30%_18%)]" : ""
+        }`}>
           <Button
             variant="ghost"
-            className="w-full justify-start text-white hover:bg-[hsl(var(--sidebar-dark-hover))] hover:text-white"
+            className={`w-full justify-start ${isDark ? "hover:bg-white/10" : "hover:bg-accent/10"}`}
+            onClick={() => setIsDark(!isDark)}
+          >
+            {isDark ? (
+              <Sun className="h-4 w-4" />
+            ) : (
+              <Moon className="h-4 w-4" />
+            )}
+            {state !== "collapsed" && (
+              <span className="ml-2">{isDark ? "Light" : "Dark"} Mode</span>
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            className={`w-full justify-start ${isDark ? "hover:bg-white/10" : "hover:bg-accent/10"}`}
             onClick={signOut}
           >
             <LogOut className="h-4 w-4" />
