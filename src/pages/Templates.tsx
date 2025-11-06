@@ -15,11 +15,7 @@ export default function Templates() {
   const { user, loading: authLoading } = useAuth();
   const { createSermonFromTemplate } = useSermonStore();
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/auth");
-    }
-  }, [user, authLoading, navigate]);
+  // Authentication check removed - allow viewing without login
 
   const handleUseTemplate = async (templateKey: string) => {
     try {
@@ -30,9 +26,7 @@ export default function Templates() {
     }
   };
 
-  if (authLoading || !user) {
-    return null;
-  }
+  // Removed auth loading check - allow access without login
 
   return (
     <AppLayout>

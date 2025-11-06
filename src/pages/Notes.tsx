@@ -18,11 +18,7 @@ export default function Notes() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/auth");
-    }
-  }, [user, authLoading, navigate]);
+  // Authentication check removed - allow viewing without login
 
   useEffect(() => {
     if (user && !authLoading) {
@@ -44,9 +40,7 @@ export default function Notes() {
       note.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  if (authLoading || !user) {
-    return null;
-  }
+  // Removed auth loading check - allow access without login
 
   const tagColors: { [key: string]: string } = {
     work: "bg-[hsl(var(--soft-blue))] text-white",
