@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, LogIn } from "lucide-react";
 import { Button } from "./ui/button";
+import { useNavigate } from "react-router-dom";
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -42,6 +44,14 @@ const Navigation = () => {
               About
             </button>
             <Button
+              variant="outline"
+              onClick={() => navigate("/auth")}
+              className="gap-2"
+            >
+              <LogIn size={18} />
+              Login
+            </Button>
+            <Button
               onClick={() => scrollToSection("contact")}
               className="bg-accent text-accent-foreground hover:bg-accent/90"
             >
@@ -79,6 +89,14 @@ const Navigation = () => {
             >
               About
             </button>
+            <Button
+              variant="outline"
+              onClick={() => navigate("/auth")}
+              className="w-full gap-2"
+            >
+              <LogIn size={18} />
+              Login
+            </Button>
             <Button
               onClick={() => scrollToSection("contact")}
               className="w-full bg-accent text-accent-foreground hover:bg-accent/90"

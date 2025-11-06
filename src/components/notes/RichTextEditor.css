@@ -1,0 +1,153 @@
+.rich-text-editor-container {
+  height: calc(100vh - 300px);
+  display: flex;
+  flex-direction: column;
+}
+
+.custom-quill-editor {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.custom-quill-editor .ql-toolbar {
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px 8px 0 0;
+  padding: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.custom-quill-editor .ql-container {
+  flex: 1;
+  border: 1px solid hsl(var(--border));
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  font-size: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+}
+
+.custom-quill-editor .ql-editor {
+  min-height: 400px;
+  padding: 24px;
+  line-height: 1.6;
+}
+
+.custom-quill-editor .ql-editor.ql-blank::before {
+  color: hsl(var(--muted-foreground));
+  font-style: normal;
+}
+
+/* Toolbar button styling */
+.custom-quill-editor .ql-toolbar button {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.custom-quill-editor .ql-toolbar button:hover {
+  background: hsl(var(--muted));
+}
+
+.custom-quill-editor .ql-toolbar button.ql-active {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.custom-quill-editor .ql-toolbar .ql-stroke {
+  stroke: hsl(var(--foreground));
+}
+
+.custom-quill-editor .ql-toolbar .ql-fill {
+  fill: hsl(var(--foreground));
+}
+
+.custom-quill-editor .ql-toolbar button.ql-active .ql-stroke {
+  stroke: hsl(var(--primary-foreground));
+}
+
+.custom-quill-editor .ql-toolbar button.ql-active .ql-fill {
+  fill: hsl(var(--primary-foreground));
+}
+
+/* Dropdown styling */
+.custom-quill-editor .ql-toolbar select {
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.custom-quill-editor .ql-toolbar .ql-picker-label {
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.custom-quill-editor .ql-toolbar .ql-picker-label:hover {
+  background: hsl(var(--muted));
+}
+
+/* Content styling */
+.custom-quill-editor .ql-editor h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin-top: 0.67em;
+  margin-bottom: 0.67em;
+}
+
+.custom-quill-editor .ql-editor h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin-top: 0.83em;
+  margin-bottom: 0.83em;
+}
+
+.custom-quill-editor .ql-editor h3 {
+  font-size: 1.17em;
+  font-weight: 600;
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+.custom-quill-editor .ql-editor blockquote {
+  border-left: 4px solid hsl(var(--primary));
+  padding-left: 16px;
+  margin-left: 0;
+  color: hsl(var(--muted-foreground));
+}
+
+.custom-quill-editor .ql-editor code {
+  background: hsl(var(--muted));
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+}
+
+.custom-quill-editor .ql-editor pre {
+  background: hsl(var(--muted));
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+/* Dark mode support */
+.dark .custom-quill-editor .ql-toolbar {
+  background: hsl(var(--card));
+}
+
+.dark .custom-quill-editor .ql-container {
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+}
+
+.dark .custom-quill-editor .ql-editor {
+  color: hsl(var(--card-foreground));
+}

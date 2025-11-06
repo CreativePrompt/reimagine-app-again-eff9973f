@@ -37,7 +37,7 @@ export function InlineAddBlock({ afterBlockId, pageId }: InlineAddBlockProps) {
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 rounded-full opacity-0 group-hover/list:opacity-100 hover:opacity-100 transition-opacity"
+            className="h-8 w-8 rounded-full opacity-50 group-hover/list:opacity-100 hover:opacity-100 hover:bg-primary/10 hover:border-primary/20 transition-all border border-transparent"
           >
             <Plus className="h-4 w-4" />
           </Button>

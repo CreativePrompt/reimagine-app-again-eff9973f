@@ -18,8 +18,14 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
             <Label className="text-xs">Point Number (optional)</Label>
             <Input
               type="number"
-              value={block.number ?? ""}
-              onChange={(e) => onUpdate({ number: e.target.value ? parseInt(e.target.value) : null })}
+              key={`${block.id}-number`}
+              defaultValue={block.number ?? ""}
+              onBlur={(e) => {
+                const newValue = e.target.value ? parseInt(e.target.value) : null;
+                if (newValue !== block.number) {
+                  onUpdate({ number: newValue });
+                }
+              }}
               placeholder="1"
               className="h-8"
             />
@@ -27,8 +33,13 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
           <div>
             <Label className="text-xs">Title</Label>
             <Input
-              value={block.title}
-              onChange={(e) => onUpdate({ title: e.target.value })}
+              key={`${block.id}-title`}
+              defaultValue={block.title}
+              onBlur={(e) => {
+                if (e.target.value !== block.title) {
+                  onUpdate({ title: e.target.value });
+                }
+              }}
               placeholder="Point title"
               className="h-8"
             />
@@ -36,8 +47,13 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
           <div>
             <Label className="text-xs">Content</Label>
             <Textarea
-              value={block.body}
-              onChange={(e) => onUpdate({ body: e.target.value })}
+              key={`${block.id}-body`}
+              defaultValue={block.body}
+              onBlur={(e) => {
+                if (e.target.value !== block.body) {
+                  onUpdate({ body: e.target.value });
+                }
+              }}
               placeholder="Explain your point..."
               rows={3}
             />
@@ -50,8 +66,13 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
           <div>
             <Label className="text-xs">Scripture Reference</Label>
             <Input
-              value={block.reference}
-              onChange={(e) => onUpdate({ reference: e.target.value })}
+              key={`${block.id}-reference`}
+              defaultValue={block.reference}
+              onBlur={(e) => {
+                if (e.target.value !== block.reference) {
+                  onUpdate({ reference: e.target.value });
+                }
+              }}
               placeholder="John 3:16"
               className="h-8"
             />
@@ -59,8 +80,13 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
           <div>
             <Label className="text-xs">Scripture Text</Label>
             <Textarea
-              value={block.text}
-              onChange={(e) => onUpdate({ text: e.target.value })}
+              key={`${block.id}-text`}
+              defaultValue={block.text}
+              onBlur={(e) => {
+                if (e.target.value !== block.text) {
+                  onUpdate({ text: e.target.value });
+                }
+              }}
               placeholder="For God so loved the world..."
               rows={3}
             />
@@ -68,8 +94,13 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
           <div>
             <Label className="text-xs">Translation (optional)</Label>
             <Input
-              value={block.translation || ""}
-              onChange={(e) => onUpdate({ translation: e.target.value })}
+              key={`${block.id}-translation`}
+              defaultValue={block.translation || ""}
+              onBlur={(e) => {
+                if (e.target.value !== (block.translation || "")) {
+                  onUpdate({ translation: e.target.value });
+                }
+              }}
               placeholder="NIV"
               className="h-8"
             />
@@ -82,8 +113,13 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
           <div>
             <Label className="text-xs">Title</Label>
             <Input
-              value={block.title}
-              onChange={(e) => onUpdate({ title: e.target.value })}
+              key={`${block.id}-title`}
+              defaultValue={block.title}
+              onBlur={(e) => {
+                if (e.target.value !== block.title) {
+                  onUpdate({ title: e.target.value });
+                }
+              }}
               placeholder="Illustration title"
               className="h-8"
             />
@@ -91,8 +127,13 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
           <div>
             <Label className="text-xs">Story/Illustration</Label>
             <Textarea
-              value={block.body}
-              onChange={(e) => onUpdate({ body: e.target.value })}
+              key={`${block.id}-body`}
+              defaultValue={block.body}
+              onBlur={(e) => {
+                if (e.target.value !== block.body) {
+                  onUpdate({ body: e.target.value });
+                }
+              }}
               placeholder="Tell your story..."
               rows={4}
             />
@@ -105,8 +146,13 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
           <div>
             <Label className="text-xs">Title</Label>
             <Input
-              value={block.title}
-              onChange={(e) => onUpdate({ title: e.target.value })}
+              key={`${block.id}-title`}
+              defaultValue={block.title}
+              onBlur={(e) => {
+                if (e.target.value !== block.title) {
+                  onUpdate({ title: e.target.value });
+                }
+              }}
               placeholder="Application title"
               className="h-8"
             />
@@ -114,8 +160,13 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
           <div>
             <Label className="text-xs">Application</Label>
             <Textarea
-              value={block.body}
-              onChange={(e) => onUpdate({ body: e.target.value })}
+              key={`${block.id}-body`}
+              defaultValue={block.body}
+              onBlur={(e) => {
+                if (e.target.value !== block.body) {
+                  onUpdate({ body: e.target.value });
+                }
+              }}
               placeholder="How should people respond..."
               rows={3}
             />
@@ -128,8 +179,13 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
           <div>
             <Label className="text-xs">Quote</Label>
             <Textarea
-              value={block.text}
-              onChange={(e) => onUpdate({ text: e.target.value })}
+              key={`${block.id}-text`}
+              defaultValue={block.text}
+              onBlur={(e) => {
+                if (e.target.value !== block.text) {
+                  onUpdate({ text: e.target.value });
+                }
+              }}
               placeholder="Enter the quote..."
               rows={2}
             />
@@ -137,8 +193,13 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
           <div>
             <Label className="text-xs">Author (optional)</Label>
             <Input
-              value={block.author || ""}
-              onChange={(e) => onUpdate({ author: e.target.value })}
+              key={`${block.id}-author`}
+              defaultValue={block.author || ""}
+              onBlur={(e) => {
+                if (e.target.value !== (block.author || "")) {
+                  onUpdate({ author: e.target.value });
+                }
+              }}
               placeholder="Author name"
               className="h-8"
             />
@@ -167,8 +228,13 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
           <div>
             <Label className="text-xs">URL</Label>
             <Input
-              value={block.url}
-              onChange={(e) => onUpdate({ url: e.target.value })}
+              key={`${block.id}-url`}
+              defaultValue={block.url}
+              onBlur={(e) => {
+                if (e.target.value !== block.url) {
+                  onUpdate({ url: e.target.value });
+                }
+              }}
               placeholder="https://..."
               className="h-8"
             />
@@ -181,8 +247,13 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
           <div>
             <Label className="text-xs">Title</Label>
             <Input
-              value={block.title}
-              onChange={(e) => onUpdate({ title: e.target.value })}
+              key={`${block.id}-title`}
+              defaultValue={block.title}
+              onBlur={(e) => {
+                if (e.target.value !== block.title) {
+                  onUpdate({ title: e.target.value });
+                }
+              }}
               placeholder="Section title"
               className="h-8"
             />
@@ -190,8 +261,13 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
           <div>
             <Label className="text-xs">Content</Label>
             <Textarea
-              value={block.body}
-              onChange={(e) => onUpdate({ body: e.target.value })}
+              key={`${block.id}-body`}
+              defaultValue={block.body}
+              onBlur={(e) => {
+                if (e.target.value !== block.body) {
+                  onUpdate({ body: e.target.value });
+                }
+              }}
               placeholder="Enter your content..."
               rows={4}
             />
@@ -204,8 +280,13 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
           <div>
             <Label className="text-xs">Title</Label>
             <Input
-              value={block.title}
-              onChange={(e) => onUpdate({ title: e.target.value })}
+              key={`${block.id}-title`}
+              defaultValue={block.title}
+              onBlur={(e) => {
+                if (e.target.value !== block.title) {
+                  onUpdate({ title: e.target.value });
+                }
+              }}
               placeholder="Note title"
               className="h-8"
             />
@@ -213,8 +294,13 @@ export function InlineBlockEdit({ block, onUpdate }: InlineBlockEditProps) {
           <div>
             <Label className="text-xs">Summary</Label>
             <Textarea
-              value={block.summary}
-              onChange={(e) => onUpdate({ summary: e.target.value })}
+              key={`${block.id}-summary`}
+              defaultValue={block.summary}
+              onBlur={(e) => {
+                if (e.target.value !== block.summary) {
+                  onUpdate({ summary: e.target.value });
+                }
+              }}
               placeholder="Key insights from your reading..."
               rows={3}
             />

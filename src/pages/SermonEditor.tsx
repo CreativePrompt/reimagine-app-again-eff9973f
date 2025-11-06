@@ -38,6 +38,7 @@ export default function SermonEditor() {
   const [viewMode, setViewMode] = useState<"block" | "document">("block");
   const [viewByPages, setViewByPages] = useState(false);
   const [zoom, setZoom] = useState(100);
+  const [lastAutoSaved, setLastAutoSaved] = useState<Date | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -50,6 +51,23 @@ export default function SermonEditor() {
       loadSermon(id);
     }
   }, [id, user, loadSermon]);
+
+  // Auto-save every 30 seconds
+  useEffect(() => {
+    if (!currentSermon || isPreviewMode) return;
+
+    const autoSaveInterval = setInterval(async () => {
+      try {
+        await saveCurrentSermon();
+        setLastAutoSaved(new Date());
+        toast.success("Auto-saved", { duration: 2000 });
+      } catch (error) {
+        console.error("Auto-save failed:", error);
+      }
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(autoSaveInterval);
+  }, [currentSermon, isPreviewMode, saveCurrentSermon]);
 
   const handleSave = async () => {
     if (!currentSermon) return;
@@ -296,6 +314,12 @@ export default function SermonEditor() {
               <Save className="h-3.5 w-3.5 mr-1.5" />
               {isSaving ? "Saving..." : "Save"}
             </Button>
+
+            {lastAutoSaved && (
+              <span className="text-xs text-muted-foreground">
+                Auto-saved {lastAutoSaved.toLocaleTimeString()}
+              </span>
+            )}
 
             <div className="h-4 w-px bg-border" />
 
