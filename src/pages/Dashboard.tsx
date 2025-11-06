@@ -29,7 +29,11 @@ export default function Dashboard() {
   const [heroImage, setHeroImage] = useState("");
   const [heroDim, setHeroDim] = useState(50);
   
-  // Authentication check removed - allow viewing without login
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth");
+    }
+  }, [user, authLoading, navigate]);
 
   // Load hero settings from Supabase
   useEffect(() => {
@@ -112,7 +116,9 @@ export default function Dashboard() {
     totalBlocks: sermons.reduce((acc, s) => acc + (s.blocks?.length || 0), 0)
   };
 
-  // Removed auth loading check - allow access without login
+  if (authLoading || !user) {
+    return null;
+  }
 
   return (
     <AppLayout>

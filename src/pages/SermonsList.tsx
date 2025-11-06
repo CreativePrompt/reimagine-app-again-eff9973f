@@ -16,7 +16,11 @@ export default function SermonsList() {
   const { sermons, isLoading, loadUserSermons, deleteSermon, createSermonFromTemplate } = useSermonStore();
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Authentication check removed - allow viewing without login
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth");
+    }
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     if (user && !authLoading) {
@@ -50,7 +54,9 @@ export default function SermonsList() {
     sermon.subtitle?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Removed auth loading check - allow access without login
+  if (authLoading || !user) {
+    return null;
+  }
 
   return (
     <AppLayout>

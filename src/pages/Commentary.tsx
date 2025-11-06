@@ -17,7 +17,11 @@ export default function Commentary() {
   const { commentaries, isLoading, loadCommentaries, deleteCommentary } = useCommentaryStore();
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Authentication check removed - allow viewing without login
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth");
+    }
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     if (user) {
