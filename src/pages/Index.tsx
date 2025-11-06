@@ -8,13 +8,10 @@ const Index = () => {
 
   useEffect(() => {
     if (!loading) {
-      if (user) {
-        navigate("/dashboard");
-      } else {
-        navigate("/auth");
-      }
+      // Temporarily bypass auth - always go to dashboard
+      navigate("/dashboard");
     }
-  }, [user, loading, navigate]);
+  }, [loading, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">
