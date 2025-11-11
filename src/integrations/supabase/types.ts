@@ -91,6 +91,36 @@ export type Database = {
           },
         ]
       }
+      commentary_notes: {
+        Row: {
+          commentary_id: string
+          content: string
+          created_at: string
+          id: string
+          position_offset: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          commentary_id: string
+          content: string
+          created_at?: string
+          id?: string
+          position_offset: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          commentary_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          position_offset?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notes: {
         Row: {
           content: string | null
