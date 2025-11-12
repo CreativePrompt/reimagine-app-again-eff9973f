@@ -78,16 +78,15 @@ export function ModernDocumentView({
 
       // Show toolbar
       setToolbarPosition({
-        top: rect.top - 60,
+        top: rect.top + window.scrollY - 60,
         left: rect.left + rect.width / 2,
       });
       setShowToolbar(true);
+      setSelectedHighlightId(null);
 
       // Save the selection info for later use
       (window as any).pendingHighlight = { selectedText, startOffset, endOffset };
     }
-
-    selection.removeAllRanges();
   };
 
   const handleHighlight = async () => {
@@ -104,10 +103,11 @@ export function ModernDocumentView({
     setSelectedHighlightId(highlightId);
     const rect = (e.target as HTMLElement).getBoundingClientRect();
     setToolbarPosition({
-      top: rect.top - 60,
+      top: rect.top + window.scrollY - 60,
       left: rect.left + rect.width / 2,
     });
     setShowToolbar(true);
+    delete (window as any).pendingHighlight;
   };
 
   const handleColorChange = async (color: string) => {
@@ -202,50 +202,18 @@ export function ModernDocumentView({
       }
 
       // Detect if paragraph is a heading
-      const isHeading = paragraph.match(/^(Chapter \d+|CHAPTER \d+|\d+\.|[A-Z][A-Z\s]{10,})/);
+      const isHeading = paragraph.match(/^(Chapter \d+|CHAPTER \d+|\d+\.|[A-Z][A-Z\s]{10,}|[IVX]+\.|Part \d+)/i);
       
       elements.push(
-        <div key={`paragraph-${pIndex}`} className="mb-6">
+        <div key={`paragraph-${pIndex}`} className="mb-8">
           {isHeading ? (
-            <h2 className="text-2xl font-bold mb-4 text-foreground scroll-mt-20">
+            <h2 className="text-3xl font-bold mb-6 text-gray-900 dark:text-gray-900 scroll-mt-20 leading-tight">
               {paragraphElements}
             </h2>
           ) : (
-            <p className="text-base leading-relaxed text-foreground/90">
+            <p className="text-lg leading-relaxed text-gray-800 dark:text-gray-800 mb-4">
               {paragraphElements}
             </p>
-          )}
-          
-          {/* Add note button at end of paragraph */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mt-2 h-6 gap-1 text-muted-foreground hover:text-foreground"
-            onClick={() => setNoteEditorOffset(paragraphEnd)}
-          >
-            <StickyNote className="h-3 w-3" />
-            <span className="text-xs">Add note</span>
-          </Button>
-
-          {/* Render notes for this paragraph */}
-          {paragraphNotes.map((note) => (
-            <NoteDisplay
-              key={note.id}
-              content={note.content}
-              onUpdate={(content) => onUpdateNote(note.id, content)}
-              onDelete={() => onDeleteNote(note.id)}
-            />
-          ))}
-
-          {/* Note editor */}
-          {noteEditorOffset === paragraphEnd && (
-            <NoteEditor
-              onSave={async (content) => {
-                await onAddNote(content, paragraphEnd);
-                setNoteEditorOffset(null);
-              }}
-              onCancel={() => setNoteEditorOffset(null)}
-            />
           )}
         </div>
       );
@@ -276,14 +244,31 @@ export function ModernDocumentView({
           />
           
           {!selectedHighlightId && (
-            <Button
-              size="sm"
-              className="ml-2"
-              onClick={handleHighlight}
-            >
-              <Highlighter className="h-4 w-4 mr-2" />
-              Highlight
-            </Button>
+            <div className="flex gap-2 mt-2">
+              <Button
+                size="sm"
+                onClick={handleHighlight}
+                className="gap-2"
+              >
+                <Highlighter className="h-4 w-4" />
+                Highlight
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const pending = (window as any).pendingHighlight;
+                  if (pending) {
+                    setNoteEditorOffset(pending.startOffset);
+                    setShowToolbar(false);
+                  }
+                }}
+                className="gap-2"
+              >
+                <StickyNote className="h-4 w-4" />
+                Add Note
+              </Button>
+            </div>
           )}
         </div>
       )}
@@ -291,11 +276,32 @@ export function ModernDocumentView({
       {/* Document Content */}
       <div
         ref={contentRef}
-        className="prose prose-lg dark:prose-invert max-w-none"
+        className="prose prose-lg dark:prose-invert max-w-none select-text"
         onMouseUp={handleTextSelection}
       >
         {renderContent()}
       </div>
+
+      {/* Note editor overlay */}
+      {noteEditorOffset !== null && (
+        <div className="fixed inset-0 bg-black/20 z-40 flex items-center justify-center" onClick={() => setNoteEditorOffset(null)}>
+          <div className="w-full max-w-2xl mx-4" onClick={(e) => e.stopPropagation()}>
+            <NoteEditor
+              onSave={async (content) => {
+                const pending = (window as any).pendingHighlight;
+                const offset = pending ? pending.startOffset : noteEditorOffset;
+                await onAddNote(content, offset);
+                setNoteEditorOffset(null);
+                delete (window as any).pendingHighlight;
+              }}
+              onCancel={() => {
+                setNoteEditorOffset(null);
+                delete (window as any).pendingHighlight;
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

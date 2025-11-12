@@ -1,16 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Search, Menu, BookOpen } from "lucide-react";
+import { ArrowLeft, Search, StickyNote } from "lucide-react";
 import { toast } from "sonner";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import type { Commentary, Highlight } from "@/lib/store/commentaryStore";
 import { ModernDocumentView } from "@/components/commentary/ModernDocumentView";
-import { CommentaryOutline } from "@/components/commentary/CommentaryOutline";
+import { NotesPanel } from "@/components/commentary/NotesPanel";
 
 interface Note {
   id: string;
@@ -31,7 +30,10 @@ export default function CommentaryReader() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [outlineItems, setOutlineItems] = useState<Array<{ id: string; title: string; level: number; offset: number }>>([]);
+  const [showNotesPanel, setShowNotesPanel] = useState(false);
+  const [searchResults, setSearchResults] = useState<number[]>([]);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -62,7 +64,6 @@ export default function CommentaryReader() {
     }
 
     setCommentary(data);
-    generateOutline(data.extracted_text || "");
     setIsLoading(false);
   };
 
@@ -96,39 +97,42 @@ export default function CommentaryReader() {
     setNotes(data || []);
   };
 
-  const generateOutline = (text: string) => {
-    const lines = text.split("\n");
-    const items: Array<{ id: string; title: string; level: number; offset: number }> = [];
-    let currentOffset = 0;
+  const handleSearch = () => {
+    if (!commentary?.extracted_text || !searchQuery.trim()) {
+      toast.info("Enter a search term");
+      setSearchResults([]);
+      return;
+    }
 
-    lines.forEach((line, index) => {
-      // Detect headings (Chapter numbers, all caps, etc.)
-      if (line.match(/^(Chapter \d+|CHAPTER \d+)/i)) {
-        items.push({
-          id: `heading-${index}`,
-          title: line.trim(),
-          level: 1,
-          offset: currentOffset,
-        });
-      } else if (line.match(/^\d+\./) && line.length < 50) {
-        items.push({
-          id: `heading-${index}`,
-          title: line.trim(),
-          level: 2,
-          offset: currentOffset,
-        });
-      } else if (line.match(/^[A-Z][A-Z\s]{10,}$/) && line.length < 50) {
-        items.push({
-          id: `heading-${index}`,
-          title: line.trim(),
-          level: 1,
-          offset: currentOffset,
-        });
-      }
-      currentOffset += line.length + 1; // +1 for newline
-    });
+    const text = commentary.extracted_text;
+    const query = searchQuery.toLowerCase();
+    const indices: number[] = [];
+    let index = text.toLowerCase().indexOf(query);
+    
+    while (index !== -1) {
+      indices.push(index);
+      index = text.toLowerCase().indexOf(query, index + 1);
+    }
 
-    setOutlineItems(items);
+    setSearchResults(indices);
+    setCurrentSearchIndex(0);
+
+    if (indices.length > 0) {
+      toast.success(`Found ${indices.length} result${indices.length === 1 ? "" : "s"}`);
+      scrollToSearchResult(0, indices);
+    } else {
+      toast.info("No results found");
+    }
+  };
+
+  const scrollToSearchResult = (index: number, results: number[]) => {
+    if (results.length === 0 || !contentRef.current) return;
+    
+    const offset = results[index];
+    const element = contentRef.current;
+    // Rough estimate of scroll position
+    const scrollPosition = (offset / (commentary?.extracted_text?.length || 1)) * element.scrollHeight;
+    element.scrollTo({ top: scrollPosition, behavior: "smooth" });
   };
 
   const handleHighlight = async (text: string, startOffset: number, endOffset: number, color: string) => {
@@ -243,31 +247,6 @@ export default function CommentaryReader() {
     loadNotes();
   };
 
-  const handleSearch = () => {
-    if (!commentary?.extracted_text || !searchQuery.trim()) {
-      toast.info("Enter a search term");
-      return;
-    }
-
-    const text = commentary.extracted_text.toLowerCase();
-    const query = searchQuery.toLowerCase();
-    const count = (text.match(new RegExp(query, "g")) || []).length;
-
-    if (count > 0) {
-      toast.success(`Found ${count} result${count === 1 ? "" : "s"}`);
-      // Scroll to first occurrence
-      const firstIndex = text.indexOf(query);
-      if (firstIndex !== -1) {
-        const element = document.getElementById("reader-content");
-        if (element) {
-          element.scrollTop = firstIndex * 0.5; // Rough estimate
-        }
-      }
-    } else {
-      toast.info("No results found");
-    }
-  };
-
   if (authLoading || isLoading) {
     return (
       <AppLayout>
@@ -284,74 +263,44 @@ export default function CommentaryReader() {
 
   return (
     <AppLayout>
-      <div className="h-full flex">
-        {/* Sidebar - Desktop */}
-        <div className="hidden lg:block w-80 border-r border-border bg-card">
-          <CommentaryOutline
-            items={outlineItems}
-            onNavigate={(offset) => {
-              const element = document.getElementById("reader-content");
-              if (element) {
-                element.scrollTop = offset * 0.5;
-              }
-            }}
-          />
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 overflow-auto">
-          <div className="container mx-auto px-4 py-6 lg:px-8 lg:py-8 max-w-5xl">
-            {/* Header */}
-            <div className="mb-8">
-              <div className="flex items-center gap-2 mb-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate("/commentary")}
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back
-                </Button>
-
-                {/* Mobile Outline Toggle */}
-                <Sheet>
-                  <SheetTrigger asChild>
-                    <Button variant="outline" size="sm" className="lg:hidden">
-                      <Menu className="h-4 w-4 mr-2" />
-                      Outline
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent side="left" className="w-80 p-0">
-                    <CommentaryOutline
-                      items={outlineItems}
-                      onNavigate={(offset) => {
-                        const element = document.getElementById("reader-content");
-                        if (element) {
-                          element.scrollTop = offset * 0.5;
-                        }
-                      }}
-                    />
-                  </SheetContent>
-                </Sheet>
-              </div>
-
-              <div className="flex items-start gap-4">
-                <BookOpen className="h-8 w-8 text-primary flex-shrink-0 mt-1" />
-                <div className="flex-1">
-                  <h1 className="text-4xl font-bold mb-2 text-foreground">
-                    {commentary.title}
-                  </h1>
-                  {commentary.author && (
-                    <p className="text-lg text-muted-foreground">
-                      by {commentary.author}
-                    </p>
-                  )}
-                </div>
-              </div>
+      <div className="h-full flex flex-col">
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
+          <div className="container mx-auto px-4 py-4 lg:px-8 max-w-6xl">
+            <div className="flex items-center gap-4 mb-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/commentary")}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+              
+              <div className="flex-1" />
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowNotesPanel(!showNotesPanel)}
+                className="gap-2"
+              >
+                <StickyNote className="h-4 w-4" />
+                Notes ({notes.length})
+              </Button>
             </div>
 
+            <h1 className="text-2xl font-bold mb-2 text-foreground">
+              {commentary.title}
+            </h1>
+            {commentary.author && (
+              <p className="text-sm text-muted-foreground mb-4">
+                by {commentary.author}
+              </p>
+            )}
+
             {/* Search Bar */}
-            <div className="flex gap-2 mb-8">
+            <div className="flex gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
@@ -359,33 +308,50 @@ export default function CommentaryReader() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  className="pl-10 rounded-full"
+                  className="pl-10 rounded-full bg-background"
                 />
               </div>
               <Button onClick={handleSearch} className="rounded-full">
                 Search
               </Button>
             </div>
-
-            {/* Reader Content */}
-            <div
-              id="reader-content"
-              className="bg-background rounded-2xl shadow-sm border border-border p-8 lg:p-12"
-            >
-              <ModernDocumentView
-                text={commentary.extracted_text || ""}
-                highlights={highlights}
-                notes={notes}
-                onHighlight={handleHighlight}
-                onRemoveHighlight={handleRemoveHighlight}
-                onUpdateHighlight={handleUpdateHighlight}
-                onAddNote={handleAddNote}
-                onUpdateNote={handleUpdateNote}
-                onDeleteNote={handleDeleteNote}
-              />
-            </div>
           </div>
         </div>
+
+        {/* Main Content */}
+        <div 
+          ref={contentRef}
+          className="flex-1 overflow-auto bg-white dark:bg-white"
+        >
+          <div className="container mx-auto px-4 py-8 lg:px-8 lg:py-12 max-w-4xl">
+            <ModernDocumentView
+              text={commentary.extracted_text || ""}
+              highlights={highlights}
+              notes={notes}
+              onHighlight={handleHighlight}
+              onRemoveHighlight={handleRemoveHighlight}
+              onUpdateHighlight={handleUpdateHighlight}
+              onAddNote={handleAddNote}
+              onUpdateNote={handleUpdateNote}
+              onDeleteNote={handleDeleteNote}
+            />
+          </div>
+        </div>
+
+        {/* Notes Panel */}
+        <NotesPanel
+          notes={notes}
+          isOpen={showNotesPanel}
+          onClose={() => setShowNotesPanel(false)}
+          onUpdateNote={handleUpdateNote}
+          onDeleteNote={handleDeleteNote}
+          onNavigateToNote={(offset) => {
+            if (contentRef.current) {
+              const scrollPosition = (offset / (commentary?.extracted_text?.length || 1)) * contentRef.current.scrollHeight;
+              contentRef.current.scrollTo({ top: scrollPosition, behavior: "smooth" });
+            }
+          }}
+        />
       </div>
     </AppLayout>
   );
