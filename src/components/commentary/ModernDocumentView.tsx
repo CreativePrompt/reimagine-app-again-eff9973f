@@ -1,8 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { StickyNote, Highlighter } from "lucide-react";
 import { NoteEditor } from "./NoteEditor";
-import { NoteDisplay } from "./NoteDisplay";
 import { HighlightToolbar } from "./HighlightToolbar";
 
 interface Highlight {
@@ -178,6 +175,10 @@ export function ModernDocumentView({
           blue: "bg-blue-200 dark:bg-blue-900/50",
           pink: "bg-pink-200 dark:bg-pink-900/50",
           purple: "bg-purple-200 dark:bg-purple-900/50",
+          orange: "bg-orange-200 dark:bg-orange-900/50",
+          red: "bg-red-200 dark:bg-red-900/50",
+          teal: "bg-teal-200 dark:bg-teal-900/50",
+          indigo: "bg-indigo-200 dark:bg-indigo-900/50",
         }[highlight.color] || "bg-yellow-200 dark:bg-yellow-900/50";
 
         paragraphElements.push(
@@ -241,35 +242,15 @@ export function ModernDocumentView({
             onColorChange={handleColorChange}
             onRemoveHighlight={selectedHighlightId ? handleRemoveHighlight : undefined}
             showRemove={!!selectedHighlightId}
+            onHighlight={!selectedHighlightId ? handleHighlight : undefined}
+            onAddNote={!selectedHighlightId ? () => {
+              const pending = (window as any).pendingHighlight;
+              if (pending) {
+                setNoteEditorOffset(pending.startOffset);
+                setShowToolbar(false);
+              }
+            } : undefined}
           />
-          
-          {!selectedHighlightId && (
-            <div className="flex gap-2 mt-2">
-              <Button
-                size="sm"
-                onClick={handleHighlight}
-                className="gap-2"
-              >
-                <Highlighter className="h-4 w-4" />
-                Highlight
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  const pending = (window as any).pendingHighlight;
-                  if (pending) {
-                    setNoteEditorOffset(pending.startOffset);
-                    setShowToolbar(false);
-                  }
-                }}
-                className="gap-2"
-              >
-                <StickyNote className="h-4 w-4" />
-                Add Note
-              </Button>
-            </div>
-          )}
         </div>
       )}
 

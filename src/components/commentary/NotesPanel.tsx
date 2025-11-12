@@ -55,19 +55,25 @@ export function NotesPanel({
               <p className="text-xs mt-1">Select text to add a note</p>
             </div>
           ) : (
-            notes.map((note) => (
-              <div
-                key={note.id}
-                className="cursor-pointer hover:bg-accent/50 rounded-lg p-2 transition-colors"
-                onClick={() => onNavigateToNote(note.position_offset)}
-              >
-                <NoteDisplay
-                  content={note.content}
-                  onUpdate={(content) => onUpdateNote(note.id, content)}
-                  onDelete={() => onDeleteNote(note.id)}
-                />
-              </div>
-            ))
+            notes
+              .sort((a, b) => a.position_offset - b.position_offset)
+              .map((note, index) => (
+                <div
+                  key={note.id}
+                  className="group cursor-pointer hover:bg-accent/50 rounded-lg p-3 transition-all hover:shadow-md border border-transparent hover:border-accent"
+                  onClick={() => onNavigateToNote(note.position_offset)}
+                >
+                  <div className="flex items-start gap-2 mb-2">
+                    <Lightbulb className="h-4 w-4 text-yellow-500 flex-shrink-0 mt-0.5" />
+                    <span className="text-xs font-medium text-muted-foreground">Note {index + 1}</span>
+                  </div>
+                  <NoteDisplay
+                    content={note.content}
+                    onUpdate={(content) => onUpdateNote(note.id, content)}
+                    onDelete={() => onDeleteNote(note.id)}
+                  />
+                </div>
+              ))
           )}
         </div>
       </ScrollArea>

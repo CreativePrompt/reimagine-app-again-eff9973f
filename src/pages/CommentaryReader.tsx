@@ -346,9 +346,15 @@ export default function CommentaryReader() {
           onUpdateNote={handleUpdateNote}
           onDeleteNote={handleDeleteNote}
           onNavigateToNote={(offset) => {
-            if (contentRef.current) {
-              const scrollPosition = (offset / (commentary?.extracted_text?.length || 1)) * contentRef.current.scrollHeight;
-              contentRef.current.scrollTo({ top: scrollPosition, behavior: "smooth" });
+            if (contentRef.current && commentary?.extracted_text) {
+              // More accurate scroll calculation
+              const text = commentary.extracted_text;
+              const ratio = offset / text.length;
+              const scrollPosition = ratio * contentRef.current.scrollHeight;
+              contentRef.current.scrollTo({ 
+                top: Math.max(0, scrollPosition - 100), // Offset for header
+                behavior: "smooth" 
+              });
             }
           }}
         />
