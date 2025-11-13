@@ -73,34 +73,41 @@ export function ModernDocumentView({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleTextSelection = async (e: React.MouseEvent) => {
+  const handleTextSelection = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const selection = window.getSelection();
-    if (!selection || selection.toString().trim() === "") return;
+    
+    // Small delay to ensure selection is complete
+    setTimeout(() => {
+      const selection = window.getSelection();
+      if (!selection || selection.toString().trim() === "") {
+        setShowToolbar(false);
+        return;
+      }
 
-    const selectedText = selection.toString();
-    const range = selection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
+      const selectedText = selection.toString();
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
 
-    // Calculate offset
-    const preSelectionRange = range.cloneRange();
-    if (contentRef.current) {
-      preSelectionRange.selectNodeContents(contentRef.current);
-      preSelectionRange.setEnd(range.startContainer, range.startOffset);
-      const startOffset = preSelectionRange.toString().length;
-      const endOffset = startOffset + selectedText.length;
+      // Calculate offset
+      const preSelectionRange = range.cloneRange();
+      if (contentRef.current) {
+        preSelectionRange.selectNodeContents(contentRef.current);
+        preSelectionRange.setEnd(range.startContainer, range.startOffset);
+        const startOffset = preSelectionRange.toString().length;
+        const endOffset = startOffset + selectedText.length;
 
-      // Show toolbar
-      setToolbarPosition({
-        top: rect.top + window.scrollY - 60,
-        left: rect.left + rect.width / 2,
-      });
-      setShowToolbar(true);
-      setSelectedHighlightId(null);
+        // Show toolbar above the selection
+        setToolbarPosition({
+          top: rect.top + window.scrollY - 60,
+          left: rect.left + rect.width / 2,
+        });
+        setShowToolbar(true);
+        setSelectedHighlightId(null);
 
-      // Save the selection info for later use
-      (window as any).pendingHighlight = { selectedText, startOffset, endOffset };
-    }
+        // Save the selection info for later use
+        (window as any).pendingHighlight = { selectedText, startOffset, endOffset };
+      }
+    }, 10);
   };
 
   const handleHighlight = async () => {
