@@ -50,13 +50,25 @@ export function ModernDocumentView({
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = () => {
+    const handleClickOutside = (e: MouseEvent) => {
+      // Don't hide if clicking within the toolbar or if there's a text selection
+      const target = e.target as HTMLElement;
+      const selection = window.getSelection();
+      
+      if (
+        target.closest('.highlight-toolbar') || 
+        (selection && selection.toString().trim() !== "")
+      ) {
+        return;
+      }
+      
       setShowToolbar(false);
       setSelectedHighlightId(null);
+      window.getSelection()?.removeAllRanges();
     };
     
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleTextSelection = async (e: React.MouseEvent) => {
@@ -280,12 +292,13 @@ export function ModernDocumentView({
       {/* Floating Toolbar */}
       {showToolbar && (
         <div
-          className="fixed z-50"
+          className="fixed z-50 highlight-toolbar"
           style={{
             top: `${toolbarPosition.top}px`,
             left: `${toolbarPosition.left}px`,
             transform: "translateX(-50%)",
           }}
+          onMouseDown={(e) => e.stopPropagation()}
         >
           <HighlightToolbar
             selectedColor={selectedColor}
