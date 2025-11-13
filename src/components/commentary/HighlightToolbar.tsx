@@ -12,6 +12,12 @@ const HIGHLIGHT_COLORS = [
   { name: "Red", value: "bg-red-200 dark:bg-red-900/50", color: "red" },
   { name: "Teal", value: "bg-teal-200 dark:bg-teal-900/50", color: "teal" },
   { name: "Indigo", value: "bg-indigo-200 dark:bg-indigo-900/50", color: "indigo" },
+  { name: "Lime", value: "bg-lime-200 dark:bg-lime-900/50", color: "lime" },
+  { name: "Cyan", value: "bg-cyan-200 dark:bg-cyan-900/50", color: "cyan" },
+  { name: "Fuchsia", value: "bg-fuchsia-200 dark:bg-fuchsia-900/50", color: "fuchsia" },
+  { name: "Rose", value: "bg-rose-200 dark:bg-rose-900/50", color: "rose" },
+  { name: "Amber", value: "bg-amber-200 dark:bg-amber-900/50", color: "amber" },
+  { name: "Emerald", value: "bg-emerald-200 dark:bg-emerald-900/50", color: "emerald" },
 ];
 
 interface HighlightToolbarProps {
@@ -64,19 +70,19 @@ export function HighlightToolbar({
               <div className={`w-4 h-4 rounded ${HIGHLIGHT_COLORS.find(c => c.color === selectedColor)?.value}`} />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-56 p-2">
-            <div className="space-y-1">
-              <p className="text-xs font-medium mb-2">Highlight Color</p>
-              <div className="grid grid-cols-2 gap-1">
+          <PopoverContent className="w-64 p-3">
+            <div className="space-y-2">
+              <p className="text-sm font-semibold mb-3">Highlight Color</p>
+              <div className="grid grid-cols-3 gap-2">
                 {HIGHLIGHT_COLORS.map((color) => (
                   <Button
                     key={color.color}
                     variant={selectedColor === color.color ? "default" : "ghost"}
                     size="sm"
-                    className="justify-start gap-2"
+                    className="justify-start gap-2 h-auto py-2"
                     onClick={() => onColorChange(color.color)}
                   >
-                    <div className={`w-4 h-4 rounded ${color.value}`} />
+                    <div className={`w-5 h-5 rounded ${color.value}`} />
                     <span className="text-xs">{color.name}</span>
                   </Button>
                 ))}

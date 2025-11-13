@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { NoteEditor } from "./NoteEditor";
 import { HighlightToolbar } from "./HighlightToolbar";
+import { Lightbulb, ZoomIn, ZoomOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface Highlight {
   id: string;
@@ -44,6 +46,7 @@ export function ModernDocumentView({
   const [toolbarPosition, setToolbarPosition] = useState({ top: 0, left: 0 });
   const [selectedHighlightId, setSelectedHighlightId] = useState<string | null>(null);
   const [noteEditorOffset, setNoteEditorOffset] = useState<number | null>(null);
+  const [fontSize, setFontSize] = useState(18);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -179,6 +182,12 @@ export function ModernDocumentView({
           red: "bg-red-200 dark:bg-red-900/50",
           teal: "bg-teal-200 dark:bg-teal-900/50",
           indigo: "bg-indigo-200 dark:bg-indigo-900/50",
+          lime: "bg-lime-200 dark:bg-lime-900/50",
+          cyan: "bg-cyan-200 dark:bg-cyan-900/50",
+          fuchsia: "bg-fuchsia-200 dark:bg-fuchsia-900/50",
+          rose: "bg-rose-200 dark:bg-rose-900/50",
+          amber: "bg-amber-200 dark:bg-amber-900/50",
+          emerald: "bg-emerald-200 dark:bg-emerald-900/50",
         }[highlight.color] || "bg-yellow-200 dark:bg-yellow-900/50";
 
         paragraphElements.push(
@@ -205,15 +214,34 @@ export function ModernDocumentView({
       // Detect if paragraph is a heading
       const isHeading = paragraph.match(/^(Chapter \d+|CHAPTER \d+|\d+\.|[A-Z][A-Z\s]{10,}|[IVX]+\.|Part \d+)/i);
       
+      // Check for notes in this paragraph and add indicators
+      const paragraphWithNotes: JSX.Element[] = [];
+      paragraphNotes.forEach((note, noteIndex) => {
+        const relativeNotePos = note.position_offset - paragraphStart;
+        if (relativeNotePos >= 0 && relativeNotePos <= paragraph.length) {
+          paragraphWithNotes.push(
+            <span
+              key={`note-indicator-${note.id}`}
+              className="inline-flex items-center mx-1 cursor-pointer hover:scale-110 transition-transform"
+              title="Click to view note"
+            >
+              <Lightbulb className="h-4 w-4 text-yellow-500 fill-yellow-400" />
+            </span>
+          );
+        }
+      });
+      
       elements.push(
-        <div key={`paragraph-${pIndex}`} className="mb-8">
+        <div key={`paragraph-${pIndex}`} className="mb-6">
           {isHeading ? (
-            <h2 className="text-3xl font-bold mb-6 text-gray-900 dark:text-gray-900 scroll-mt-20 leading-tight">
+            <h2 className="text-2xl font-semibold mb-4 text-gray-900 dark:text-gray-900 scroll-mt-20 leading-snug" style={{ fontSize: `${fontSize * 1.4}px` }}>
               {paragraphElements}
+              {paragraphWithNotes}
             </h2>
           ) : (
-            <p className="text-lg leading-relaxed text-gray-800 dark:text-gray-800 mb-4">
+            <p className="leading-relaxed text-gray-800 dark:text-gray-800" style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}>
               {paragraphElements}
+              {paragraphWithNotes}
             </p>
           )}
         </div>
@@ -227,6 +255,28 @@ export function ModernDocumentView({
 
   return (
     <div className="relative">
+      {/* Font Size Controls */}
+      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-border pb-3 mb-6 flex items-center gap-2">
+        <span className="text-sm text-muted-foreground">Text size:</span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setFontSize(Math.max(12, fontSize - 2))}
+          disabled={fontSize <= 12}
+        >
+          <ZoomOut className="h-4 w-4" />
+        </Button>
+        <span className="text-sm font-medium min-w-[3rem] text-center">{fontSize}px</span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setFontSize(Math.min(28, fontSize + 2))}
+          disabled={fontSize >= 28}
+        >
+          <ZoomIn className="h-4 w-4" />
+        </Button>
+      </div>
+
       {/* Floating Toolbar */}
       {showToolbar && (
         <div

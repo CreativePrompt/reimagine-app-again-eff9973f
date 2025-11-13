@@ -47,12 +47,12 @@ export function NotesPanel({
       </div>
 
       <ScrollArea className="h-[calc(100%-73px)]">
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-3">
           {notes.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <Lightbulb className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p className="text-sm">No notes yet</p>
-              <p className="text-xs mt-1">Select text to add a note</p>
+              <Lightbulb className="h-12 w-12 mx-auto mb-3 opacity-50 fill-yellow-400/50" />
+              <p className="text-sm font-medium">No notes yet</p>
+              <p className="text-xs mt-1">Highlight text and select "Note" to add</p>
             </div>
           ) : (
             notes
@@ -60,18 +60,24 @@ export function NotesPanel({
               .map((note, index) => (
                 <div
                   key={note.id}
-                  className="group cursor-pointer hover:bg-accent/50 rounded-lg p-3 transition-all hover:shadow-md border border-transparent hover:border-accent"
+                  className="group cursor-pointer hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg p-4 transition-all hover:shadow-md border border-border hover:border-yellow-400"
                   onClick={() => onNavigateToNote(note.position_offset)}
                 >
-                  <div className="flex items-start gap-2 mb-2">
-                    <Lightbulb className="h-4 w-4 text-yellow-500 flex-shrink-0 mt-0.5" />
-                    <span className="text-xs font-medium text-muted-foreground">Note {index + 1}</span>
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-yellow-100 dark:bg-yellow-900/50">
+                      <Lightbulb className="h-4 w-4 text-yellow-600 dark:text-yellow-400 fill-yellow-500" />
+                    </div>
+                    <div className="flex-1">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Note {index + 1}</span>
+                    </div>
                   </div>
-                  <NoteDisplay
-                    content={note.content}
-                    onUpdate={(content) => onUpdateNote(note.id, content)}
-                    onDelete={() => onDeleteNote(note.id)}
-                  />
+                  <div className="pl-11">
+                    <NoteDisplay
+                      content={note.content}
+                      onUpdate={(content) => onUpdateNote(note.id, content)}
+                      onDelete={() => onDeleteNote(note.id)}
+                    />
+                  </div>
                 </div>
               ))
           )}
