@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { NoteEditor } from "./NoteEditor";
 import { HighlightToolbar } from "./HighlightToolbar";
-import { Lightbulb, ZoomIn, ZoomOut } from "lucide-react";
+import { Lightbulb, ZoomIn, ZoomOut, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Highlight {
@@ -47,6 +47,8 @@ export function ModernDocumentView({
   const [selectedHighlightId, setSelectedHighlightId] = useState<string | null>(null);
   const [noteEditorOffset, setNoteEditorOffset] = useState<number | null>(null);
   const [fontSize, setFontSize] = useState(18);
+  const [viewingNote, setViewingNote] = useState<Note | null>(null);
+  const [editingNoteContent, setEditingNoteContent] = useState<string>("");
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -236,6 +238,11 @@ export function ModernDocumentView({
               key={`note-indicator-${note.id}`}
               className="inline-flex items-center mx-1 cursor-pointer hover:scale-110 transition-transform"
               title="Click to view note"
+              onClick={(e) => {
+                e.stopPropagation();
+                setViewingNote(note);
+                setEditingNoteContent(note.content);
+              }}
             >
               <Lightbulb className="h-4 w-4 text-yellow-500 fill-yellow-400" />
             </span>
@@ -326,10 +333,10 @@ export function ModernDocumentView({
         {renderContent()}
       </div>
 
-      {/* Note editor overlay */}
+      {/* Note editor overlay for new notes */}
       {noteEditorOffset !== null && (
-        <div className="fixed inset-0 bg-black/20 z-40 flex items-center justify-center" onClick={() => setNoteEditorOffset(null)}>
-          <div className="w-full max-w-2xl mx-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/20 z-40 flex items-center justify-center animate-fade-in" onClick={() => setNoteEditorOffset(null)}>
+          <div className="w-full max-w-2xl mx-4 animate-scale-in" onClick={(e) => e.stopPropagation()}>
             <NoteEditor
               onSave={async (content) => {
                 const pending = (window as any).pendingHighlight;
@@ -343,6 +350,81 @@ export function ModernDocumentView({
                 delete (window as any).pendingHighlight;
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Note viewing/editing popup */}
+      {viewingNote && (
+        <div 
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center animate-fade-in backdrop-blur-sm" 
+          onClick={() => setViewingNote(null)}
+        >
+          <div 
+            className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-2xl mx-4 animate-scale-in overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-border bg-yellow-50 dark:bg-yellow-900/20">
+              <div className="flex items-center gap-2">
+                <Lightbulb className="h-5 w-5 text-yellow-600 dark:text-yellow-400 fill-yellow-500" />
+                <h3 className="font-semibold text-lg">Note</h3>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewingNote(null)}
+                className="h-8 w-8 p-0 hover:bg-yellow-100 dark:hover:bg-yellow-900/40"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <textarea
+                value={editingNoteContent}
+                onChange={(e) => setEditingNoteContent(e.target.value)}
+                className="w-full min-h-[200px] p-4 rounded-lg border border-border bg-background text-foreground resize-y focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                placeholder="Write your note here..."
+              />
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex items-center justify-between gap-3 p-4 border-t border-border bg-muted/30">
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  if (confirm("Are you sure you want to delete this note?")) {
+                    await onDeleteNote(viewingNote.id);
+                    setViewingNote(null);
+                  }
+                }}
+                className="text-destructive hover:bg-destructive/10"
+              >
+                Delete Note
+              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setViewingNote(null);
+                    setEditingNoteContent("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={async () => {
+                    await onUpdateNote(viewingNote.id, editingNoteContent);
+                    setViewingNote(null);
+                  }}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                >
+                  Save Changes
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}
