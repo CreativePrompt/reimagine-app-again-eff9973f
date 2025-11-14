@@ -156,19 +156,23 @@ export function ModernDocumentView({
     if (!text) return null;
 
     const elements: JSX.Element[] = [];
-    let lastIndex = 0;
-
+    
     // Sort highlights and notes by position
     const sortedHighlights = [...highlights].sort((a, b) => a.start_offset - b.start_offset);
     const sortedNotes = [...notes].sort((a, b) => a.position_offset - b.position_offset);
 
-    // Parse paragraphs
-    const paragraphs = text.split(/\n\n+/);
+    // Split text into lines and group into logical blocks
+    const lines = text.split('\n');
     let currentOffset = 0;
+    let currentParagraph: string[] = [];
+    let paragraphStartOffset = 0;
 
-    paragraphs.forEach((paragraph, pIndex) => {
-      const paragraphStart = currentOffset;
-      const paragraphEnd = currentOffset + paragraph.length;
+    const flushParagraph = (pIndex: number) => {
+      if (currentParagraph.length === 0) return;
+
+      const paragraphText = currentParagraph.join('\n');
+      const paragraphStart = paragraphStartOffset;
+      const paragraphEnd = paragraphStart + paragraphText.length;
 
       // Get highlights for this paragraph
       const paragraphHighlights = sortedHighlights.filter(
@@ -180,106 +184,161 @@ export function ModernDocumentView({
         (n) => n.position_offset >= paragraphStart && n.position_offset <= paragraphEnd
       );
 
-      // Render paragraph with highlights
-      let paragraphElements: JSX.Element[] = [];
-      let paragraphLastIndex = 0;
+      // Render paragraph content with highlights
+      const paragraphElements = renderParagraphWithHighlights(
+        paragraphText,
+        paragraphStart,
+        paragraphHighlights,
+        pIndex
+      );
 
-      paragraphHighlights.forEach((highlight) => {
-        const relativeStart = Math.max(0, highlight.start_offset - paragraphStart);
-        const relativeEnd = Math.min(paragraph.length, highlight.end_offset - paragraphStart);
+      // Add note indicators
+      const noteIndicators = paragraphNotes.map((note) => (
+        <span
+          key={`note-indicator-${note.id}`}
+          className="inline-flex items-center mx-1 cursor-pointer hover:scale-110 transition-transform"
+          title="Click to view note"
+          onClick={(e) => {
+            e.stopPropagation();
+            setViewingNote(note);
+            setEditingNoteContent(note.content);
+          }}
+        >
+          <Lightbulb className="h-4 w-4 text-yellow-500 fill-yellow-400" />
+        </span>
+      ));
 
-        if (relativeStart > paragraphLastIndex) {
-          paragraphElements.push(
-            <span key={`text-${pIndex}-${paragraphLastIndex}`}>
-              {paragraph.slice(paragraphLastIndex, relativeStart)}
-            </span>
-          );
-        }
+      // Detect if this is a heading (short lines, all caps, or starts with numbers/chapters)
+      const isHeading = paragraphText.length < 100 && (
+        /^(Chapter \d+|CHAPTER \d+|Part \d+|[IVX]+\.)/i.test(paragraphText) ||
+        /^[A-Z][A-Z\s]{5,}$/.test(paragraphText.trim()) ||
+        /^[\d]+\.?\s+[A-Z]/.test(paragraphText)
+      );
 
-        const colorClass = {
-          yellow: "bg-yellow-200 dark:bg-yellow-900/50",
-          green: "bg-green-200 dark:bg-green-900/50",
-          blue: "bg-blue-200 dark:bg-blue-900/50",
-          pink: "bg-pink-200 dark:bg-pink-900/50",
-          purple: "bg-purple-200 dark:bg-purple-900/50",
-          orange: "bg-orange-200 dark:bg-orange-900/50",
-          red: "bg-red-200 dark:bg-red-900/50",
-          teal: "bg-teal-200 dark:bg-teal-900/50",
-          indigo: "bg-indigo-200 dark:bg-indigo-900/50",
-          lime: "bg-lime-200 dark:bg-lime-900/50",
-          cyan: "bg-cyan-200 dark:bg-cyan-900/50",
-          fuchsia: "bg-fuchsia-200 dark:bg-fuchsia-900/50",
-          rose: "bg-rose-200 dark:bg-rose-900/50",
-          amber: "bg-amber-200 dark:bg-amber-900/50",
-          emerald: "bg-emerald-200 dark:bg-emerald-900/50",
-        }[highlight.color] || "bg-yellow-200 dark:bg-yellow-900/50";
+      // Detect page markers
+      const isPageMarker = /^---\s*Page\s+\d+\s*---$/i.test(paragraphText.trim());
 
-        paragraphElements.push(
-          <mark
-            key={`highlight-${highlight.id}`}
-            className={`${colorClass} cursor-pointer hover:opacity-80 transition-opacity rounded-sm px-0.5`}
-            onClick={(e) => handleHighlightClick(e, highlight.id)}
-          >
-            {paragraph.slice(relativeStart, relativeEnd)}
-          </mark>
+      if (isPageMarker) {
+        elements.push(
+          <div key={`page-${pIndex}`} className="text-center text-muted-foreground text-sm my-8 border-t border-border pt-4">
+            {paragraphText}
+          </div>
         );
+      } else if (isHeading) {
+        elements.push(
+          <h2 
+            key={`heading-${pIndex}`} 
+            className="text-xl font-bold mt-6 mb-3 text-foreground leading-tight"
+            style={{ fontSize: `${fontSize * 1.2}px` }}
+          >
+            {paragraphElements}
+            {noteIndicators}
+          </h2>
+        );
+      } else {
+        elements.push(
+          <p 
+            key={`paragraph-${pIndex}`} 
+            className="mb-4 text-foreground/90 leading-relaxed font-normal"
+            style={{ fontSize: `${fontSize}px`, lineHeight: '1.8', fontWeight: 'normal' }}
+          >
+            {paragraphElements}
+            {noteIndicators}
+          </p>
+        );
+      }
 
-        paragraphLastIndex = relativeEnd;
-      });
+      currentParagraph = [];
+    };
 
-      if (paragraphLastIndex < paragraph.length) {
+    let paragraphIndex = 0;
+    
+    lines.forEach((line, lineIndex) => {
+      const trimmedLine = line.trim();
+      
+      // Empty line indicates paragraph break
+      if (trimmedLine === '') {
+        flushParagraph(paragraphIndex);
+        paragraphIndex++;
+        paragraphStartOffset = currentOffset + line.length + 1; // +1 for newline
+      } else {
+        // Start new paragraph if this is the first line
+        if (currentParagraph.length === 0) {
+          paragraphStartOffset = currentOffset;
+        }
+        currentParagraph.push(line);
+      }
+      
+      currentOffset += line.length + 1; // +1 for newline character
+    });
+
+    // Flush any remaining paragraph
+    flushParagraph(paragraphIndex);
+
+    return elements;
+  };
+
+  const renderParagraphWithHighlights = (
+    paragraphText: string,
+    paragraphStart: number,
+    paragraphHighlights: Highlight[],
+    pIndex: number
+  ) => {
+    const paragraphElements: JSX.Element[] = [];
+    let lastIndex = 0;
+
+    paragraphHighlights.forEach((highlight) => {
+      const relativeStart = Math.max(0, highlight.start_offset - paragraphStart);
+      const relativeEnd = Math.min(paragraphText.length, highlight.end_offset - paragraphStart);
+
+      if (relativeStart > lastIndex) {
         paragraphElements.push(
-          <span key={`text-${pIndex}-${paragraphLastIndex}`}>
-            {paragraph.slice(paragraphLastIndex)}
+          <span key={`text-${pIndex}-${lastIndex}`}>
+            {paragraphText.slice(lastIndex, relativeStart)}
           </span>
         );
       }
 
-      // Detect if paragraph is a heading
-      const isHeading = paragraph.match(/^(Chapter \d+|CHAPTER \d+|\d+\.|[A-Z][A-Z\s]{10,}|[IVX]+\.|Part \d+)/i);
-      
-      // Check for notes in this paragraph and add indicators
-      const paragraphWithNotes: JSX.Element[] = [];
-      paragraphNotes.forEach((note, noteIndex) => {
-        const relativeNotePos = note.position_offset - paragraphStart;
-        if (relativeNotePos >= 0 && relativeNotePos <= paragraph.length) {
-          paragraphWithNotes.push(
-            <span
-              key={`note-indicator-${note.id}`}
-              className="inline-flex items-center mx-1 cursor-pointer hover:scale-110 transition-transform"
-              title="Click to view note"
-              onClick={(e) => {
-                e.stopPropagation();
-                setViewingNote(note);
-                setEditingNoteContent(note.content);
-              }}
-            >
-              <Lightbulb className="h-4 w-4 text-yellow-500 fill-yellow-400" />
-            </span>
-          );
-        }
-      });
-      
-      elements.push(
-        <div key={`paragraph-${pIndex}`} className="mb-6">
-          {isHeading ? (
-            <h2 className="text-2xl font-semibold mb-4 text-gray-900 dark:text-gray-900 scroll-mt-20 leading-snug" style={{ fontSize: `${fontSize * 1.4}px` }}>
-              {paragraphElements}
-              {paragraphWithNotes}
-            </h2>
-          ) : (
-            <p className="leading-relaxed text-gray-800 dark:text-gray-800" style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}>
-              {paragraphElements}
-              {paragraphWithNotes}
-            </p>
-          )}
-        </div>
+      const colorClass = {
+        yellow: "bg-yellow-200 dark:bg-yellow-900/50",
+        green: "bg-green-200 dark:bg-green-900/50",
+        blue: "bg-blue-200 dark:bg-blue-900/50",
+        pink: "bg-pink-200 dark:bg-pink-900/50",
+        purple: "bg-purple-200 dark:bg-purple-900/50",
+        orange: "bg-orange-200 dark:bg-orange-900/50",
+        red: "bg-red-200 dark:bg-red-900/50",
+        teal: "bg-teal-200 dark:bg-teal-900/50",
+        indigo: "bg-indigo-200 dark:bg-indigo-900/50",
+        lime: "bg-lime-200 dark:bg-lime-900/50",
+        cyan: "bg-cyan-200 dark:bg-cyan-900/50",
+        fuchsia: "bg-fuchsia-200 dark:bg-fuchsia-900/50",
+        rose: "bg-rose-200 dark:bg-rose-900/50",
+        amber: "bg-amber-200 dark:bg-amber-900/50",
+        emerald: "bg-emerald-200 dark:bg-emerald-900/50",
+      }[highlight.color] || "bg-yellow-200 dark:bg-yellow-900/50";
+
+      paragraphElements.push(
+        <mark
+          key={`highlight-${highlight.id}`}
+          className={`${colorClass} cursor-pointer hover:opacity-80 transition-opacity rounded-sm px-0.5`}
+          onClick={(e) => handleHighlightClick(e, highlight.id)}
+        >
+          {paragraphText.slice(relativeStart, relativeEnd)}
+        </mark>
       );
 
-      currentOffset = paragraphEnd + 2; // Account for paragraph break
+      lastIndex = relativeEnd;
     });
 
-    return elements;
+    if (lastIndex < paragraphText.length) {
+      paragraphElements.push(
+        <span key={`text-${pIndex}-${lastIndex}`}>
+          {paragraphText.slice(lastIndex)}
+        </span>
+      );
+    }
+
+    return paragraphElements;
   };
 
   return (
