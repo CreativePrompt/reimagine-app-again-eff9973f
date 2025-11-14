@@ -88,12 +88,15 @@ export function ModernDocumentView({
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
 
-      // Calculate offset
-      const preSelectionRange = range.cloneRange();
+      // Calculate offset more robustly by getting all text content before selection
       if (contentRef.current) {
+        const preSelectionRange = range.cloneRange();
         preSelectionRange.selectNodeContents(contentRef.current);
         preSelectionRange.setEnd(range.startContainer, range.startOffset);
-        const startOffset = preSelectionRange.toString().length;
+        
+        // Get the actual text content to calculate accurate offset
+        const textBeforeSelection = preSelectionRange.toString();
+        const startOffset = textBeforeSelection.length;
         const endOffset = startOffset + selectedText.length;
 
         // Show toolbar above the selection
