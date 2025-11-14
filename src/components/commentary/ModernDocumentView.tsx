@@ -42,8 +42,7 @@ export function ModernDocumentView({
   onDeleteNote,
 }: ModernDocumentViewProps) {
   const [selectedColor, setSelectedColor] = useState("yellow");
-  const [showToolbar, setShowToolbar] = useState(false);
-  const [toolbarPosition, setToolbarPosition] = useState({ top: 0, left: 0 });
+  const [showSidebar, setShowSidebar] = useState(false);
   const [selectedHighlightId, setSelectedHighlightId] = useState<string | null>(null);
   const [noteEditorOffset, setNoteEditorOffset] = useState<number | null>(null);
   const [fontSize, setFontSize] = useState(18);
@@ -53,18 +52,18 @@ export function ModernDocumentView({
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      // Don't hide if clicking within the toolbar or if there's a text selection
       const target = e.target as HTMLElement;
       const selection = window.getSelection();
       
+      // Don't hide if clicking within the sidebar or if there's a text selection
       if (
-        target.closest('.highlight-toolbar') || 
+        target.closest('.highlight-sidebar') || 
         (selection && selection.toString().trim() !== "")
       ) {
         return;
       }
       
-      setShowToolbar(false);
+      setShowSidebar(false);
       setSelectedHighlightId(null);
       window.getSelection()?.removeAllRanges();
     };
@@ -86,7 +85,6 @@ export function ModernDocumentView({
 
       try {
         const range = selection.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
 
         // Calculate offset more robustly by getting all text content before selection
         if (contentRef.current) {
@@ -99,12 +97,8 @@ export function ModernDocumentView({
           const startOffset = textBeforeSelection.length;
           const endOffset = startOffset + selectedText.length;
 
-          // Show toolbar above the selection
-          setToolbarPosition({
-            top: rect.top + window.scrollY - 60,
-            left: rect.left + rect.width / 2,
-          });
-          setShowToolbar(true);
+          // Show sidebar on the right
+          setShowSidebar(true);
           setSelectedHighlightId(null);
 
           // Save the selection info for later use
@@ -121,26 +115,22 @@ export function ModernDocumentView({
     if (!pending) return;
 
     await onHighlight(pending.selectedText, pending.startOffset, pending.endOffset, selectedColor);
-    setShowToolbar(false);
+    setShowSidebar(false);
     delete (window as any).pendingHighlight;
+    window.getSelection()?.removeAllRanges();
   };
 
   const handleHighlightClick = (e: React.MouseEvent, highlightId: string) => {
     e.stopPropagation();
     setSelectedHighlightId(highlightId);
-    const rect = (e.target as HTMLElement).getBoundingClientRect();
-    setToolbarPosition({
-      top: rect.top + window.scrollY - 60,
-      left: rect.left + rect.width / 2,
-    });
-    setShowToolbar(true);
+    setShowSidebar(true);
     delete (window as any).pendingHighlight;
   };
 
   const handleColorChange = async (color: string) => {
     if (selectedHighlightId) {
       await onUpdateHighlight(selectedHighlightId, color);
-      setShowToolbar(false);
+      setShowSidebar(false);
       setSelectedHighlightId(null);
     } else {
       setSelectedColor(color);
@@ -150,7 +140,7 @@ export function ModernDocumentView({
   const handleRemoveHighlight = async () => {
     if (selectedHighlightId) {
       await onRemoveHighlight(selectedHighlightId);
-      setShowToolbar(false);
+      setShowSidebar(false);
       setSelectedHighlightId(null);
     }
   };
@@ -409,90 +399,64 @@ export function ModernDocumentView({
   };
 
   return (
-    <div className="relative">
-      {/* Font Size Controls */}
-      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-border pb-3 mb-6 flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">Text size:</span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setFontSize(Math.max(12, fontSize - 2))}
-          disabled={fontSize <= 12}
-        >
-          <ZoomOut className="h-4 w-4" />
-        </Button>
-        <span className="text-sm font-medium min-w-[3rem] text-center">{fontSize}px</span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setFontSize(Math.min(28, fontSize + 2))}
-          disabled={fontSize >= 28}
-        >
-          <ZoomIn className="h-4 w-4" />
-        </Button>
-      </div>
+    <div className="relative flex">
+      {/* Main Content Area */}
+      <div className="flex-1 min-w-0">
+        {/* Font Size Controls */}
+        <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-border pb-3 mb-6 flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Text size:</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFontSize(Math.max(12, fontSize - 2))}
+            disabled={fontSize <= 12}
+          >
+            <ZoomOut className="h-4 w-4" />
+          </Button>
+          <span className="text-sm font-medium min-w-[3rem] text-center">{fontSize}px</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFontSize(Math.min(28, fontSize + 2))}
+            disabled={fontSize >= 28}
+          >
+            <ZoomIn className="h-4 w-4" />
+          </Button>
+        </div>
 
-      {/* Floating Toolbar */}
-      {showToolbar && (
+        {/* Document Content */}
         <div
-          className="fixed z-50 highlight-toolbar"
-          style={{
-            top: `${toolbarPosition.top}px`,
-            left: `${toolbarPosition.left}px`,
-            transform: "translateX(-50%)",
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
+          ref={contentRef}
+          className="prose prose-lg dark:prose-invert max-w-none select-text cursor-text"
+          onMouseUp={handleTextSelection}
+          onTouchEnd={handleTextSelection}
         >
-          <HighlightToolbar
-            selectedColor={selectedColor}
-            onColorChange={handleColorChange}
-            onRemoveHighlight={selectedHighlightId ? handleRemoveHighlight : undefined}
-            showRemove={!!selectedHighlightId}
-            onHighlight={!selectedHighlightId ? handleHighlight : undefined}
-            onAddNote={!selectedHighlightId ? () => {
-              const pending = (window as any).pendingHighlight;
-              if (pending) {
-                setNoteEditorOffset(pending.startOffset);
-                setShowToolbar(false);
-              }
-            } : undefined}
-          />
+          {renderContent()}
         </div>
-      )}
 
-      {/* Document Content */}
-      <div
-        ref={contentRef}
-        className="prose prose-lg dark:prose-invert max-w-none select-text cursor-text"
-        onMouseUp={handleTextSelection}
-        onTouchEnd={handleTextSelection}
-      >
-        {renderContent()}
-      </div>
-
-      {/* Note editor overlay for new notes */}
-      {noteEditorOffset !== null && (
-        <div className="fixed inset-0 bg-black/20 z-40 flex items-center justify-center animate-fade-in" onClick={() => setNoteEditorOffset(null)}>
-          <div className="w-full max-w-2xl mx-4 animate-scale-in" onClick={(e) => e.stopPropagation()}>
-            <NoteEditor
-              onSave={async (content) => {
-                const pending = (window as any).pendingHighlight;
-                const offset = pending ? pending.startOffset : noteEditorOffset;
-                await onAddNote(content, offset);
-                setNoteEditorOffset(null);
-                delete (window as any).pendingHighlight;
-              }}
-              onCancel={() => {
-                setNoteEditorOffset(null);
-                delete (window as any).pendingHighlight;
-              }}
-            />
+        {/* Note editor overlay for new notes */}
+        {noteEditorOffset !== null && (
+          <div className="fixed inset-0 bg-black/20 z-40 flex items-center justify-center animate-fade-in" onClick={() => setNoteEditorOffset(null)}>
+            <div className="w-full max-w-2xl mx-4 animate-scale-in" onClick={(e) => e.stopPropagation()}>
+              <NoteEditor
+                onSave={async (content) => {
+                  const pending = (window as any).pendingHighlight;
+                  const offset = pending ? pending.startOffset : noteEditorOffset;
+                  await onAddNote(content, offset);
+                  setNoteEditorOffset(null);
+                  delete (window as any).pendingHighlight;
+                }}
+                onCancel={() => {
+                  setNoteEditorOffset(null);
+                  delete (window as any).pendingHighlight;
+                }}
+              />
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Note viewing/editing popup */}
-      {viewingNote && (
+        {/* Note viewing/editing popup */}
+        {viewingNote && (
         <div 
           className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center animate-fade-in backdrop-blur-sm" 
           onClick={() => setViewingNote(null)}
@@ -564,7 +528,115 @@ export function ModernDocumentView({
             </div>
           </div>
         </div>
-      )}
+        )}
+      </div>
+
+      {/* Right Sidebar for Highlighting */}
+      <div
+        className={`fixed right-0 top-0 h-full w-80 bg-card border-l border-border shadow-2xl z-50 transition-transform duration-300 ease-in-out highlight-sidebar ${
+          showSidebar ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-border bg-muted/30">
+            <h3 className="font-semibold text-lg">
+              {selectedHighlightId ? 'Edit Highlight' : 'Highlight Text'}
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setShowSidebar(false);
+                setSelectedHighlightId(null);
+                window.getSelection()?.removeAllRanges();
+              }}
+              className="h-8 w-8 p-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+            {/* Color Selection */}
+            <div>
+              <label className="text-sm font-medium mb-3 block">Choose Color</label>
+              <div className="grid grid-cols-5 gap-2">
+                {[
+                  { name: 'yellow', class: 'bg-yellow-200 hover:bg-yellow-300' },
+                  { name: 'green', class: 'bg-green-200 hover:bg-green-300' },
+                  { name: 'blue', class: 'bg-blue-200 hover:bg-blue-300' },
+                  { name: 'pink', class: 'bg-pink-200 hover:bg-pink-300' },
+                  { name: 'purple', class: 'bg-purple-200 hover:bg-purple-300' },
+                  { name: 'orange', class: 'bg-orange-200 hover:bg-orange-300' },
+                  { name: 'red', class: 'bg-red-200 hover:bg-red-300' },
+                  { name: 'teal', class: 'bg-teal-200 hover:bg-teal-300' },
+                  { name: 'indigo', class: 'bg-indigo-200 hover:bg-indigo-300' },
+                  { name: 'lime', class: 'bg-lime-200 hover:bg-lime-300' },
+                  { name: 'cyan', class: 'bg-cyan-200 hover:bg-cyan-300' },
+                  { name: 'fuchsia', class: 'bg-fuchsia-200 hover:bg-fuchsia-300' },
+                  { name: 'rose', class: 'bg-rose-200 hover:bg-rose-300' },
+                  { name: 'amber', class: 'bg-amber-200 hover:bg-amber-300' },
+                  { name: 'emerald', class: 'bg-emerald-200 hover:bg-emerald-300' },
+                ].map((color) => (
+                  <button
+                    key={color.name}
+                    onClick={() => handleColorChange(color.name)}
+                    className={`h-10 w-10 rounded-lg ${color.class} transition-all ${
+                      selectedColor === color.name
+                        ? 'ring-2 ring-foreground ring-offset-2'
+                        : 'ring-1 ring-border'
+                    }`}
+                    title={color.name}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-3">
+              {!selectedHighlightId && (
+                <>
+                  <Button
+                    onClick={handleHighlight}
+                    className="w-full"
+                    size="lg"
+                  >
+                    Apply Highlight
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      const pending = (window as any).pendingHighlight;
+                      if (pending) {
+                        setNoteEditorOffset(pending.startOffset);
+                        setShowSidebar(false);
+                      }
+                    }}
+                    variant="outline"
+                    className="w-full"
+                    size="lg"
+                  >
+                    <Lightbulb className="h-4 w-4 mr-2" />
+                    Add Note
+                  </Button>
+                </>
+              )}
+
+              {selectedHighlightId && (
+                <Button
+                  onClick={handleRemoveHighlight}
+                  variant="destructive"
+                  className="w-full"
+                  size="lg"
+                >
+                  Remove Highlight
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
