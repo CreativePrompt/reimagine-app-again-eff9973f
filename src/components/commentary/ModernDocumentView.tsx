@@ -73,44 +73,47 @@ export function ModernDocumentView({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleTextSelection = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    
+  const handleTextSelection = () => {
     // Small delay to ensure selection is complete
     setTimeout(() => {
       const selection = window.getSelection();
       if (!selection || selection.toString().trim() === "") {
-        setShowToolbar(false);
         return;
       }
 
-      const selectedText = selection.toString();
-      const range = selection.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
+      const selectedText = selection.toString().trim();
+      if (selectedText.length === 0) return;
 
-      // Calculate offset more robustly by getting all text content before selection
-      if (contentRef.current) {
-        const preSelectionRange = range.cloneRange();
-        preSelectionRange.selectNodeContents(contentRef.current);
-        preSelectionRange.setEnd(range.startContainer, range.startOffset);
-        
-        // Get the actual text content to calculate accurate offset
-        const textBeforeSelection = preSelectionRange.toString();
-        const startOffset = textBeforeSelection.length;
-        const endOffset = startOffset + selectedText.length;
+      try {
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
 
-        // Show toolbar above the selection
-        setToolbarPosition({
-          top: rect.top + window.scrollY - 60,
-          left: rect.left + rect.width / 2,
-        });
-        setShowToolbar(true);
-        setSelectedHighlightId(null);
+        // Calculate offset more robustly by getting all text content before selection
+        if (contentRef.current) {
+          const preSelectionRange = range.cloneRange();
+          preSelectionRange.selectNodeContents(contentRef.current);
+          preSelectionRange.setEnd(range.startContainer, range.startOffset);
+          
+          // Get the actual text content to calculate accurate offset
+          const textBeforeSelection = preSelectionRange.toString();
+          const startOffset = textBeforeSelection.length;
+          const endOffset = startOffset + selectedText.length;
 
-        // Save the selection info for later use
-        (window as any).pendingHighlight = { selectedText, startOffset, endOffset };
+          // Show toolbar above the selection
+          setToolbarPosition({
+            top: rect.top + window.scrollY - 60,
+            left: rect.left + rect.width / 2,
+          });
+          setShowToolbar(true);
+          setSelectedHighlightId(null);
+
+          // Save the selection info for later use
+          (window as any).pendingHighlight = { selectedText, startOffset, endOffset };
+        }
+      } catch (error) {
+        console.error("Error handling text selection:", error);
       }
-    }, 10);
+    }, 50);
   };
 
   const handleHighlight = async () => {
@@ -152,6 +155,30 @@ export function ModernDocumentView({
     }
   };
 
+  // Helper function to intelligently break long paragraphs
+  const breakLongParagraph = (text: string, maxLength: number = 600): string[] => {
+    if (text.length <= maxLength) return [text];
+
+    const chunks: string[] = [];
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+    let currentChunk = '';
+
+    sentences.forEach((sentence) => {
+      if ((currentChunk + sentence).length > maxLength && currentChunk.length > 0) {
+        chunks.push(currentChunk.trim());
+        currentChunk = sentence;
+      } else {
+        currentChunk += sentence;
+      }
+    });
+
+    if (currentChunk.trim().length > 0) {
+      chunks.push(currentChunk.trim());
+    }
+
+    return chunks.length > 0 ? chunks : [text];
+  };
+
   const renderContent = () => {
     if (!text) return null;
 
@@ -170,43 +197,9 @@ export function ModernDocumentView({
     const flushParagraph = (pIndex: number) => {
       if (currentParagraph.length === 0) return;
 
-      const paragraphText = currentParagraph.join('\n');
+      const paragraphText = currentParagraph.join(' ').replace(/\s+/g, ' ').trim();
       const paragraphStart = paragraphStartOffset;
       const paragraphEnd = paragraphStart + paragraphText.length;
-
-      // Get highlights for this paragraph
-      const paragraphHighlights = sortedHighlights.filter(
-        (h) => h.start_offset < paragraphEnd && h.end_offset > paragraphStart
-      );
-
-      // Get notes for this paragraph
-      const paragraphNotes = sortedNotes.filter(
-        (n) => n.position_offset >= paragraphStart && n.position_offset <= paragraphEnd
-      );
-
-      // Render paragraph content with highlights
-      const paragraphElements = renderParagraphWithHighlights(
-        paragraphText,
-        paragraphStart,
-        paragraphHighlights,
-        pIndex
-      );
-
-      // Add note indicators
-      const noteIndicators = paragraphNotes.map((note) => (
-        <span
-          key={`note-indicator-${note.id}`}
-          className="inline-flex items-center mx-1 cursor-pointer hover:scale-110 transition-transform"
-          title="Click to view note"
-          onClick={(e) => {
-            e.stopPropagation();
-            setViewingNote(note);
-            setEditingNoteContent(note.content);
-          }}
-        >
-          <Lightbulb className="h-4 w-4 text-yellow-500 fill-yellow-400" />
-        </span>
-      ));
 
       // Detect if this is a heading (short lines, all caps, or starts with numbers/chapters)
       const isHeading = paragraphText.length < 100 && (
@@ -224,7 +217,41 @@ export function ModernDocumentView({
             {paragraphText}
           </div>
         );
-      } else if (isHeading) {
+        currentParagraph = [];
+        return;
+      }
+
+      if (isHeading) {
+        const paragraphHighlights = sortedHighlights.filter(
+          (h) => h.start_offset < paragraphEnd && h.end_offset > paragraphStart
+        );
+
+        const paragraphNotes = sortedNotes.filter(
+          (n) => n.position_offset >= paragraphStart && n.position_offset <= paragraphEnd
+        );
+
+        const paragraphElements = renderParagraphWithHighlights(
+          paragraphText,
+          paragraphStart,
+          paragraphHighlights,
+          pIndex
+        );
+
+        const noteIndicators = paragraphNotes.map((note) => (
+          <span
+            key={`note-indicator-${note.id}`}
+            className="inline-flex items-center mx-1 cursor-pointer hover:scale-110 transition-transform"
+            title="Click to view note"
+            onClick={(e) => {
+              e.stopPropagation();
+              setViewingNote(note);
+              setEditingNoteContent(note.content);
+            }}
+          >
+            <Lightbulb className="h-4 w-4 text-yellow-500 fill-yellow-400" />
+          </span>
+        ));
+
         elements.push(
           <h2 
             key={`heading-${pIndex}`} 
@@ -236,16 +263,57 @@ export function ModernDocumentView({
           </h2>
         );
       } else {
-        elements.push(
-          <p 
-            key={`paragraph-${pIndex}`} 
-            className="mb-4 text-foreground/90 leading-relaxed font-normal"
-            style={{ fontSize: `${fontSize}px`, lineHeight: '1.8', fontWeight: 'normal' }}
-          >
-            {paragraphElements}
-            {noteIndicators}
-          </p>
-        );
+        // Break long paragraphs into smaller chunks
+        const chunks = breakLongParagraph(paragraphText);
+        let chunkOffset = paragraphStart;
+
+        chunks.forEach((chunk, chunkIndex) => {
+          const chunkStart = chunkOffset;
+          const chunkEnd = chunkStart + chunk.length;
+
+          const chunkHighlights = sortedHighlights.filter(
+            (h) => h.start_offset < chunkEnd && h.end_offset > chunkStart
+          );
+
+          const chunkNotes = sortedNotes.filter(
+            (n) => n.position_offset >= chunkStart && n.position_offset <= chunkEnd
+          );
+
+          const chunkElements = renderParagraphWithHighlights(
+            chunk,
+            chunkStart,
+            chunkHighlights,
+            `${pIndex}-${chunkIndex}`
+          );
+
+          const noteIndicators = chunkNotes.map((note) => (
+            <span
+              key={`note-indicator-${note.id}`}
+              className="inline-flex items-center mx-1 cursor-pointer hover:scale-110 transition-transform"
+              title="Click to view note"
+              onClick={(e) => {
+                e.stopPropagation();
+                setViewingNote(note);
+                setEditingNoteContent(note.content);
+              }}
+            >
+              <Lightbulb className="h-4 w-4 text-yellow-500 fill-yellow-400" />
+            </span>
+          ));
+
+          elements.push(
+            <p 
+              key={`paragraph-${pIndex}-${chunkIndex}`} 
+              className="mb-4 text-foreground/90 leading-relaxed font-normal"
+              style={{ fontSize: `${fontSize}px`, lineHeight: '1.8', fontWeight: 'normal' }}
+            >
+              {chunkElements}
+              {noteIndicators}
+            </p>
+          );
+
+          chunkOffset = chunkEnd + 1;
+        });
       }
 
       currentParagraph = [];
@@ -253,23 +321,22 @@ export function ModernDocumentView({
 
     let paragraphIndex = 0;
     
-    lines.forEach((line, lineIndex) => {
+    lines.forEach((line) => {
       const trimmedLine = line.trim();
       
       // Empty line indicates paragraph break
       if (trimmedLine === '') {
         flushParagraph(paragraphIndex);
         paragraphIndex++;
-        paragraphStartOffset = currentOffset + line.length + 1; // +1 for newline
+        paragraphStartOffset = currentOffset + line.length + 1;
       } else {
-        // Start new paragraph if this is the first line
         if (currentParagraph.length === 0) {
           paragraphStartOffset = currentOffset;
         }
         currentParagraph.push(line);
       }
       
-      currentOffset += line.length + 1; // +1 for newline character
+      currentOffset += line.length + 1;
     });
 
     // Flush any remaining paragraph
@@ -282,7 +349,7 @@ export function ModernDocumentView({
     paragraphText: string,
     paragraphStart: number,
     paragraphHighlights: Highlight[],
-    pIndex: number
+    pIndex: number | string
   ) => {
     const paragraphElements: JSX.Element[] = [];
     let lastIndex = 0;
@@ -396,8 +463,9 @@ export function ModernDocumentView({
       {/* Document Content */}
       <div
         ref={contentRef}
-        className="prose prose-lg dark:prose-invert max-w-none select-text"
+        className="prose prose-lg dark:prose-invert max-w-none select-text cursor-text"
         onMouseUp={handleTextSelection}
+        onTouchEnd={handleTextSelection}
       >
         {renderContent()}
       </div>
