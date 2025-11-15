@@ -86,24 +86,57 @@ export function ModernDocumentView({
       try {
         const range = selection.getRangeAt(0);
 
-        // Calculate offset more robustly by getting all text content before selection
-        if (contentRef.current) {
-          const preSelectionRange = range.cloneRange();
-          preSelectionRange.selectNodeContents(contentRef.current);
-          preSelectionRange.setEnd(range.startContainer, range.startOffset);
+        // Get the start and end containers
+        let startContainer = range.startContainer;
+        let endContainer = range.endContainer;
+
+        // Find the closest element with data-offset attribute
+        const getOffsetFromElement = (node: Node): number => {
+          let currentNode: Node | null = node;
           
-          // Get the actual text content to calculate accurate offset
-          const textBeforeSelection = preSelectionRange.toString();
-          const startOffset = textBeforeSelection.length;
-          const endOffset = startOffset + selectedText.length;
+          while (currentNode && currentNode !== contentRef.current) {
+            if (currentNode.nodeType === Node.ELEMENT_NODE) {
+              const element = currentNode as HTMLElement;
+              const offset = element.getAttribute('data-offset');
+              if (offset !== null) {
+                return parseInt(offset, 10);
+              }
+            }
+            currentNode = currentNode.parentNode;
+          }
+          return 0;
+        };
 
-          // Show sidebar on the right
-          setShowSidebar(true);
-          setSelectedHighlightId(null);
+        // Calculate accurate offsets based on data-offset attributes
+        const startBaseOffset = getOffsetFromElement(startContainer);
+        const endBaseOffset = getOffsetFromElement(endContainer);
 
-          // Save the selection info for later use
-          (window as any).pendingHighlight = { selectedText, startOffset, endOffset };
-        }
+        // Get text offset within the element
+        const getTextOffset = (node: Node, offset: number): number => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            return offset;
+          }
+          
+          let textOffset = 0;
+          const childNodes = node.childNodes;
+          for (let i = 0; i < offset && i < childNodes.length; i++) {
+            textOffset += childNodes[i].textContent?.length || 0;
+          }
+          return textOffset;
+        };
+
+        const startTextOffset = getTextOffset(startContainer, range.startOffset);
+        const endTextOffset = getTextOffset(endContainer, range.endOffset);
+
+        const startOffset = startBaseOffset + startTextOffset;
+        const endOffset = endBaseOffset + endTextOffset;
+
+        // Show sidebar on the right
+        setShowSidebar(true);
+        setSelectedHighlightId(null);
+
+        // Save the selection info for later use
+        (window as any).pendingHighlight = { selectedText, startOffset, endOffset };
       } catch (error) {
         console.error("Error handling text selection:", error);
       }
@@ -247,6 +280,7 @@ export function ModernDocumentView({
             key={`heading-${pIndex}`} 
             className="text-xl font-bold mt-6 mb-3 text-foreground leading-tight"
             style={{ fontSize: `${fontSize * 1.2}px` }}
+            data-offset={paragraphStart}
           >
             {paragraphElements}
             {noteIndicators}
@@ -296,6 +330,7 @@ export function ModernDocumentView({
               key={`paragraph-${pIndex}-${chunkIndex}`} 
               className="mb-4 text-foreground/90 leading-relaxed font-normal"
               style={{ fontSize: `${fontSize}px`, lineHeight: '1.8', fontWeight: 'normal' }}
+              data-offset={chunkStart}
             >
               {chunkElements}
               {noteIndicators}
@@ -349,9 +384,14 @@ export function ModernDocumentView({
       const relativeEnd = Math.min(paragraphText.length, highlight.end_offset - paragraphStart);
 
       if (relativeStart > lastIndex) {
+        const textContent = paragraphText.slice(lastIndex, relativeStart);
+        const absoluteOffset = paragraphStart + lastIndex;
         paragraphElements.push(
-          <span key={`text-${pIndex}-${lastIndex}`}>
-            {paragraphText.slice(lastIndex, relativeStart)}
+          <span 
+            key={`text-${pIndex}-${lastIndex}`}
+            data-offset={absoluteOffset}
+          >
+            {textContent}
           </span>
         );
       }
@@ -374,13 +414,16 @@ export function ModernDocumentView({
         emerald: "bg-emerald-200 dark:bg-emerald-900/50",
       }[highlight.color] || "bg-yellow-200 dark:bg-yellow-900/50";
 
+      const highlightText = paragraphText.slice(relativeStart, relativeEnd);
+      const absoluteOffset = paragraphStart + relativeStart;
       paragraphElements.push(
         <mark
           key={`highlight-${highlight.id}`}
           className={`${colorClass} cursor-pointer hover:opacity-80 transition-opacity rounded-sm px-0.5`}
           onClick={(e) => handleHighlightClick(e, highlight.id)}
+          data-offset={absoluteOffset}
         >
-          {paragraphText.slice(relativeStart, relativeEnd)}
+          {highlightText}
         </mark>
       );
 
@@ -388,9 +431,14 @@ export function ModernDocumentView({
     });
 
     if (lastIndex < paragraphText.length) {
+      const textContent = paragraphText.slice(lastIndex);
+      const absoluteOffset = paragraphStart + lastIndex;
       paragraphElements.push(
-        <span key={`text-${pIndex}-${lastIndex}`}>
-          {paragraphText.slice(lastIndex)}
+        <span 
+          key={`text-${pIndex}-${lastIndex}`}
+          data-offset={absoluteOffset}
+        >
+          {textContent}
         </span>
       );
     }
