@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import type { Commentary, Highlight } from "@/lib/store/commentaryStore";
 import { ModernDocumentView } from "@/components/commentary/ModernDocumentView";
 import { NotesPanel } from "@/components/commentary/NotesPanel";
+import { SearchResultsSidebar } from "@/components/commentary/SearchResultsSidebar";
 
 interface Note {
   id: string;
@@ -31,8 +32,9 @@ export default function CommentaryReader() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [showNotesPanel, setShowNotesPanel] = useState(false);
-  const [searchResults, setSearchResults] = useState<number[]>([]);
+  const [searchResults, setSearchResults] = useState<Array<{ index: number; offset: number; context: string }>>([]);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
+  const [showSearchSidebar, setShowSearchSidebar] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -101,38 +103,75 @@ export default function CommentaryReader() {
     if (!commentary?.extracted_text || !searchQuery.trim()) {
       toast.info("Enter a search term");
       setSearchResults([]);
+      setShowSearchSidebar(false);
       return;
     }
 
     const text = commentary.extracted_text;
     const query = searchQuery.toLowerCase();
-    const indices: number[] = [];
+    const results: Array<{ index: number; offset: number; context: string }> = [];
     let index = text.toLowerCase().indexOf(query);
+    let resultIndex = 0;
     
     while (index !== -1) {
-      indices.push(index);
+      // Get context around the match (50 chars before and after)
+      const contextStart = Math.max(0, index - 50);
+      const contextEnd = Math.min(text.length, index + query.length + 50);
+      let context = text.substring(contextStart, contextEnd);
+      
+      // Add ellipsis if not at start/end
+      if (contextStart > 0) context = "..." + context;
+      if (contextEnd < text.length) context = context + "...";
+      
+      // Highlight the search term in the context
+      const matchStart = index - contextStart + (contextStart > 0 ? 3 : 0);
+      const matchEnd = matchStart + query.length;
+      context = context.substring(0, matchStart) + 
+                "**" + context.substring(matchStart, matchEnd) + "**" + 
+                context.substring(matchEnd);
+      
+      results.push({
+        index: resultIndex++,
+        offset: index,
+        context: context
+      });
+      
       index = text.toLowerCase().indexOf(query, index + 1);
     }
 
-    setSearchResults(indices);
+    setSearchResults(results);
     setCurrentSearchIndex(0);
 
-    if (indices.length > 0) {
-      toast.success(`Found ${indices.length} result${indices.length === 1 ? "" : "s"}`);
-      scrollToSearchResult(0, indices);
+    if (results.length > 0) {
+      toast.success(`Found ${results.length} result${results.length === 1 ? "" : "s"}`);
+      setShowSearchSidebar(true);
+      scrollToSearchResult(0);
     } else {
       toast.info("No results found");
+      setShowSearchSidebar(false);
     }
   };
 
-  const scrollToSearchResult = (index: number, results: number[]) => {
-    if (results.length === 0 || !contentRef.current) return;
+  const scrollToSearchResult = (index: number) => {
+    if (!contentRef.current || !commentary?.extracted_text || !searchResults[index]) {
+      return;
+    }
     
-    const offset = results[index];
+    const offset = searchResults[index].offset;
     const element = contentRef.current;
-    // Rough estimate of scroll position
-    const scrollPosition = (offset / (commentary?.extracted_text?.length || 1)) * element.scrollHeight;
-    element.scrollTo({ top: scrollPosition, behavior: "smooth" });
+    const text = commentary.extracted_text;
+    
+    // Calculate scroll position based on text offset
+    const ratio = offset / text.length;
+    const scrollPosition = ratio * element.scrollHeight;
+    
+    // Scroll with offset for header
+    element.scrollTo({ 
+      top: Math.max(0, scrollPosition - 150), 
+      behavior: "smooth" 
+    });
+    
+    setCurrentSearchIndex(index);
   };
 
   const handleHighlight = async (text: string, startOffset: number, endOffset: number, color: string) => {
@@ -357,6 +396,16 @@ export default function CommentaryReader() {
               });
             }
           }}
+        />
+
+        {/* Search Results Sidebar */}
+        <SearchResultsSidebar
+          isOpen={showSearchSidebar}
+          onClose={() => setShowSearchSidebar(false)}
+          results={searchResults}
+          searchQuery={searchQuery}
+          onResultClick={scrollToSearchResult}
+          currentIndex={currentSearchIndex}
         />
       </div>
     </AppLayout>
