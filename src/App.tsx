@@ -38,8 +38,8 @@ const App = () => {
           <AuthProvider>
             <Routes>
               <Route path="/auth" element={<Auth />} />
-              <Route path="/" element={<Index />} />
-              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/landing" element={<Index />} />
               <Route path="/templates" element={<Templates />} />
               <Route path="/sermons" element={<SermonsList />} />
               <Route path="/sermon/:id" element={<SermonEditor />} />
