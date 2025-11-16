@@ -1,1 +1,4 @@
 project_id = "npemtotyxyunxcrrhpte"
+
+[functions.esv-bible]
+verify_jwt = false
