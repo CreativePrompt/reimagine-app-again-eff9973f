@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      bible_highlights: {
+        Row: {
+          book: string
+          chapter: number
+          color: string | null
+          created_at: string
+          end_offset: number
+          id: string
+          start_offset: number
+          text: string
+          user_id: string
+        }
+        Insert: {
+          book: string
+          chapter: number
+          color?: string | null
+          created_at?: string
+          end_offset: number
+          id?: string
+          start_offset: number
+          text: string
+          user_id: string
+        }
+        Update: {
+          book?: string
+          chapter?: number
+          color?: string | null
+          created_at?: string
+          end_offset?: number
+          id?: string
+          start_offset?: number
+          text?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      bible_notes: {
+        Row: {
+          book: string
+          chapter: number
+          content: string
+          created_at: string
+          id: string
+          position_offset: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          book: string
+          chapter: number
+          content: string
+          created_at?: string
+          id?: string
+          position_offset: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          book?: string
+          chapter?: number
+          content?: string
+          created_at?: string
+          id?: string
+          position_offset?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       commentaries: {
         Row: {
           author: string | null

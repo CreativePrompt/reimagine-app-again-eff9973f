@@ -1,4 +1,4 @@
-import { Home, FileText, FileCode, Lightbulb, BookOpen, Archive, LogOut, StickyNote } from "lucide-react";
+import { Home, FileText, FileCode, Lightbulb, BookOpen, Archive, LogOut, StickyNote, Book } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
   Sidebar,
@@ -19,6 +19,7 @@ const mainItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "Sermons", url: "/sermons", icon: FileText },
   { title: "Notes", url: "/notes", icon: StickyNote },
+  { title: "Bible", url: "/bible", icon: Book },
   { title: "Commentary", url: "/commentary", icon: BookOpen },
   { title: "Templates", url: "/templates", icon: FileCode },
 ];
