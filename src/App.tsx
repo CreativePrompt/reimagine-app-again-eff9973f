@@ -17,6 +17,8 @@ import Notes from "./pages/Notes";
 import NoteEditor from "./pages/NoteEditor";
 import Commentary from "./pages/Commentary";
 import CommentaryReader from "./pages/CommentaryReader";
+import Bible from "./pages/Bible";
+import BibleReader from "./pages/BibleReader";
 import PresentationView from "./pages/PresentationView";
 import PresenterView from "./pages/PresenterView";
 import NotFound from "./pages/NotFound";
@@ -47,6 +49,8 @@ const App = () => {
               <Route path="/notes/:id" element={<NoteEditor />} />
               <Route path="/commentary" element={<Commentary />} />
               <Route path="/commentary/:id" element={<CommentaryReader />} />
+              <Route path="/bible" element={<Bible />} />
+              <Route path="/bible/:book/:chapter" element={<BibleReader />} />
               <Route path="/present/:sessionId" element={<PresentationView />} />
               <Route path="/presenter/:sessionId" element={<PresenterView />} />
               <Route path="/ideas" element={<Dashboard />} />
