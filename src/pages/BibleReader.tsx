@@ -1,15 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { BibleDocumentView } from "@/components/bible/BibleDocumentView";
 import { useBibleStore } from "@/lib/store/bibleStore";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, BookOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, BookOpen, StickyNote } from "lucide-react";
 import { getBookByName, getAllBooks } from "@/lib/bibleBooks";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { SearchResultsSidebar } from "@/components/commentary/SearchResultsSidebar";
+import { NotesPanel } from "@/components/commentary/NotesPanel";
 
 export default function BibleReader() {
   const { book, chapter } = useParams<{ book: string; chapter: string }>();
@@ -20,6 +21,8 @@ export default function BibleReader() {
   const [searchResults, setSearchResults] = useState<Array<{ index: number; offset: number; context: string }>>([]);
   const [showSearchSidebar, setShowSearchSidebar] = useState(false);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
+  const [showNotesPanel, setShowNotesPanel] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
   
   const {
     highlights,
@@ -105,15 +108,35 @@ export default function BibleReader() {
   };
 
   const scrollToSearchResult = (index: number) => {
-    const result = searchResults[index];
-    if (!result) return;
+    if (!contentRef.current || !bibleText || !searchResults[index]) {
+      return;
+    }
+    
+    const offset = searchResults[index].offset;
+    const element = contentRef.current;
+    const text = bibleText;
+    
+    const ratio = offset / text.length;
+    const scrollPosition = ratio * element.scrollHeight;
+    
+    element.scrollTo({ 
+      top: Math.max(0, scrollPosition - 150), 
+      behavior: "smooth" 
+    });
     
     setCurrentSearchIndex(index);
+  };
+
+  const handleNavigateToNote = (offset: number) => {
+    if (!contentRef.current || !bibleText) return;
     
-    const element = document.querySelector(`[data-offset="${result.offset}"]`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+    const ratio = offset / bibleText.length;
+    const scrollPosition = ratio * contentRef.current.scrollHeight;
+    
+    contentRef.current.scrollTo({
+      top: Math.max(0, scrollPosition - 150),
+      behavior: "smooth"
+    });
   };
 
   const goToPreviousChapter = () => {
@@ -163,7 +186,7 @@ export default function BibleReader() {
   return (
     <AppLayout>
       <div className="h-full flex">
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto" ref={contentRef}>
           {/* Header */}
           <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border">
             <div className="container mx-auto p-4">
@@ -184,6 +207,14 @@ export default function BibleReader() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowNotesPanel(!showNotesPanel)}
+                  >
+                    <StickyNote className="h-4 w-4 mr-1" />
+                    Notes ({notes.length})
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -254,6 +285,16 @@ export default function BibleReader() {
           results={searchResults}
           currentIndex={currentSearchIndex}
           onResultClick={scrollToSearchResult}
+        />
+
+        {/* Notes Panel */}
+        <NotesPanel
+          notes={notes}
+          isOpen={showNotesPanel}
+          onClose={() => setShowNotesPanel(false)}
+          onUpdateNote={updateNote}
+          onDeleteNote={deleteNote}
+          onNavigateToNote={handleNavigateToNote}
         />
       </div>
     </AppLayout>
