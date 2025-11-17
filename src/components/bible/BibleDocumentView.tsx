@@ -102,104 +102,84 @@ export function BibleDocumentView({
           return 0;
         };
 
-        let startOffset = getOffsetFromElement(startContainer);
-        let endOffset = getOffsetFromElement(endContainer);
+        const startBaseOffset = getOffsetFromElement(startContainer);
+        const endBaseOffset = getOffsetFromElement(endContainer);
 
-        if (startContainer.nodeType === Node.TEXT_NODE && startContainer.parentElement) {
-          startOffset += range.startOffset;
-        }
-        if (endContainer.nodeType === Node.TEXT_NODE && endContainer.parentElement) {
-          endOffset += range.endOffset;
-        } else {
-          endOffset += selectedText.length;
-        }
-
-        const rect = range.getBoundingClientRect();
-        const sidebar = document.createElement('div');
-        sidebar.className = 'highlight-sidebar fixed z-50';
-        sidebar.style.top = `${rect.bottom + window.scrollY + 10}px`;
-        sidebar.style.left = `${rect.left + window.scrollX}px`;
-
-        const root = document.getElementById('root');
-        if (root) {
-          root.appendChild(sidebar);
-        }
-
-        const handleHighlight = async () => {
-          await onHighlight(selectedText, startOffset, endOffset, selectedColor);
-          window.getSelection()?.removeAllRanges();
-          sidebar.remove();
-          setShowSidebar(false);
+        const getTextOffset = (node: Node, offset: number): number => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            return offset;
+          }
+          
+          let textOffset = 0;
+          const childNodes = node.childNodes;
+          for (let i = 0; i < offset && i < childNodes.length; i++) {
+            textOffset += childNodes[i].textContent?.length || 0;
+          }
+          return textOffset;
         };
 
-        const handleAddNote = () => {
-          setNoteEditorOffset(startOffset);
-          window.getSelection()?.removeAllRanges();
-          sidebar.remove();
-          setShowSidebar(false);
-        };
+        const startTextOffset = getTextOffset(startContainer, range.startOffset);
+        const endTextOffset = getTextOffset(endContainer, range.endOffset);
 
-        import('react-dom/client').then(({ createRoot }) => {
-          const root = createRoot(sidebar);
-          root.render(
-            <HighlightToolbar
-              selectedColor={selectedColor}
-              onColorChange={setSelectedColor}
-              onHighlight={handleHighlight}
-              onAddNote={handleAddNote}
-            />
-          );
-        });
+        const startOffset = startBaseOffset + startTextOffset;
+        const endOffset = endBaseOffset + endTextOffset;
 
         setShowSidebar(true);
+        setSelectedHighlightId(null);
+
+        (window as any).pendingHighlight = { selectedText, startOffset, endOffset };
       } catch (error) {
-        console.error('Selection error:', error);
+        console.error("Error handling text selection:", error);
       }
-    }, 10);
+    }, 50);
   };
 
-  const handleHighlightClick = (highlight: Highlight) => {
-    setSelectedHighlightId(highlight.id);
-    setSelectedColor(highlight.color);
+  const handleHighlight = async () => {
+    const pending = (window as any).pendingHighlight;
+    if (!pending) return;
+
+    await onHighlight(pending.selectedText, pending.startOffset, pending.endOffset, selectedColor);
+    setShowSidebar(false);
+    delete (window as any).pendingHighlight;
+    window.getSelection()?.removeAllRanges();
+  };
+
+  const handleAddNoteClick = () => {
+    const pending = (window as any).pendingHighlight;
+    if (!pending) return;
     
-    const highlightElement = document.querySelector(`[data-highlight-id="${highlight.id}"]`);
-    if (highlightElement) {
-      const rect = highlightElement.getBoundingClientRect();
-      const sidebar = document.createElement('div');
-      sidebar.className = 'highlight-sidebar fixed z-50';
-      sidebar.style.top = `${rect.bottom + window.scrollY + 10}px`;
-      sidebar.style.left = `${rect.left + window.scrollX}px`;
+    setNoteEditorOffset(pending.startOffset);
+    setShowSidebar(false);
+    delete (window as any).pendingHighlight;
+    window.getSelection()?.removeAllRanges();
+  };
 
-      const root = document.getElementById('root');
-      if (root) {
-        root.appendChild(sidebar);
-      }
+  const handleHighlightClick = (e: React.MouseEvent, highlightId: string) => {
+    e.stopPropagation();
+    const highlight = highlights.find(h => h.id === highlightId);
+    if (highlight) {
+      setSelectedColor(highlight.color);
+    }
+    setSelectedHighlightId(highlightId);
+    setShowSidebar(true);
+    delete (window as any).pendingHighlight;
+  };
 
-      const handleRemove = async () => {
-        await onRemoveHighlight(highlight.id);
-        sidebar.remove();
-        setShowSidebar(false);
-        setSelectedHighlightId(null);
-      };
+  const handleColorChange = async (color: string) => {
+    if (selectedHighlightId) {
+      await onUpdateHighlight(selectedHighlightId, color);
+      setShowSidebar(false);
+      setSelectedHighlightId(null);
+    } else {
+      setSelectedColor(color);
+    }
+  };
 
-      const handleColorChange = async (color: string) => {
-        await onUpdateHighlight(highlight.id, color);
-        setSelectedColor(color);
-      };
-
-      import('react-dom/client').then(({ createRoot }) => {
-        const toolbarRoot = createRoot(sidebar);
-        toolbarRoot.render(
-          <HighlightToolbar
-            selectedColor={selectedColor}
-            onColorChange={handleColorChange}
-            onRemoveHighlight={handleRemove}
-            showRemove
-          />
-        );
-      });
-
-      setShowSidebar(true);
+  const handleRemoveHighlight = async () => {
+    if (selectedHighlightId) {
+      await onRemoveHighlight(selectedHighlightId);
+      setShowSidebar(false);
+      setSelectedHighlightId(null);
     }
   };
 
@@ -208,47 +188,94 @@ export function BibleDocumentView({
     setEditingNoteContent(note.content);
   };
 
-  const renderTextWithHighlights = () => {
-    if (highlights.length === 0 && notes.length === 0) {
-      return text.split('\n').map((paragraph, pIndex) => {
-        if (!paragraph.trim()) return null;
-        
-        let charOffset = text.split('\n').slice(0, pIndex).join('\n').length + pIndex;
-        
-        return (
-          <p 
-            key={pIndex} 
-            className="mb-4 leading-relaxed" 
-            data-offset={charOffset}
-          >
-            {paragraph}
-          </p>
-        );
-      });
+  const renderContent = () => {
+    if (!text) return null;
+
+    const elements: JSX.Element[] = [];
+    
+    const sortedHighlights = [...highlights].sort((a, b) => a.start_offset - b.start_offset);
+    const sortedNotes = [...notes].sort((a, b) => a.position_offset - b.position_offset);
+
+    const lines = text.split('\n');
+    let currentOffset = 0;
+    let currentParagraph: string[] = [];
+    let paragraphStartOffset = 0;
+
+    lines.forEach((line, lineIndex) => {
+      const trimmedLine = line.trim();
+      
+      if (trimmedLine) {
+        if (currentParagraph.length === 0) {
+          paragraphStartOffset = currentOffset;
+        }
+        currentParagraph.push(line);
+      } else if (currentParagraph.length > 0) {
+        const paragraphText = currentParagraph.join('\n');
+        elements.push(renderParagraph(paragraphText, paragraphStartOffset, sortedHighlights, sortedNotes));
+        currentParagraph = [];
+      }
+      
+      currentOffset += line.length + 1;
+    });
+
+    if (currentParagraph.length > 0) {
+      const paragraphText = currentParagraph.join('\n');
+      elements.push(renderParagraph(paragraphText, paragraphStartOffset, sortedHighlights, sortedNotes));
+    }
+
+    return elements;
+  };
+
+  const renderParagraph = (
+    paragraphText: string,
+    startOffset: number,
+    sortedHighlights: Highlight[],
+    sortedNotes: Note[]
+  ) => {
+    const endOffset = startOffset + paragraphText.length;
+    
+    const relevantHighlights = sortedHighlights.filter(
+      h => h.start_offset < endOffset && h.end_offset > startOffset
+    );
+    const relevantNotes = sortedNotes.filter(
+      n => n.position_offset >= startOffset && n.position_offset < endOffset
+    );
+
+    if (relevantHighlights.length === 0 && relevantNotes.length === 0) {
+      return (
+        <p
+          key={`p-${startOffset}`}
+          className="mb-4 leading-relaxed"
+          data-offset={startOffset}
+        >
+          {paragraphText}
+        </p>
+      );
     }
 
     const segments: Array<{
       text: string;
       highlight?: Highlight;
-      note?: Note;
       start: number;
       end: number;
     }> = [];
 
-    let currentPos = 0;
-    const sortedHighlights = [...highlights].sort((a, b) => a.start_offset - b.start_offset);
+    let currentPos = startOffset;
 
-    sortedHighlights.forEach(highlight => {
+    relevantHighlights.forEach(highlight => {
       if (currentPos < highlight.start_offset) {
         segments.push({
-          text: text.substring(currentPos, highlight.start_offset),
+          text: paragraphText.substring(currentPos - startOffset, highlight.start_offset - startOffset),
           start: currentPos,
           end: highlight.start_offset,
         });
       }
 
       segments.push({
-        text: text.substring(highlight.start_offset, highlight.end_offset),
+        text: paragraphText.substring(
+          highlight.start_offset - startOffset,
+          highlight.end_offset - startOffset
+        ),
         highlight,
         start: highlight.start_offset,
         end: highlight.end_offset,
@@ -257,54 +284,35 @@ export function BibleDocumentView({
       currentPos = highlight.end_offset;
     });
 
-    if (currentPos < text.length) {
+    if (currentPos < endOffset) {
       segments.push({
-        text: text.substring(currentPos),
+        text: paragraphText.substring(currentPos - startOffset),
         start: currentPos,
-        end: text.length,
+        end: endOffset,
       });
     }
 
-    const result: JSX.Element[] = [];
-    let paragraphBuffer: JSX.Element[] = [];
-    let paragraphStart = 0;
-
-    segments.forEach((segment, idx) => {
-      const lines = segment.text.split('\n');
-      
-      lines.forEach((line, lineIdx) => {
-        if (lineIdx > 0 && paragraphBuffer.length > 0) {
-          result.push(
-            <p 
-              key={`p-${result.length}`} 
-              className="mb-4 leading-relaxed" 
-              data-offset={paragraphStart}
-            >
-              {paragraphBuffer}
-            </p>
-          );
-          paragraphBuffer = [];
-          paragraphStart = segment.start + lines.slice(0, lineIdx).join('\n').length + lineIdx;
-        }
-
-        if (line.trim()) {
-          const noteForSegment = notes.find(
+    return (
+      <p
+        key={`p-${startOffset}`}
+        className="mb-4 leading-relaxed"
+        data-offset={startOffset}
+      >
+        {segments.map((segment, idx) => {
+          const noteForSegment = relevantNotes.find(
             n => n.position_offset >= segment.start && n.position_offset < segment.end
           );
 
           if (segment.highlight) {
-            paragraphBuffer.push(
+            return (
               <span
-                key={`seg-${idx}-${lineIdx}`}
+                key={`seg-${idx}`}
                 data-highlight-id={segment.highlight.id}
                 data-offset={segment.start}
-                className={`bg-${segment.highlight.color}-200 dark:bg-${segment.highlight.color}-900/50 cursor-pointer hover:opacity-80 transition-opacity relative`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleHighlightClick(segment.highlight!);
-                }}
+                className={`bg-${segment.highlight.color}-200 dark:bg-${segment.highlight.color}-900/50 cursor-pointer hover:opacity-80 transition-opacity`}
+                onClick={(e) => handleHighlightClick(e, segment.highlight!.id)}
               >
-                {line}
+                {segment.text}
                 {noteForSegment && (
                   <Lightbulb
                     className="inline-block ml-1 h-4 w-4 text-yellow-600 cursor-pointer"
@@ -317,9 +325,9 @@ export function BibleDocumentView({
               </span>
             );
           } else {
-            paragraphBuffer.push(
-              <span key={`seg-${idx}-${lineIdx}`} data-offset={segment.start}>
-                {line}
+            return (
+              <span key={`seg-${idx}`} data-offset={segment.start}>
+                {segment.text}
                 {noteForSegment && (
                   <Lightbulb
                     className="inline-block ml-1 h-4 w-4 text-yellow-600 cursor-pointer"
@@ -332,23 +340,9 @@ export function BibleDocumentView({
               </span>
             );
           }
-        }
-      });
-    });
-
-    if (paragraphBuffer.length > 0) {
-      result.push(
-        <p 
-          key={`p-${result.length}`} 
-          className="mb-4 leading-relaxed" 
-          data-offset={paragraphStart}
-        >
-          {paragraphBuffer}
-        </p>
-      );
-    }
-
-    return result;
+        })}
+      </p>
+    );
   };
 
   return (
@@ -381,8 +375,22 @@ export function BibleDocumentView({
         style={{ fontSize: `${fontSize}px` }}
         onMouseUp={handleTextSelection}
       >
-        {renderTextWithHighlights()}
+        {renderContent()}
       </div>
+
+      {/* Highlight Sidebar */}
+      {showSidebar && (
+        <div className="fixed right-4 top-1/2 -translate-y-1/2 z-50 highlight-sidebar">
+          <HighlightToolbar
+            selectedColor={selectedColor}
+            onColorChange={handleColorChange}
+            onHighlight={selectedHighlightId ? undefined : handleHighlight}
+            onAddNote={selectedHighlightId ? undefined : handleAddNoteClick}
+            onRemoveHighlight={selectedHighlightId ? handleRemoveHighlight : undefined}
+            showRemove={!!selectedHighlightId}
+          />
+        </div>
+      )}
 
       {/* Note Editor */}
       {noteEditorOffset !== null && (
