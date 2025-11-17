@@ -144,22 +144,8 @@ export function BibleDocumentView({
     window.getSelection()?.removeAllRanges();
   };
 
-  const handleAddNoteClick = () => {
-    const pending = (window as any).pendingHighlight;
-    if (!pending) return;
-    
-    setNoteEditorOffset(pending.startOffset);
-    setShowSidebar(false);
-    delete (window as any).pendingHighlight;
-    window.getSelection()?.removeAllRanges();
-  };
-
   const handleHighlightClick = (e: React.MouseEvent, highlightId: string) => {
     e.stopPropagation();
-    const highlight = highlights.find(h => h.id === highlightId);
-    if (highlight) {
-      setSelectedColor(highlight.color);
-    }
     setSelectedHighlightId(highlightId);
     setShowSidebar(true);
     delete (window as any).pendingHighlight;
@@ -188,6 +174,29 @@ export function BibleDocumentView({
     setEditingNoteContent(note.content);
   };
 
+  const breakLongParagraph = (text: string, maxLength: number = 600): string[] => {
+    if (text.length <= maxLength) return [text];
+
+    const chunks: string[] = [];
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+    let currentChunk = '';
+
+    sentences.forEach((sentence) => {
+      if ((currentChunk + sentence).length > maxLength && currentChunk.length > 0) {
+        chunks.push(currentChunk.trim());
+        currentChunk = sentence;
+      } else {
+        currentChunk += sentence;
+      }
+    });
+
+    if (currentChunk.trim().length > 0) {
+      chunks.push(currentChunk.trim());
+    }
+
+    return chunks.length > 0 ? chunks : [text];
+  };
+
   const renderContent = () => {
     if (!text) return null;
 
@@ -211,7 +220,14 @@ export function BibleDocumentView({
         currentParagraph.push(line);
       } else if (currentParagraph.length > 0) {
         const paragraphText = currentParagraph.join('\n');
-        elements.push(renderParagraph(paragraphText, paragraphStartOffset, sortedHighlights, sortedNotes));
+        const chunks = breakLongParagraph(paragraphText);
+        let chunkOffset = paragraphStartOffset;
+        
+        chunks.forEach((chunk, idx) => {
+          elements.push(renderParagraph(chunk, chunkOffset, sortedHighlights, sortedNotes, `${paragraphStartOffset}-${idx}`));
+          chunkOffset += chunk.length;
+        });
+        
         currentParagraph = [];
       }
       
@@ -220,7 +236,13 @@ export function BibleDocumentView({
 
     if (currentParagraph.length > 0) {
       const paragraphText = currentParagraph.join('\n');
-      elements.push(renderParagraph(paragraphText, paragraphStartOffset, sortedHighlights, sortedNotes));
+      const chunks = breakLongParagraph(paragraphText);
+      let chunkOffset = paragraphStartOffset;
+      
+      chunks.forEach((chunk, idx) => {
+        elements.push(renderParagraph(chunk, chunkOffset, sortedHighlights, sortedNotes, `${paragraphStartOffset}-${idx}`));
+        chunkOffset += chunk.length;
+      });
     }
 
     return elements;
@@ -230,7 +252,8 @@ export function BibleDocumentView({
     paragraphText: string,
     startOffset: number,
     sortedHighlights: Highlight[],
-    sortedNotes: Note[]
+    sortedNotes: Note[],
+    key: string
   ) => {
     const endOffset = startOffset + paragraphText.length;
     
@@ -244,7 +267,7 @@ export function BibleDocumentView({
     if (relevantHighlights.length === 0 && relevantNotes.length === 0) {
       return (
         <p
-          key={`p-${startOffset}`}
+          key={key}
           className="mb-4 leading-relaxed"
           data-offset={startOffset}
         >
@@ -294,7 +317,7 @@ export function BibleDocumentView({
 
     return (
       <p
-        key={`p-${startOffset}`}
+        key={key}
         className="mb-4 leading-relaxed"
         data-offset={startOffset}
       >
@@ -385,7 +408,15 @@ export function BibleDocumentView({
             selectedColor={selectedColor}
             onColorChange={handleColorChange}
             onHighlight={selectedHighlightId ? undefined : handleHighlight}
-            onAddNote={selectedHighlightId ? undefined : handleAddNoteClick}
+            onAddNote={selectedHighlightId ? undefined : () => {
+              const pending = (window as any).pendingHighlight;
+              if (pending) {
+                setNoteEditorOffset(pending.startOffset);
+                setShowSidebar(false);
+                delete (window as any).pendingHighlight;
+                window.getSelection()?.removeAllRanges();
+              }
+            }}
             onRemoveHighlight={selectedHighlightId ? handleRemoveHighlight : undefined}
             showRemove={!!selectedHighlightId}
           />
