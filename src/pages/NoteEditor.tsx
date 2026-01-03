@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RichTextEditor } from "@/components/notes/RichTextEditor";
 import { useNotesStore } from "@/lib/store/notesStore";
-import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut, Highlighter } from "lucide-react";
+import { useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +30,38 @@ export default function NoteEditor() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('edit');
   const [zoom, setZoom] = useState(100);
+  const [highlightMode, setHighlightMode] = useState(false);
+  const [highlightedElements, setHighlightedElements] = useState<Set<string>>(new Set());
+  const readerContentRef = useRef<HTMLElement>(null);
+
+  // Handle click on reader content to toggle highlight
+  const handleReaderContentClick = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    if (!highlightMode) return;
+    
+    const target = e.target as HTMLElement;
+    
+    // Find the closest highlightable element (p, h1, h2, h3, h4, li, blockquote)
+    const highlightable = target.closest('p, h1, h2, h3, h4, h5, h6, li, blockquote, pre');
+    if (!highlightable || !readerContentRef.current?.contains(highlightable)) return;
+    
+    // Generate a unique identifier based on content and position
+    const siblings = Array.from(highlightable.parentElement?.children || []);
+    const index = siblings.indexOf(highlightable as Element);
+    const tagName = highlightable.tagName.toLowerCase();
+    const elementId = `${tagName}-${index}-${highlightable.textContent?.slice(0, 20)}`;
+    
+    setHighlightedElements(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(elementId)) {
+        newSet.delete(elementId);
+        highlightable.classList.remove('reader-highlight-active');
+      } else {
+        newSet.add(elementId);
+        highlightable.classList.add('reader-highlight-active');
+      }
+      return newSet;
+    });
+  }, [highlightMode]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -214,10 +247,34 @@ export default function NoteEditor() {
               </Button>
             </div>
 
-            {/* Zoom Controls - shown in reader mode */}
+            {/* Reader Mode Controls - shown in reader mode */}
             {viewMode === 'reader' && (
               <>
                 <div className="h-4 w-px bg-border" />
+                
+                {/* Highlight Mode Toggle */}
+                <Button
+                  variant={highlightMode ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setHighlightMode(!highlightMode);
+                    // Clear highlights when turning off
+                    if (highlightMode) {
+                      setHighlightedElements(new Set());
+                      readerContentRef.current?.querySelectorAll('.reader-highlight-active').forEach(el => {
+                        el.classList.remove('reader-highlight-active');
+                      });
+                    }
+                  }}
+                  className={highlightMode ? 'bg-[hsl(var(--green-fresh))] hover:bg-[hsl(var(--green-fresh))]/90 text-white' : ''}
+                >
+                  <Highlighter className="h-4 w-4 mr-1" />
+                  Highlight
+                </Button>
+                
+                <div className="h-4 w-px bg-border" />
+                
+                {/* Zoom Controls */}
                 <div className="flex items-center gap-1.5">
                   <Button
                     variant="outline"
@@ -365,7 +422,9 @@ export default function NoteEditor() {
 
                 {/* Reader Content */}
                 <article 
-                  className="reader-content"
+                  ref={readerContentRef}
+                  className={`reader-content ${highlightMode ? 'highlight-mode-active' : ''}`}
+                  onClick={handleReaderContentClick}
                   dangerouslySetInnerHTML={{ __html: content || '<p class="text-muted-foreground italic">No content yet...</p>' }}
                 />
               </motion.div>
