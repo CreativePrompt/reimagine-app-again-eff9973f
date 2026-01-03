@@ -151,3 +151,234 @@
 .dark .custom-quill-editor .ql-editor {
   color: hsl(var(--card-foreground));
 }
+
+/* ================================
+   Reader View Content Styles
+   ================================ */
+.reader-content {
+  font-size: 1.125rem;
+  line-height: 1.8;
+  color: hsl(var(--foreground));
+}
+
+/* Headings */
+.reader-content h1 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  line-height: 1.3;
+  color: hsl(var(--foreground));
+  border-bottom: 2px solid hsl(var(--border));
+  padding-bottom: 0.5rem;
+}
+
+.reader-content h1:first-child {
+  margin-top: 0;
+}
+
+.reader-content h2 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+  color: hsl(var(--foreground));
+}
+
+.reader-content h3 {
+  font-size: 1.375rem;
+  font-weight: 600;
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+  color: hsl(var(--foreground));
+}
+
+.reader-content h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: hsl(var(--foreground));
+}
+
+/* Paragraphs */
+.reader-content p {
+  margin-bottom: 1.25rem;
+  text-align: left;
+}
+
+.reader-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* Lists */
+.reader-content ul,
+.reader-content ol {
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+  padding-left: 1.75rem;
+}
+
+.reader-content ul {
+  list-style-type: disc;
+}
+
+.reader-content ol {
+  list-style-type: decimal;
+}
+
+.reader-content li {
+  margin-bottom: 0.5rem;
+  padding-left: 0.25rem;
+}
+
+.reader-content li::marker {
+  color: hsl(var(--primary));
+}
+
+/* Nested lists */
+.reader-content ul ul,
+.reader-content ol ol,
+.reader-content ul ol,
+.reader-content ol ul {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Blockquotes */
+.reader-content blockquote {
+  border-left: 4px solid hsl(var(--primary));
+  padding: 1rem 1.5rem;
+  margin: 1.5rem 0;
+  background: hsl(var(--muted) / 0.5);
+  border-radius: 0 8px 8px 0;
+  font-style: italic;
+}
+
+.reader-content blockquote p {
+  margin-bottom: 0;
+}
+
+/* Code */
+.reader-content code {
+  background: hsl(var(--muted));
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 0.9em;
+}
+
+.reader-content pre {
+  background: hsl(var(--muted));
+  padding: 1.25rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 1.5rem 0;
+}
+
+.reader-content pre code {
+  background: none;
+  padding: 0;
+}
+
+/* Links */
+.reader-content a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.reader-content a:hover {
+  opacity: 0.8;
+}
+
+/* Bold and Italic */
+.reader-content strong,
+.reader-content b {
+  font-weight: 700;
+}
+
+.reader-content em,
+.reader-content i {
+  font-style: italic;
+}
+
+/* Strikethrough */
+.reader-content s,
+.reader-content del {
+  text-decoration: line-through;
+}
+
+/* Underline */
+.reader-content u {
+  text-decoration: underline;
+}
+
+/* Horizontal Rule */
+.reader-content hr {
+  border: none;
+  border-top: 2px solid hsl(var(--border));
+  margin: 2rem 0;
+}
+
+/* Images */
+.reader-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1.5rem 0;
+}
+
+/* Tables (if used) */
+.reader-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+}
+
+.reader-content th,
+.reader-content td {
+  border: 1px solid hsl(var(--border));
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.reader-content th {
+  background: hsl(var(--muted));
+  font-weight: 600;
+}
+
+/* Subscript and Superscript */
+.reader-content sub {
+  vertical-align: sub;
+  font-size: 0.75em;
+}
+
+.reader-content sup {
+  vertical-align: super;
+  font-size: 0.75em;
+}
+
+/* Quill specific: indent classes */
+.reader-content .ql-indent-1 {
+  padding-left: 2rem;
+}
+.reader-content .ql-indent-2 {
+  padding-left: 4rem;
+}
+.reader-content .ql-indent-3 {
+  padding-left: 6rem;
+}
+
+/* Quill specific: alignment */
+.reader-content .ql-align-center {
+  text-align: center;
+}
+.reader-content .ql-align-right {
+  text-align: right;
+}
+.reader-content .ql-align-justify {
+  text-align: justify;
+}
