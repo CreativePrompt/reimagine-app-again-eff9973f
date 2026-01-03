@@ -10,6 +10,7 @@ import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, 
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import "@/components/notes/RichTextEditor.css";
 
 type ViewMode = 'edit' | 'reader';
 
@@ -305,11 +306,11 @@ export default function NoteEditor() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
-                className="max-w-3xl mx-auto bg-card rounded-lg shadow-sm p-12"
+                className="max-w-3xl mx-auto bg-card rounded-lg shadow-lg p-12 md:p-16"
               >
                 {/* Reader Header */}
-                <div className="text-center mb-8 pb-6 border-b">
-                  <h1 className="text-4xl font-bold mb-3">{title || "Untitled Note"}</h1>
+                <header className="text-center mb-12 pb-8 border-b">
+                  <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">{title || "Untitled Note"}</h1>
                   {tags.length > 0 && (
                     <div className="flex flex-wrap justify-center gap-2 mb-4">
                       {tags.map((tag, index) => (
@@ -328,12 +329,12 @@ export default function NoteEditor() {
                       Updated {formatDistanceToNow(new Date(currentNote.updated_at), { addSuffix: true })}
                     </p>
                   )}
-                </div>
+                </header>
 
                 {/* Reader Content */}
-                <div 
-                  className="prose prose-lg dark:prose-invert max-w-none leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: content || '<p class="text-muted-foreground">No content yet...</p>' }}
+                <article 
+                  className="reader-content"
+                  dangerouslySetInnerHTML={{ __html: content || '<p class="text-muted-foreground italic">No content yet...</p>' }}
                 />
               </motion.div>
             </div>
