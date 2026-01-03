@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RichTextEditor } from "@/components/notes/RichTextEditor";
 import { useNotesStore } from "@/lib/store/notesStore";
-import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -28,6 +28,7 @@ export default function NoteEditor() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('edit');
+  const [zoom, setZoom] = useState(100);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -212,6 +213,34 @@ export default function NoteEditor() {
                 Reader
               </Button>
             </div>
+
+            {/* Zoom Controls - shown in reader mode */}
+            {viewMode === 'reader' && (
+              <>
+                <div className="h-4 w-px bg-border" />
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setZoom(Math.max(50, zoom - 10))}
+                    className="h-7 w-7 rounded-md"
+                  >
+                    <ZoomOut className="h-3.5 w-3.5" />
+                  </Button>
+                  <span className="text-xs font-medium min-w-[3rem] text-center">
+                    {zoom}%
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setZoom(Math.min(200, zoom + 10))}
+                    className="h-7 w-7 rounded-md"
+                  >
+                    <ZoomIn className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </>
+            )}
             
             {hasUnsavedChanges && (
               <span className="text-sm text-muted-foreground">Unsaved changes</span>
@@ -301,12 +330,15 @@ export default function NoteEditor() {
             </div>
           ) : (
             /* Reader View */
-            <div className="p-8 bg-muted/30 min-h-full">
+            <div className="p-8 bg-muted/30 min-h-full overflow-auto">
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="max-w-3xl mx-auto bg-card rounded-lg shadow-lg p-12 md:p-16"
+                initial={{ opacity: 0, scale: 1 }}
+                animate={{ opacity: 1, scale: zoom / 100 }}
+                transition={{ 
+                  duration: 0.3,
+                  scale: { duration: 0.2, ease: [0.4, 0, 0.2, 1] }
+                }}
+                className="max-w-3xl mx-auto bg-card rounded-lg shadow-lg p-12 md:p-16 origin-top"
               >
                 {/* Reader Header */}
                 <header className="text-center mb-12 pb-8 border-b">
