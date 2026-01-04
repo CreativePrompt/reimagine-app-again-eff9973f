@@ -94,11 +94,16 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
           {/* Spotlight Popup */}
           <motion.div
             ref={popupRef}
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-            className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[90%] ${getPopupWidth()}`}
+            className={`fixed z-50 w-[90%] ${getPopupWidth()}`}
+            style={{
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+            }}
           >
             {isPresentation ? (
               /* Presentation Mode */
