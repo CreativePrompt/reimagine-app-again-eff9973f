@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { HighlightSettingsDialog, HighlightSettings, PRESET_COLORS } from "@/components/notes/HighlightSettingsDialog";
+import { SpotlightPopup } from "@/components/notes/SpotlightPopup";
 import "@/components/notes/RichTextEditor.css";
 
 type ViewMode = 'edit' | 'reader';
@@ -42,11 +43,29 @@ export default function NoteEditor() {
       try {
         return JSON.parse(saved);
       } catch {
-        return { color: 'green', brightness: 50, singleSelectMode: true, clearOnClickOutside: true };
+        return { 
+          color: 'green', 
+          brightness: 50, 
+          singleSelectMode: true, 
+          clearOnClickOutside: true,
+          spotlightMode: false,
+          spotlightDimBackground: true,
+          spotlightAutoClose: true,
+        };
       }
     }
-    return { color: 'green', brightness: 50, singleSelectMode: true, clearOnClickOutside: true };
+    return { 
+      color: 'green', 
+      brightness: 50, 
+      singleSelectMode: true, 
+      clearOnClickOutside: true,
+      spotlightMode: false,
+      spotlightDimBackground: true,
+      spotlightAutoClose: true,
+    };
   });
+  const [spotlightText, setSpotlightText] = useState("");
+  const [spotlightOpen, setSpotlightOpen] = useState(false);
   const readerContentRef = useRef<HTMLElement>(null);
   const readerContainerRef = useRef<HTMLDivElement>(null);
 
@@ -107,6 +126,40 @@ export default function NoteEditor() {
       return newSet;
     });
   }, [highlightMode, highlightSettings.singleSelectMode, highlightedElements]);
+
+  // Handle text selection for Spotlight mode
+  const handleTextSelection = useCallback(() => {
+    if (!highlightMode || !highlightSettings.spotlightMode) return;
+
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) return;
+
+    const selectedText = selection.toString().trim();
+    if (!selectedText) return;
+
+    // Make sure selection is within the reader content
+    const range = selection.getRangeAt(0);
+    if (!readerContentRef.current?.contains(range.commonAncestorContainer)) return;
+
+    // Clear selection after capturing text
+    selection.removeAllRanges();
+
+    // If auto-close is enabled, just replace the content
+    if (highlightSettings.spotlightAutoClose) {
+      setSpotlightText(selectedText);
+      setSpotlightOpen(true);
+    } else {
+      // Stack behavior: only open if not already open, otherwise replace
+      setSpotlightText(selectedText);
+      setSpotlightOpen(true);
+    }
+  }, [highlightMode, highlightSettings.spotlightMode, highlightSettings.spotlightAutoClose]);
+
+  // Close spotlight popup
+  const handleSpotlightClose = useCallback(() => {
+    setSpotlightOpen(false);
+    setSpotlightText("");
+  }, []);
 
   // Save highlight settings and apply CSS variables
   const handleSaveHighlightSettings = useCallback((newSettings: HighlightSettings) => {
@@ -516,6 +569,7 @@ export default function NoteEditor() {
                   className={`reader-content ${highlightMode ? 'highlight-mode-active' : ''}`}
                   style={getHighlightColorStyles()}
                   onClick={handleReaderContentClick}
+                  onMouseUp={handleTextSelection}
                   dangerouslySetInnerHTML={{ __html: content || '<p class="text-muted-foreground italic">No content yet...</p>' }}
                 />
               </motion.div>
@@ -530,6 +584,14 @@ export default function NoteEditor() {
         onOpenChange={setHighlightSettingsOpen}
         settings={highlightSettings}
         onSave={handleSaveHighlightSettings}
+      />
+
+      {/* Spotlight Popup */}
+      <SpotlightPopup
+        text={spotlightText}
+        isOpen={spotlightOpen}
+        onClose={handleSpotlightClose}
+        dimBackground={highlightSettings.spotlightDimBackground}
       />
     </div>
   );
