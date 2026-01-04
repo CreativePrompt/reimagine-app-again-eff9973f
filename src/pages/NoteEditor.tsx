@@ -6,14 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RichTextEditor } from "@/components/notes/RichTextEditor";
 import { useNotesStore } from "@/lib/store/notesStore";
-import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut, Highlighter } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut, Highlighter, Settings } from "lucide-react";
 import { useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { HighlightSettingsDialog, HighlightSettings, PRESET_COLORS } from "@/components/notes/HighlightSettingsDialog";
 import "@/components/notes/RichTextEditor.css";
 
 type ViewMode = 'edit' | 'reader';
+
+const LOCAL_STORAGE_KEY = 'note-highlight-settings';
 
 export default function NoteEditor() {
   const navigate = useNavigate();
@@ -31,8 +34,19 @@ export default function NoteEditor() {
   const [viewMode, setViewMode] = useState<ViewMode>('edit');
   const [zoom, setZoom] = useState(100);
   const [highlightMode, setHighlightMode] = useState(false);
-  const [singleSelectMode, setSingleSelectMode] = useState(true);
   const [highlightedElements, setHighlightedElements] = useState<Set<string>>(new Set());
+  const [highlightSettingsOpen, setHighlightSettingsOpen] = useState(false);
+  const [highlightSettings, setHighlightSettings] = useState<HighlightSettings>(() => {
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return { color: 'green', brightness: 50, singleSelectMode: true };
+      }
+    }
+    return { color: 'green', brightness: 50, singleSelectMode: true };
+  });
   const readerContentRef = useRef<HTMLElement>(null);
 
   // Handle click on reader content to toggle highlight
@@ -52,7 +66,7 @@ export default function NoteEditor() {
     const elementId = `${tagName}-${index}-${highlightable.textContent?.slice(0, 20)}`;
     
     // If single select mode is on, clear previous highlights first
-    if (singleSelectMode && !highlightedElements.has(elementId)) {
+    if (highlightSettings.singleSelectMode && !highlightedElements.has(elementId)) {
       readerContentRef.current?.querySelectorAll('.reader-highlight-active').forEach(el => {
         el.classList.remove('reader-highlight-active');
       });
@@ -60,11 +74,11 @@ export default function NoteEditor() {
     }
 
     setHighlightedElements(prev => {
-      const newSet = singleSelectMode ? new Set<string>() : new Set(prev);
+      const newSet = highlightSettings.singleSelectMode ? new Set<string>() : new Set(prev);
       if (prev.has(elementId)) {
         highlightable.classList.remove('reader-highlight-active');
         // For single select, set stays empty; for multi, we remove this one
-        if (!singleSelectMode) {
+        if (!highlightSettings.singleSelectMode) {
           newSet.delete(elementId);
         }
       } else {
@@ -73,7 +87,36 @@ export default function NoteEditor() {
       }
       return newSet;
     });
-  }, [highlightMode, singleSelectMode, highlightedElements]);
+  }, [highlightMode, highlightSettings.singleSelectMode, highlightedElements]);
+
+  // Save highlight settings and apply CSS variables
+  const handleSaveHighlightSettings = useCallback((newSettings: HighlightSettings) => {
+    setHighlightSettings(newSettings);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newSettings));
+    toast({
+      title: "Settings saved",
+      description: "Your highlight settings have been saved.",
+    });
+  }, [toast]);
+
+  // Generate highlight color CSS variables
+  const getHighlightColorStyles = useCallback(() => {
+    const color = PRESET_COLORS.find(c => c.value === highlightSettings.color) || PRESET_COLORS[0];
+    const parts = color.hsl.split(" ");
+    const h = parts[0];
+    const s = parts[1];
+    const baseLightness = parseInt(parts[2]);
+    
+    // Adjust lightness based on brightness
+    const adjustment = (highlightSettings.brightness - 50) * 0.4;
+    const newLightness = Math.max(20, Math.min(80, baseLightness + adjustment));
+    const bgLightness = Math.min(95, newLightness + 35);
+    
+    return {
+      '--highlight-color': `${h} ${s} ${newLightness}%`,
+      '--highlight-bg': `${h} ${s} ${bgLightness}%`,
+    } as React.CSSProperties;
+  }, [highlightSettings.color, highlightSettings.brightness]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -284,16 +327,15 @@ export default function NoteEditor() {
                   Highlight
                 </Button>
                 
-                {/* Single Select Mode Toggle - Only show when highlight mode is on */}
+                {/* Highlight Settings Button - Only show when highlight mode is on */}
                 {highlightMode && (
                   <Button
-                    variant={singleSelectMode ? 'default' : 'outline'}
+                    variant="outline"
                     size="sm"
-                    onClick={() => setSingleSelectMode(!singleSelectMode)}
-                    className={singleSelectMode ? 'bg-[hsl(var(--soft-blue))] hover:bg-[hsl(var(--soft-blue))]/90 text-white' : ''}
-                    title="Only one highlight stays selected at a time"
+                    onClick={() => setHighlightSettingsOpen(true)}
+                    title="Highlight Settings"
                   >
-                    Single Select
+                    <Settings className="h-4 w-4" />
                   </Button>
                 )}
                 
@@ -449,6 +491,7 @@ export default function NoteEditor() {
                 <article 
                   ref={readerContentRef}
                   className={`reader-content ${highlightMode ? 'highlight-mode-active' : ''}`}
+                  style={getHighlightColorStyles()}
                   onClick={handleReaderContentClick}
                   dangerouslySetInnerHTML={{ __html: content || '<p class="text-muted-foreground italic">No content yet...</p>' }}
                 />
@@ -457,6 +500,14 @@ export default function NoteEditor() {
           )}
         </div>
       </div>
+
+      {/* Highlight Settings Dialog */}
+      <HighlightSettingsDialog
+        open={highlightSettingsOpen}
+        onOpenChange={setHighlightSettingsOpen}
+        settings={highlightSettings}
+        onSave={handleSaveHighlightSettings}
+      />
     </div>
   );
 }
