@@ -76,18 +76,19 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Background Overlay with Dim and Blur */}
+          {/* Background Overlay with Dim and Blur - Click to close */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40"
+            className="fixed inset-0 z-40 cursor-pointer"
             style={{
               backgroundColor: `rgba(0, 0, 0, ${settings.dimLevel / 100})`,
               backdropFilter: settings.blurBackground ? `blur(${settings.blurAmount}px)` : 'none',
               WebkitBackdropFilter: settings.blurBackground ? `blur(${settings.blurAmount}px)` : 'none',
             }}
+            onClick={onClose}
             aria-hidden="true"
           />
 
