@@ -16,6 +16,7 @@ export interface HighlightSettings {
   color: string;
   brightness: number; // 0-100, 50 is default
   singleSelectMode: boolean;
+  clearOnClickOutside: boolean;
 }
 
 const PRESET_COLORS = [
@@ -179,6 +180,27 @@ export function HighlightSettingsDialog({
               }
             />
           </div>
+
+          {/* Clear on Click Outside - only show when single select is OFF */}
+          {!localSettings.singleSelectMode && (
+            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">Clear on Click Outside</Label>
+                <p className="text-xs text-muted-foreground">
+                  Deselect all highlights when clicking outside the text area
+                </p>
+              </div>
+              <Switch
+                checked={localSettings.clearOnClickOutside}
+                onCheckedChange={(checked) =>
+                  setLocalSettings((prev) => ({
+                    ...prev,
+                    clearOnClickOutside: checked,
+                  }))
+                }
+              />
+            </div>
+          )}
         </div>
 
         <DialogFooter>

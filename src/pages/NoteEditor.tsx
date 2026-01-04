@@ -42,12 +42,31 @@ export default function NoteEditor() {
       try {
         return JSON.parse(saved);
       } catch {
-        return { color: 'green', brightness: 50, singleSelectMode: true };
+        return { color: 'green', brightness: 50, singleSelectMode: true, clearOnClickOutside: true };
       }
     }
-    return { color: 'green', brightness: 50, singleSelectMode: true };
+    return { color: 'green', brightness: 50, singleSelectMode: true, clearOnClickOutside: true };
   });
   const readerContentRef = useRef<HTMLElement>(null);
+  const readerContainerRef = useRef<HTMLDivElement>(null);
+
+  // Clear all highlights helper function
+  const clearAllHighlights = useCallback(() => {
+    readerContentRef.current?.querySelectorAll('.reader-highlight-active').forEach(el => {
+      el.classList.remove('reader-highlight-active');
+    });
+    setHighlightedElements(new Set());
+  }, []);
+
+  // Handle click outside reader content to clear highlights
+  const handleOutsideClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!highlightMode || highlightSettings.singleSelectMode || !highlightSettings.clearOnClickOutside) return;
+    
+    // Check if click is outside the reader content (article element)
+    if (readerContentRef.current && !readerContentRef.current.contains(e.target as Node)) {
+      clearAllHighlights();
+    }
+  }, [highlightMode, highlightSettings.singleSelectMode, highlightSettings.clearOnClickOutside, clearAllHighlights]);
 
   // Handle click on reader content to toggle highlight
   const handleReaderContentClick = useCallback((e: React.MouseEvent<HTMLElement>) => {
@@ -454,7 +473,11 @@ export default function NoteEditor() {
             </div>
           ) : (
             /* Reader View */
-            <div className="p-8 bg-muted/30 min-h-full overflow-auto">
+            <div 
+              ref={readerContainerRef}
+              className="p-8 bg-muted/30 min-h-full overflow-auto"
+              onClick={handleOutsideClick}
+            >
               <motion.div
                 initial={{ opacity: 0, scale: 1 }}
                 animate={{ opacity: 1, scale: zoom / 100 }}
