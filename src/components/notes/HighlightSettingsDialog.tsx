@@ -10,18 +10,17 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import { Check, Settings, Focus } from "lucide-react";
+import { Check, Settings } from "lucide-react";
 
 export interface HighlightSettings {
   color: string;
   brightness: number; // 0-100, 50 is default
   singleSelectMode: boolean;
   clearOnClickOutside: boolean;
-  // Spotlight Mode settings
-  spotlightMode: boolean;
-  spotlightDimBackground: boolean;
-  spotlightAutoClose: boolean; // Auto-close on new selection
+  // Legacy spotlight settings (kept for backwards compatibility)
+  spotlightMode?: boolean;
+  spotlightDimBackground?: boolean;
+  spotlightAutoClose?: boolean;
 }
 
 const PRESET_COLORS = [
@@ -206,76 +205,6 @@ export function HighlightSettingsDialog({
               />
             </div>
           )}
-
-          <Separator className="my-2" />
-
-          {/* Spotlight Mode Section */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Focus className="h-4 w-4 text-amber-500" />
-              <Label className="text-sm font-semibold">Spotlight Mode</Label>
-            </div>
-
-            {/* Spotlight Mode Toggle */}
-            <div className="flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
-              <div className="space-y-0.5">
-                <Label className="text-sm font-medium">Enable Spotlight</Label>
-                <p className="text-xs text-muted-foreground">
-                  Select text to display it in a focused popup
-                </p>
-              </div>
-              <Switch
-                checked={localSettings.spotlightMode}
-                onCheckedChange={(checked) =>
-                  setLocalSettings((prev) => ({
-                    ...prev,
-                    spotlightMode: checked,
-                  }))
-                }
-              />
-            </div>
-
-            {/* Spotlight sub-options - only show when spotlight is ON */}
-            {localSettings.spotlightMode && (
-              <>
-                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg ml-4">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-medium">Dim Background</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Darken the page behind the spotlight popup
-                    </p>
-                  </div>
-                  <Switch
-                    checked={localSettings.spotlightDimBackground}
-                    onCheckedChange={(checked) =>
-                      setLocalSettings((prev) => ({
-                        ...prev,
-                        spotlightDimBackground: checked,
-                      }))
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg ml-4">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-medium">Auto-close on New Selection</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Replace popup content instead of stacking
-                    </p>
-                  </div>
-                  <Switch
-                    checked={localSettings.spotlightAutoClose}
-                    onCheckedChange={(checked) =>
-                      setLocalSettings((prev) => ({
-                        ...prev,
-                        spotlightAutoClose: checked,
-                      }))
-                    }
-                  />
-                </div>
-              </>
-            )}
-          </div>
         </div>
 
         <DialogFooter>

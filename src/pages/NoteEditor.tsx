@@ -6,18 +6,20 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RichTextEditor } from "@/components/notes/RichTextEditor";
 import { useNotesStore } from "@/lib/store/notesStore";
-import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut, Highlighter, Settings } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut, Highlighter, Settings, Focus } from "lucide-react";
 import { useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { HighlightSettingsDialog, HighlightSettings, PRESET_COLORS } from "@/components/notes/HighlightSettingsDialog";
 import { SpotlightPopup } from "@/components/notes/SpotlightPopup";
+import { SpotlightSettingsDialog, SpotlightSettings, DEFAULT_SPOTLIGHT_SETTINGS } from "@/components/notes/SpotlightSettingsDialog";
 import "@/components/notes/RichTextEditor.css";
 
 type ViewMode = 'edit' | 'reader';
 
 const LOCAL_STORAGE_KEY = 'note-highlight-settings';
+const SPOTLIGHT_STORAGE_KEY = 'note-spotlight-settings';
 
 export default function NoteEditor() {
   const navigate = useNavigate();
@@ -37,6 +39,7 @@ export default function NoteEditor() {
   const [highlightMode, setHighlightMode] = useState(false);
   const [highlightedElements, setHighlightedElements] = useState<Set<string>>(new Set());
   const [highlightSettingsOpen, setHighlightSettingsOpen] = useState(false);
+  const [spotlightSettingsOpen, setSpotlightSettingsOpen] = useState(false);
   const [highlightSettings, setHighlightSettings] = useState<HighlightSettings>(() => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (saved) {
@@ -63,6 +66,17 @@ export default function NoteEditor() {
       spotlightDimBackground: true,
       spotlightAutoClose: true,
     };
+  });
+  const [spotlightSettings, setSpotlightSettings] = useState<SpotlightSettings>(() => {
+    const saved = localStorage.getItem(SPOTLIGHT_STORAGE_KEY);
+    if (saved) {
+      try {
+        return { ...DEFAULT_SPOTLIGHT_SETTINGS, ...JSON.parse(saved) };
+      } catch {
+        return DEFAULT_SPOTLIGHT_SETTINGS;
+      }
+    }
+    return DEFAULT_SPOTLIGHT_SETTINGS;
   });
   const [spotlightText, setSpotlightText] = useState("");
   const [spotlightOpen, setSpotlightOpen] = useState(false);
@@ -129,7 +143,7 @@ export default function NoteEditor() {
 
   // Handle text selection for Spotlight mode
   const handleTextSelection = useCallback(() => {
-    if (!highlightMode || !highlightSettings.spotlightMode) return;
+    if (!highlightMode || !spotlightSettings.enabled) return;
 
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) return;
@@ -145,7 +159,7 @@ export default function NoteEditor() {
     selection.removeAllRanges();
 
     // If auto-close is enabled, just replace the content
-    if (highlightSettings.spotlightAutoClose) {
+    if (spotlightSettings.autoClose) {
       setSpotlightText(selectedText);
       setSpotlightOpen(true);
     } else {
@@ -153,7 +167,7 @@ export default function NoteEditor() {
       setSpotlightText(selectedText);
       setSpotlightOpen(true);
     }
-  }, [highlightMode, highlightSettings.spotlightMode, highlightSettings.spotlightAutoClose]);
+  }, [highlightMode, spotlightSettings.enabled, spotlightSettings.autoClose]);
 
   // Close spotlight popup
   const handleSpotlightClose = useCallback(() => {
@@ -168,6 +182,16 @@ export default function NoteEditor() {
     toast({
       title: "Settings saved",
       description: "Your highlight settings have been saved.",
+    });
+  }, [toast]);
+
+  // Save spotlight settings
+  const handleSaveSpotlightSettings = useCallback((newSettings: SpotlightSettings) => {
+    setSpotlightSettings(newSettings);
+    localStorage.setItem(SPOTLIGHT_STORAGE_KEY, JSON.stringify(newSettings));
+    toast({
+      title: "Spotlight settings saved",
+      description: "Your spotlight settings have been saved.",
     });
   }, [toast]);
 
@@ -410,6 +434,22 @@ export default function NoteEditor() {
                     <Settings className="h-4 w-4" />
                   </Button>
                 )}
+
+                {/* Spotlight Mode Toggle */}
+                {highlightMode && (
+                  <>
+                    <div className="h-4 w-px bg-border" />
+                    <Button
+                      variant={spotlightSettings.enabled ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setSpotlightSettingsOpen(true)}
+                      className={spotlightSettings.enabled ? 'bg-amber-500 hover:bg-amber-500/90 text-white' : ''}
+                    >
+                      <Focus className="h-4 w-4 mr-1" />
+                      Spotlight
+                    </Button>
+                  </>
+                )}
                 
                 <div className="h-4 w-px bg-border" />
                 
@@ -591,7 +631,15 @@ export default function NoteEditor() {
         text={spotlightText}
         isOpen={spotlightOpen}
         onClose={handleSpotlightClose}
-        dimBackground={highlightSettings.spotlightDimBackground}
+        settings={spotlightSettings}
+      />
+
+      {/* Spotlight Settings Dialog */}
+      <SpotlightSettingsDialog
+        open={spotlightSettingsOpen}
+        onOpenChange={setSpotlightSettingsOpen}
+        settings={spotlightSettings}
+        onSave={handleSaveSpotlightSettings}
       />
     </div>
   );
