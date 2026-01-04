@@ -31,6 +31,7 @@ export default function NoteEditor() {
   const [viewMode, setViewMode] = useState<ViewMode>('edit');
   const [zoom, setZoom] = useState(100);
   const [highlightMode, setHighlightMode] = useState(false);
+  const [singleSelectMode, setSingleSelectMode] = useState(true);
   const [highlightedElements, setHighlightedElements] = useState<Set<string>>(new Set());
   const readerContentRef = useRef<HTMLElement>(null);
 
@@ -50,18 +51,29 @@ export default function NoteEditor() {
     const tagName = highlightable.tagName.toLowerCase();
     const elementId = `${tagName}-${index}-${highlightable.textContent?.slice(0, 20)}`;
     
+    // If single select mode is on, clear previous highlights first
+    if (singleSelectMode && !highlightedElements.has(elementId)) {
+      readerContentRef.current?.querySelectorAll('.reader-highlight-active').forEach(el => {
+        el.classList.remove('reader-highlight-active');
+      });
+      setHighlightedElements(new Set());
+    }
+
     setHighlightedElements(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(elementId)) {
-        newSet.delete(elementId);
+      const newSet = singleSelectMode ? new Set<string>() : new Set(prev);
+      if (prev.has(elementId)) {
         highlightable.classList.remove('reader-highlight-active');
+        // For single select, set stays empty; for multi, we remove this one
+        if (!singleSelectMode) {
+          newSet.delete(elementId);
+        }
       } else {
         newSet.add(elementId);
         highlightable.classList.add('reader-highlight-active');
       }
       return newSet;
     });
-  }, [highlightMode]);
+  }, [highlightMode, singleSelectMode, highlightedElements]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -271,6 +283,19 @@ export default function NoteEditor() {
                   <Highlighter className="h-4 w-4 mr-1" />
                   Highlight
                 </Button>
+                
+                {/* Single Select Mode Toggle - Only show when highlight mode is on */}
+                {highlightMode && (
+                  <Button
+                    variant={singleSelectMode ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSingleSelectMode(!singleSelectMode)}
+                    className={singleSelectMode ? 'bg-[hsl(var(--soft-blue))] hover:bg-[hsl(var(--soft-blue))]/90 text-white' : ''}
+                    title="Only one highlight stays selected at a time"
+                  >
+                    Single Select
+                  </Button>
+                )}
                 
                 <div className="h-4 w-px bg-border" />
                 
