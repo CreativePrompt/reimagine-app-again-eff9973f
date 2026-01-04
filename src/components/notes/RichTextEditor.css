@@ -418,15 +418,15 @@
 .reader-content.highlight-mode-active li:hover,
 .reader-content.highlight-mode-active blockquote:hover,
 .reader-content.highlight-mode-active pre:hover {
-  background: hsl(var(--green-light) / 0.3);
-  border-left-color: hsl(var(--green-fresh));
+  background: hsl(var(--highlight-bg, 142 76% 85%) / 0.4);
+  border-left-color: hsl(var(--highlight-color, 142 76% 36%));
 }
 
 /* Active highlight state - when element is clicked/selected */
 .reader-content .reader-highlight-active {
-  background: hsl(var(--green-light)) !important;
-  border-left: 4px solid hsl(var(--green-fresh)) !important;
-  box-shadow: 0 4px 12px hsl(var(--green-fresh) / 0.2);
+  background: hsl(var(--highlight-bg, 142 76% 85%)) !important;
+  border-left: 4px solid hsl(var(--highlight-color, 142 76% 36%)) !important;
+  box-shadow: 0 4px 12px hsl(var(--highlight-color, 142 76% 36%) / 0.25);
   padding-left: 1rem;
   padding-right: 1rem;
   margin-left: -1rem;
@@ -437,9 +437,9 @@
 
 @keyframes highlight-pulse {
   0%, 100% {
-    box-shadow: 0 4px 12px hsl(var(--green-fresh) / 0.2);
+    box-shadow: 0 4px 12px hsl(var(--highlight-color, 142 76% 36%) / 0.25);
   }
   50% {
-    box-shadow: 0 4px 20px hsl(var(--green-fresh) / 0.35);
+    box-shadow: 0 4px 20px hsl(var(--highlight-color, 142 76% 36%) / 0.4);
   }
 }
