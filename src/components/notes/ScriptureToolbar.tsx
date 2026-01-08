@@ -18,97 +18,70 @@ export function ScriptureToolbar({ editorContainer, onFillScripture }: Scripture
   const [toolbarPosition, setToolbarPosition] = useState<ToolbarPosition | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
-  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
+  const handleSelectionChange = useCallback(() => {
     if (!editorContainer) return;
 
-    const target = e.target as HTMLElement;
-    
-    // Check if we're over the editor content
-    const editorContent = editorContainer.querySelector('.ql-editor');
-    if (!editorContent?.contains(target)) {
-      // Don't hide immediately if we're hovering over the toolbar
-      if (toolbarRef.current?.contains(target)) {
-        return;
-      }
-      
-      // Delay hiding to allow moving to toolbar
-      if (!hideTimeoutRef.current) {
-        hideTimeoutRef.current = setTimeout(() => {
-          setIsVisible(false);
-          setToolbarPosition(null);
-          hideTimeoutRef.current = null;
-        }, 200);
-      }
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) {
+      setIsVisible(false);
+      setToolbarPosition(null);
       return;
     }
 
-    // Clear any pending hide
-    if (hideTimeoutRef.current) {
-      clearTimeout(hideTimeoutRef.current);
-      hideTimeoutRef.current = null;
-    }
-
-    // Get the text content at the cursor position
-    const selection = window.getSelection();
-    if (!selection) return;
-
-    // Create a range at the mouse position
-    const range = document.caretRangeFromPoint(e.clientX, e.clientY);
-    if (!range) return;
-
-    // Get the text node and its content
-    const textNode = range.startContainer;
-    if (textNode.nodeType !== Node.TEXT_NODE) {
+    const selectedText = selection.toString().trim();
+    if (!selectedText) {
       setIsVisible(false);
       return;
     }
 
-    const fullText = textNode.textContent || '';
+    // Check if selection is within the editor
+    const editorContent = editorContainer.querySelector('.ql-editor');
+    if (!editorContent) return;
+
+    const range = selection.getRangeAt(0);
+    if (!editorContent.contains(range.commonAncestorContainer)) {
+      setIsVisible(false);
+      return;
+    }
+
+    // Check if the selected text contains a scripture reference
+    const matches = findScriptureReferences(selectedText);
     
-    // Find scripture references in this text
-    const matches = findScriptureReferences(fullText);
     if (matches.length === 0) {
       setIsVisible(false);
       return;
     }
 
-    // Check if cursor is over any scripture reference
-    const offset = range.startOffset;
-    const matchAtCursor = matches.find(m => offset >= m.start && offset <= m.end);
+    // Use the first matched reference (or the full selection if it's a valid reference)
+    const reference = matches[0].reference;
+
+    // Get position of the selection
+    const rect = range.getBoundingClientRect();
     
-    if (!matchAtCursor) {
-      setIsVisible(false);
-      return;
-    }
-
-    // Get the position of the reference text
-    const tempRange = document.createRange();
-    tempRange.setStart(textNode, matchAtCursor.start);
-    tempRange.setEnd(textNode, matchAtCursor.end);
-    const rect = tempRange.getBoundingClientRect();
-
     setToolbarPosition({
-      top: rect.top - 32,
+      top: rect.top - 40,
       left: rect.left + (rect.width / 2),
-      reference: matchAtCursor.reference,
+      reference: reference,
     });
     setIsVisible(true);
   }, [editorContainer]);
 
-  const handleMouseLeave = useCallback(() => {
-    hideTimeoutRef.current = setTimeout(() => {
-      setIsVisible(false);
-      setToolbarPosition(null);
-      hideTimeoutRef.current = null;
-    }, 300);
-  }, []);
+  // Handle mouse up to detect selection completion
+  const handleMouseUp = useCallback(() => {
+    // Small delay to let selection complete
+    setTimeout(handleSelectionChange, 10);
+  }, [handleSelectionChange]);
 
-  const handleToolbarMouseEnter = useCallback(() => {
-    if (hideTimeoutRef.current) {
-      clearTimeout(hideTimeoutRef.current);
-      hideTimeoutRef.current = null;
+  // Handle clicking outside to close toolbar
+  const handleClickOutside = useCallback((e: MouseEvent) => {
+    if (toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
+      // Don't close immediately if there's still a selection
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) {
+        setIsVisible(false);
+        setToolbarPosition(null);
+      }
     }
   }, []);
 
@@ -118,23 +91,25 @@ export function ScriptureToolbar({ editorContainer, onFillScripture }: Scripture
     const editorContent = editorContainer.querySelector('.ql-editor');
     if (!editorContent) return;
 
-    editorContent.addEventListener('mousemove', handleMouseMove as EventListener);
-    editorContent.addEventListener('mouseleave', handleMouseLeave);
+    // Listen for mouseup to detect selection
+    editorContent.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('selectionchange', handleSelectionChange);
+    document.addEventListener('mousedown', handleClickOutside);
 
     return () => {
-      editorContent.removeEventListener('mousemove', handleMouseMove as EventListener);
-      editorContent.removeEventListener('mouseleave', handleMouseLeave);
-      if (hideTimeoutRef.current) {
-        clearTimeout(hideTimeoutRef.current);
-      }
+      editorContent.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('selectionchange', handleSelectionChange);
+      document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [editorContainer, handleMouseMove, handleMouseLeave]);
+  }, [editorContainer, handleMouseUp, handleSelectionChange, handleClickOutside]);
 
   const handleFill = (verseText: string, canonical: string) => {
     if (toolbarPosition) {
       onFillScripture(toolbarPosition.reference, verseText, canonical);
       setIsVisible(false);
       setToolbarPosition(null);
+      // Clear the selection
+      window.getSelection()?.removeAllRanges();
     }
   };
 
@@ -149,10 +124,11 @@ export function ScriptureToolbar({ editorContainer, onFillScripture }: Scripture
         left: `${toolbarPosition.left}px`,
         transform: 'translateX(-50%)',
       }}
-      onMouseEnter={handleToolbarMouseEnter}
-      onMouseLeave={handleMouseLeave}
     >
-      <div className="bg-popover border rounded-lg shadow-lg p-1">
+      <div className="bg-popover border rounded-lg shadow-lg p-1.5 flex items-center gap-2">
+        <span className="text-xs text-muted-foreground px-1">
+          {toolbarPosition.reference}
+        </span>
         <ScriptureFillButton
           reference={normalizeReference(toolbarPosition.reference)}
           onFill={handleFill}
