@@ -52,6 +52,16 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
     return () => clearTimeout(timer);
   }, []);
 
+  // Clean up ESV text - remove extra whitespace and newlines to make it a single sentence
+  const cleanVerseText = (text: string): string => {
+    return text
+      .replace(/\n+/g, ' ')           // Replace newlines with spaces
+      .replace(/\s+/g, ' ')           // Collapse multiple spaces
+      .replace(/\[\d+\]\s*/g, '')     // Remove verse number brackets like [22]
+      .replace(/^\s+|\s+$/g, '')      // Trim whitespace
+      .trim();
+  };
+
   // Handle filling scripture - insert formatted verse after the reference
   const handleFillScripture = useCallback((reference: string, verseText: string, canonical: string) => {
     if (!quillRef.current) return;
@@ -69,9 +79,12 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
     // Calculate position after the reference
     const insertPosition = refIndex + reference.length;
 
+    // Clean up the verse text to be a single continuous sentence
+    const cleanedVerse = cleanVerseText(verseText);
+
     // Create the formatted verse text
     // Format: — "verse text" (ESV)
-    const formattedVerse = ` — "${verseText}" (ESV)`;
+    const formattedVerse = ` — "${cleanedVerse}" (ESV)`;
 
     // Insert the verse text after the reference
     quill.insertText(insertPosition, formattedVerse, {
