@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RichTextEditor } from "@/components/notes/RichTextEditor";
 import { useNotesStore } from "@/lib/store/notesStore";
-import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut, Highlighter, Settings, Focus } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut, Highlighter, Settings, Focus, Search } from "lucide-react";
 import { useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { HighlightSettingsDialog, HighlightSettings, PRESET_COLORS } from "@/components/notes/HighlightSettingsDialog";
 import { SpotlightPopup } from "@/components/notes/SpotlightPopup";
 import { SpotlightSettingsDialog, SpotlightSettings, DEFAULT_SPOTLIGHT_SETTINGS } from "@/components/notes/SpotlightSettingsDialog";
+import { ScriptureSearchSidebar } from "@/components/notes/ScriptureSearchSidebar";
 import "@/components/notes/RichTextEditor.css";
 
 type ViewMode = 'edit' | 'reader';
@@ -34,6 +35,7 @@ export default function NoteEditor() {
   const [newTag, setNewTag] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [scriptureSearchOpen, setScriptureSearchOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('edit');
   const [zoom, setZoom] = useState(100);
   const [highlightMode, setHighlightMode] = useState(false);
@@ -82,6 +84,15 @@ export default function NoteEditor() {
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const readerContentRef = useRef<HTMLElement>(null);
   const readerContainerRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<{ insertText: (text: string) => void } | null>(null);
+
+  // Handle inserting scripture from sidebar into editor
+  const handleInsertScripture = useCallback((reference: string, text: string) => {
+    const formattedText = `\n\n${reference} — "${text}" (ESV)\n\n`;
+    // Append to content
+    setContent(prev => prev + formattedText);
+    setHasUnsavedChanges(true);
+  }, []);
 
   // Clear all highlights helper function
   const clearAllHighlights = useCallback(() => {
@@ -376,6 +387,21 @@ export default function NoteEditor() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            {/* Scripture Search Button - Only in Edit mode */}
+            {viewMode === 'edit' && (
+              <Button
+                variant={scriptureSearchOpen ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setScriptureSearchOpen(!scriptureSearchOpen)}
+                className={scriptureSearchOpen ? 'bg-primary' : ''}
+              >
+                <Search className="h-4 w-4 mr-1" />
+                Search Bible
+              </Button>
+            )}
+
+            {viewMode === 'edit' && <div className="h-4 w-px bg-border" />}
+
             {/* View Mode Toggle */}
             <div className="flex items-center border rounded-lg overflow-hidden">
               <Button
@@ -640,6 +666,13 @@ export default function NoteEditor() {
         onOpenChange={setSpotlightSettingsOpen}
         settings={spotlightSettings}
         onSave={handleSaveSpotlightSettings}
+      />
+
+      {/* Scripture Search Sidebar - Right side */}
+      <ScriptureSearchSidebar
+        isOpen={scriptureSearchOpen}
+        onClose={() => setScriptureSearchOpen(false)}
+        onInsertScripture={handleInsertScripture}
       />
     </div>
   );
