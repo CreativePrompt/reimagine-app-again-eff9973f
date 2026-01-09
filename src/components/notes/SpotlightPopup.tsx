@@ -109,7 +109,7 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
             {isPresentation ? (
               /* Presentation Mode */
               <div
-                className={`rounded-xl overflow-hidden shadow-2xl ${getPopupHeight()} flex flex-col`}
+                className={`relative rounded-xl overflow-hidden shadow-2xl ${getPopupHeight()} flex flex-col`}
                 style={{
                   backgroundImage: settings.backgroundUrl
                     ? `url(${settings.backgroundUrl})`
