@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { passage, includeVerseNumbers = true, includeHeadings = false } = await req.json();
+    const { passage, includeVerseNumbers = true, includeHeadings = false, searchType = 'passage' } = await req.json();
     
     if (!passage) {
       return new Response(
@@ -30,7 +30,46 @@ serve(async (req) => {
       );
     }
 
-    // Build query parameters
+    // If searchType is 'search', use the ESV search endpoint for phrase/keyword search
+    if (searchType === 'search') {
+      const searchParams = new URLSearchParams({
+        q: passage,
+        'page-size': '10',
+      });
+
+      console.log(`Searching ESV for phrase: ${passage}`);
+
+      const response = await fetch(`https://api.esv.org/v3/passage/search/?${searchParams.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Token ${ESV_API_KEY}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('ESV Search API error:', response.status, errorText);
+        return new Response(
+          JSON.stringify({ error: 'Failed to search ESV API', details: errorText }), 
+          { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const data = await response.json();
+      console.log('ESV Search API response received successfully, total results:', data.total_results);
+
+      return new Response(
+        JSON.stringify({
+          query: passage,
+          total_results: data.total_results,
+          results: data.results,
+          searchType: 'search'
+        }), 
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Default: Use passage text endpoint
     const params = new URLSearchParams({
       q: passage,
       'include-passage-references': 'true',

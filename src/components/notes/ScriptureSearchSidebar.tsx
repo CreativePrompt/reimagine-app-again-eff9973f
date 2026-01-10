@@ -33,10 +33,16 @@ interface VerseResult {
   canonical?: string;
 }
 
+interface PhraseSearchResult {
+  reference: string;
+  content: string;
+}
+
 interface SearchResults {
   mainVerse: VerseResult | null;
   contextVerses: VerseResult[];
   relatedVerses: VerseResult[];
+  phraseResults?: PhraseSearchResult[];
 }
 
 // Common cross-reference patterns (simplified - in production would use a proper database)
@@ -67,6 +73,7 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
   const [chapter, setChapter] = useState<string>("");
   const [verseStart, setVerseStart] = useState<string>("");
   const [verseEnd, setVerseEnd] = useState<string>("");
+  const [quickReference, setQuickReference] = useState<string>("");
   
   // Phrase search state
   const [phraseQuery, setPhraseQuery] = useState("");
@@ -120,7 +127,90 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
     return null;
   }, []);
 
-  // Search by reference
+  // Search by direct reference input (quick search)
+  const handleQuickReferenceSearch = useCallback(async () => {
+    if (!quickReference.trim()) {
+      toast({
+        title: "Enter a reference",
+        description: "Please type a Bible reference like 'John 3:16' or 'Romans 8:28-30'.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoading(true);
+    setResults(null);
+
+    try {
+      // Fetch main verse using the typed reference
+      const mainVerse = await fetchPassage(quickReference.trim());
+
+      if (!mainVerse) {
+        toast({
+          title: "Verse not found",
+          description: "Could not find the specified scripture. Try a format like 'John 3:16'.",
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Parse the canonical reference to get context
+      const parsed = parseReference(mainVerse.canonical || quickReference);
+      let contextVerses: VerseResult[] = [];
+      
+      if (parsed) {
+        const contextPassage = getContextPassage(parsed.book, parsed.chapter, parsed.verseStart);
+        const contextResult = await fetchPassage(contextPassage);
+        if (contextResult) {
+          contextVerses = [contextResult];
+        }
+      }
+
+      // Find related verses from cross-references
+      const canonicalRef = mainVerse.canonical || quickReference;
+      const normalizedRef = canonicalRef.replace(/\s+/g, ' ').trim();
+      
+      let crossRefs: string[] = [];
+      Object.keys(CROSS_REFERENCES).forEach(key => {
+        if (normalizedRef.includes(key) || key.includes(normalizedRef.split(':')[0])) {
+          crossRefs = [...crossRefs, ...CROSS_REFERENCES[key]];
+        }
+      });
+
+      if (CROSS_REFERENCES[normalizedRef]) {
+        crossRefs = [...crossRefs, ...CROSS_REFERENCES[normalizedRef]];
+      }
+
+      const uniqueRefs = [...new Set(crossRefs)].slice(0, 3);
+      const relatedVerses: VerseResult[] = [];
+      
+      for (const ref of uniqueRefs) {
+        const related = await fetchPassage(ref);
+        if (related) {
+          relatedVerses.push(related);
+        }
+      }
+
+      setResults({
+        mainVerse,
+        contextVerses,
+        relatedVerses
+      });
+
+    } catch (err) {
+      console.error('Quick reference search error:', err);
+      toast({
+        title: "Search failed",
+        description: "An error occurred while searching.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [quickReference, fetchPassage, parseReference, getContextPassage, toast]);
+
+  // Search by reference (dropdowns)
   const handleReferenceSearch = useCallback(async () => {
     if (!selectedBook || !chapter || !verseStart) {
       toast({
@@ -202,7 +292,7 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
     }
   }, [selectedBook, chapter, verseStart, verseEnd, fetchPassage, getContextPassage, toast]);
 
-  // Search by phrase
+  // Search by phrase using ESV search API
   const handlePhraseSearch = useCallback(async () => {
     if (!phraseQuery.trim()) {
       toast({
@@ -217,35 +307,60 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
     setResults(null);
 
     try {
-      // The ESV API supports text search
-      const mainVerse = await fetchPassage(phraseQuery);
+      // Use the ESV search endpoint for keyword/phrase search
+      const { data, error } = await supabase.functions.invoke('esv-bible', {
+        body: { passage: phraseQuery.trim(), searchType: 'search' }
+      });
 
-      if (!mainVerse) {
+      if (error) {
+        console.error('Error searching:', error);
         toast({
-          title: "No results",
-          description: "Could not find verses matching your search.",
+          title: "Search failed",
+          description: "An error occurred while searching.",
           variant: "destructive"
         });
         setLoading(false);
         return;
       }
 
-      // Parse the result to get context
-      const parsed = parseReference(mainVerse.canonical || mainVerse.reference);
+      if (!data?.results || data.results.length === 0) {
+        toast({
+          title: "No results",
+          description: "Could not find verses matching your search. Try different keywords.",
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Map search results
+      const phraseResults: PhraseSearchResult[] = data.results.map((result: { reference: string; content: string }) => ({
+        reference: result.reference,
+        content: result.content
+      }));
+
+      // Get the first result as the main verse for detail view
+      const firstResult = data.results[0];
+      const mainVerse = await fetchPassage(firstResult.reference);
+
+      // Get context for the main verse
       let contextVerses: VerseResult[] = [];
-      
-      if (parsed) {
-        const contextPassage = getContextPassage(parsed.book, parsed.chapter, parsed.verseStart);
-        const contextResult = await fetchPassage(contextPassage);
-        if (contextResult) {
-          contextVerses = [contextResult];
+      if (mainVerse) {
+        const parsed = parseReference(mainVerse.canonical || firstResult.reference);
+        if (parsed) {
+          const contextPassage = getContextPassage(parsed.book, parsed.chapter, parsed.verseStart);
+          const contextResult = await fetchPassage(contextPassage);
+          if (contextResult) {
+            contextVerses = [contextResult];
+          }
         }
       }
 
       setResults({
         mainVerse,
         contextVerses,
-        relatedVerses: []
+        relatedVerses: [],
+        phraseResults
       });
 
     } catch (err) {
@@ -340,7 +455,41 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="reference" className="mt-4 space-y-3">
+              <TabsContent value="reference" className="mt-4 space-y-4">
+                {/* Quick Reference Input */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">Quick Search</label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Type reference (e.g., John 3:16)"
+                      value={quickReference}
+                      onChange={(e) => setQuickReference(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleQuickReferenceSearch()}
+                      className="flex-1"
+                    />
+                    <Button 
+                      onClick={handleQuickReferenceSearch} 
+                      size="icon"
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Search className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">or select</span>
+                  </div>
+                </div>
+
                 {/* Book Select */}
                 <Select value={selectedBook} onValueChange={setSelectedBook}>
                   <SelectTrigger>
@@ -398,7 +547,7 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
                 <Button 
                   onClick={handleReferenceSearch} 
                   className="w-full"
-                  disabled={loading}
+                  disabled={loading || !selectedBook}
                 >
                   {loading ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -559,8 +708,54 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
                   </div>
                 )}
 
+                {/* Phrase Search Results */}
+                {results.phraseResults && results.phraseResults.length > 1 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Search className="h-4 w-4 text-purple-600" />
+                      <h4 className="font-semibold text-sm">Related Verses</h4>
+                      <span className="text-xs text-muted-foreground">({results.phraseResults.length} found)</span>
+                    </div>
+                    <div className="space-y-2">
+                      {results.phraseResults.slice(1, 6).map((result, idx) => (
+                        <div 
+                          key={idx}
+                          className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-950/40 transition-colors"
+                          onClick={async () => {
+                            // Fetch full verse when clicked
+                            const verse = await fetchPassage(result.reference);
+                            if (verse) {
+                              const parsed = parseReference(verse.canonical || result.reference);
+                              let contextVerses: VerseResult[] = [];
+                              if (parsed) {
+                                const contextPassage = getContextPassage(parsed.book, parsed.chapter, parsed.verseStart);
+                                const contextResult = await fetchPassage(contextPassage);
+                                if (contextResult) {
+                                  contextVerses = [contextResult];
+                                }
+                              }
+                              setResults(prev => prev ? {
+                                ...prev,
+                                mainVerse: verse,
+                                contextVerses
+                              } : null);
+                            }
+                          }}
+                        >
+                          <p className="font-medium text-purple-700 dark:text-purple-400 text-sm mb-1">
+                            {result.reference}
+                          </p>
+                          <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">
+                            {result.content}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* No related verses message */}
-                {results.relatedVerses.length === 0 && results.mainVerse && (
+                {results.relatedVerses.length === 0 && !results.phraseResults && results.mainVerse && (
                   <div className="text-center py-4 text-sm text-muted-foreground">
                     <Link2 className="h-5 w-5 mx-auto mb-2 opacity-50" />
                     <p>No cross-references found for this verse.</p>
