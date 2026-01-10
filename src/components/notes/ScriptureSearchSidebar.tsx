@@ -67,6 +67,7 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SearchResults | null>(null);
   const [copiedRef, setCopiedRef] = useState<string | null>(null);
+  const [showAllRelated, setShowAllRelated] = useState(false);
   
   // Reference search state
   const [selectedBook, setSelectedBook] = useState<string>("");
@@ -414,10 +415,26 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
       .trim();
   };
 
-  // Highlight the main verse in context
-  const highlightMainVerse = (contextText: string, mainRef: string) => {
-    // This is a simplified version - in production would be more sophisticated
-    return contextText;
+  // Highlight search phrase in text
+  const highlightPhrase = (text: string, phrase: string) => {
+    if (!phrase || !text) return text;
+    
+    const cleanedText = cleanVerseText(text);
+    const words = phrase.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    
+    if (words.length === 0) return cleanedText;
+    
+    // Create a regex pattern that matches any of the search words
+    const pattern = new RegExp(`(${words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
+    
+    const parts = cleanedText.split(pattern);
+    
+    return parts.map((part, i) => {
+      if (words.some(w => part.toLowerCase() === w.toLowerCase())) {
+        return <mark key={i} className="bg-yellow-200 dark:bg-yellow-900/60 px-0.5 rounded font-medium">{part}</mark>;
+      }
+      return part;
+    });
   };
 
   return (
@@ -603,7 +620,10 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
                         {results.mainVerse.canonical || results.mainVerse.reference}
                       </p>
                       <p className="text-sm leading-relaxed">
-                        {cleanVerseText(results.mainVerse.text)}
+                        {searchMode === "phrase" && phraseQuery 
+                          ? highlightPhrase(results.mainVerse.text, phraseQuery)
+                          : cleanVerseText(results.mainVerse.text)
+                        }
                       </p>
                       <div className="flex gap-2 mt-3">
                         <Button 
@@ -711,13 +731,25 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
                 {/* Phrase Search Results */}
                 {results.phraseResults && results.phraseResults.length > 1 && (
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Search className="h-4 w-4 text-purple-600" />
-                      <h4 className="font-semibold text-sm">Related Verses</h4>
-                      <span className="text-xs text-muted-foreground">({results.phraseResults.length} found)</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Search className="h-4 w-4 text-purple-600" />
+                        <h4 className="font-semibold text-sm">Related Verses</h4>
+                        <span className="text-xs text-muted-foreground">({results.phraseResults.length} found)</span>
+                      </div>
+                      {results.phraseResults.length > 6 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 px-2 text-purple-600 hover:text-purple-700"
+                          onClick={() => setShowAllRelated(!showAllRelated)}
+                        >
+                          {showAllRelated ? "Show Less" : "See All"}
+                        </Button>
+                      )}
                     </div>
                     <div className="space-y-2">
-                      {results.phraseResults.slice(1, 6).map((result, idx) => (
+                      {(showAllRelated ? results.phraseResults.slice(1) : results.phraseResults.slice(1, 6)).map((result, idx) => (
                         <div 
                           key={idx}
                           className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-950/40 transition-colors"
