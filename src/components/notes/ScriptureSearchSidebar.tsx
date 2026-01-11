@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,11 +15,13 @@ import {
   Quote,
   Link2,
   Copy,
-  Check
+  Check,
+  FileText
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { BIBLE_BOOKS, getAllBooks } from "@/lib/bibleBooks";
 import { useToast } from "@/hooks/use-toast";
+import { useCommentaryStore, Commentary } from "@/lib/store/commentaryStore";
 
 interface ScriptureSearchSidebarProps {
   isOpen: boolean;
@@ -36,6 +38,14 @@ interface VerseResult {
 interface PhraseSearchResult {
   reference: string;
   content: string;
+}
+
+interface CommentaryResult {
+  commentaryId: string;
+  commentaryTitle: string;
+  author?: string;
+  excerpt: string;
+  matchedReference?: string;
 }
 
 interface SearchResults {
@@ -63,7 +73,7 @@ const CROSS_REFERENCES: { [key: string]: string[] } = {
 
 export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: ScriptureSearchSidebarProps) {
   const { toast } = useToast();
-  const [searchMode, setSearchMode] = useState<"reference" | "phrase">("reference");
+  const [searchMode, setSearchMode] = useState<"reference" | "phrase" | "commentary">("reference");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SearchResults | null>(null);
   const [copiedRef, setCopiedRef] = useState<string | null>(null);
@@ -79,7 +89,20 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
   // Phrase search state
   const [phraseQuery, setPhraseQuery] = useState("");
 
+  // Commentary search state
+  const { commentaries, loadCommentaries, isLoading: commentariesLoading } = useCommentaryStore();
+  const [commentaryQuery, setCommentaryQuery] = useState("");
+  const [commentaryResults, setCommentaryResults] = useState<CommentaryResult[]>([]);
+  const [showAllCommentary, setShowAllCommentary] = useState(false);
+
   const allBooks = getAllBooks();
+
+  // Load commentaries when sidebar opens
+  useEffect(() => {
+    if (isOpen) {
+      loadCommentaries();
+    }
+  }, [isOpen, loadCommentaries]);
 
   // Fetch a passage from the ESV API
   const fetchPassage = useCallback(async (passage: string): Promise<VerseResult | null> => {
@@ -437,6 +460,132 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
     });
   };
 
+  // Search through uploaded commentaries
+  const handleCommentarySearch = useCallback(async () => {
+    if (!commentaryQuery.trim()) {
+      toast({
+        title: "Enter a search term",
+        description: "Please enter a scripture reference or phrase to search commentaries.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoading(true);
+    setCommentaryResults([]);
+
+    try {
+      const searchTerms = commentaryQuery.toLowerCase().trim();
+      const results: CommentaryResult[] = [];
+
+      // Search through each commentary's extracted text
+      for (const commentary of commentaries) {
+        if (!commentary.extracted_text) continue;
+
+        const text = commentary.extracted_text;
+        const lowerText = text.toLowerCase();
+        
+        // Find all matches of the search term
+        let searchIndex = 0;
+        const words = searchTerms.split(/\s+/).filter(w => w.length > 2);
+        
+        // Try to find exact phrase first, then individual words
+        let matchPositions: number[] = [];
+        
+        // Exact phrase search
+        let pos = lowerText.indexOf(searchTerms);
+        while (pos !== -1 && matchPositions.length < 10) {
+          matchPositions.push(pos);
+          pos = lowerText.indexOf(searchTerms, pos + 1);
+        }
+
+        // If no exact matches, try word-by-word with context
+        if (matchPositions.length === 0 && words.length > 0) {
+          for (const word of words) {
+            let wordPos = lowerText.indexOf(word);
+            while (wordPos !== -1 && matchPositions.length < 10) {
+              // Check if this position is already close to another match
+              const isNearExisting = matchPositions.some(p => Math.abs(p - wordPos) < 200);
+              if (!isNearExisting) {
+                matchPositions.push(wordPos);
+              }
+              wordPos = lowerText.indexOf(word, wordPos + 1);
+            }
+          }
+        }
+
+        // Extract excerpts around each match
+        for (const matchPos of matchPositions.slice(0, 5)) {
+          // Get context around the match (300 chars before and after)
+          const contextStart = Math.max(0, matchPos - 150);
+          const contextEnd = Math.min(text.length, matchPos + 300);
+          
+          let excerpt = text.substring(contextStart, contextEnd);
+          
+          // Clean up the excerpt
+          if (contextStart > 0) excerpt = '...' + excerpt;
+          if (contextEnd < text.length) excerpt = excerpt + '...';
+          
+          // Try to extract a reference if present in the excerpt
+          const refMatch = excerpt.match(/(\d?\s?[A-Za-z]+\.?\s+\d+:\d+(?:-\d+)?)/);
+          
+          results.push({
+            commentaryId: commentary.id,
+            commentaryTitle: commentary.title,
+            author: commentary.author || undefined,
+            excerpt: excerpt.replace(/\s+/g, ' ').trim(),
+            matchedReference: refMatch ? refMatch[1] : undefined
+          });
+        }
+      }
+
+      // Sort by relevance (excerpts with more matching words first)
+      const searchWords = searchTerms.split(/\s+/).filter(w => w.length > 2);
+      results.sort((a, b) => {
+        const aMatches = searchWords.filter(w => a.excerpt.toLowerCase().includes(w)).length;
+        const bMatches = searchWords.filter(w => b.excerpt.toLowerCase().includes(w)).length;
+        return bMatches - aMatches;
+      });
+
+      setCommentaryResults(results);
+
+      if (results.length === 0) {
+        toast({
+          title: "No results found",
+          description: "No commentary passages match your search. Try different terms.",
+          variant: "destructive"
+        });
+      }
+
+    } catch (err) {
+      console.error('Commentary search error:', err);
+      toast({
+        title: "Search failed",
+        description: "An error occurred while searching commentaries.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [commentaryQuery, commentaries, toast]);
+
+  // Highlight search terms in commentary excerpt
+  const highlightCommentaryText = (text: string, query: string) => {
+    if (!query || !text) return text;
+    
+    const words = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    if (words.length === 0) return text;
+    
+    const pattern = new RegExp(`(${words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
+    const parts = text.split(pattern);
+    
+    return parts.map((part, i) => {
+      if (words.some(w => part.toLowerCase() === w.toLowerCase())) {
+        return <mark key={i} className="bg-orange-200 dark:bg-orange-900/60 px-0.5 rounded font-medium">{part}</mark>;
+      }
+      return part;
+    });
+  };
   return (
     <AnimatePresence>
       {isOpen && (
@@ -460,15 +609,19 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
 
           {/* Search Tabs */}
           <div className="p-4 border-b">
-            <Tabs value={searchMode} onValueChange={(v) => setSearchMode(v as "reference" | "phrase")}>
-              <TabsList className="w-full">
-                <TabsTrigger value="reference" className="flex-1">
-                  <Book className="h-4 w-4 mr-1" />
-                  By Reference
+            <Tabs value={searchMode} onValueChange={(v) => setSearchMode(v as "reference" | "phrase" | "commentary")}>
+              <TabsList className="w-full grid grid-cols-3">
+                <TabsTrigger value="reference" className="text-xs px-2">
+                  <Book className="h-3 w-3 mr-1" />
+                  Reference
                 </TabsTrigger>
-                <TabsTrigger value="phrase" className="flex-1">
-                  <Search className="h-4 w-4 mr-1" />
-                  By Phrase
+                <TabsTrigger value="phrase" className="text-xs px-2">
+                  <Search className="h-3 w-3 mr-1" />
+                  Phrase
+                </TabsTrigger>
+                <TabsTrigger value="commentary" className="text-xs px-2">
+                  <FileText className="h-3 w-3 mr-1" />
+                  Commentary
                 </TabsTrigger>
               </TabsList>
 
@@ -594,6 +747,37 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
                   )}
                   Search
                 </Button>
+              </TabsContent>
+
+              <TabsContent value="commentary" className="mt-4 space-y-3">
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Search by verse (e.g., John 3:16) or phrase..."
+                    value={commentaryQuery}
+                    onChange={(e) => setCommentaryQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleCommentarySearch()}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Searches through {commentaries.length} uploaded commentary{commentaries.length !== 1 ? 'ies' : 'y'}
+                  </p>
+                </div>
+                <Button 
+                  onClick={handleCommentarySearch} 
+                  className="w-full"
+                  disabled={loading || commentariesLoading || commentaries.length === 0}
+                >
+                  {loading || commentariesLoading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <FileText className="h-4 w-4 mr-2" />
+                  )}
+                  Search Commentaries
+                </Button>
+                {commentaries.length === 0 && !commentariesLoading && (
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    No commentaries uploaded yet. Upload PDFs in the Commentary section.
+                  </p>
+                )}
               </TabsContent>
             </Tabs>
           </div>
@@ -796,12 +980,110 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
               </div>
             )}
 
+            {/* Commentary Results */}
+            {!loading && searchMode === "commentary" && commentaryResults.length > 0 && (
+              <div className="p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-orange-600" />
+                    <h4 className="font-semibold text-sm">Commentary Results</h4>
+                    <span className="text-xs text-muted-foreground">({commentaryResults.length} found)</span>
+                  </div>
+                  {commentaryResults.length > 5 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs h-7 px-2 text-orange-600 hover:text-orange-700"
+                      onClick={() => setShowAllCommentary(!showAllCommentary)}
+                    >
+                      {showAllCommentary ? "Show Less" : "See All"}
+                    </Button>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  {(showAllCommentary ? commentaryResults : commentaryResults.slice(0, 5)).map((result, idx) => (
+                    <div 
+                      key={idx}
+                      className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div>
+                          <p className="font-medium text-orange-700 dark:text-orange-400 text-sm">
+                            {result.commentaryTitle}
+                          </p>
+                          {result.author && (
+                            <p className="text-xs text-muted-foreground">{result.author}</p>
+                          )}
+                        </div>
+                        {result.matchedReference && (
+                          <span className="text-xs bg-orange-200 dark:bg-orange-900 text-orange-800 dark:text-orange-200 px-2 py-0.5 rounded">
+                            {result.matchedReference}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm leading-relaxed text-foreground/80">
+                        {highlightCommentaryText(result.excerpt, commentaryQuery)}
+                      </p>
+                      <div className="flex gap-2 mt-3">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            navigator.clipboard.writeText(result.excerpt);
+                            setCopiedRef(result.commentaryId + idx);
+                            setTimeout(() => setCopiedRef(null), 2000);
+                            toast({
+                              title: "Copied",
+                              description: "Commentary excerpt copied to clipboard."
+                            });
+                          }}
+                        >
+                          {copiedRef === result.commentaryId + idx ? (
+                            <Check className="h-3 w-3 mr-1" />
+                          ) : (
+                            <Copy className="h-3 w-3 mr-1" />
+                          )}
+                          Copy
+                        </Button>
+                        {onInsertScripture && (
+                          <Button 
+                            size="sm"
+                            onClick={() => {
+                              const formatted = `[${result.commentaryTitle}${result.author ? ` - ${result.author}` : ''}]\n${result.excerpt}`;
+                              onInsertScripture(result.commentaryTitle, formatted);
+                              toast({
+                                title: "Inserted",
+                                description: "Commentary inserted into your note."
+                              });
+                            }}
+                          >
+                            <ChevronRight className="h-3 w-3 mr-1" />
+                            Insert
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Empty State */}
-            {!loading && !results && (
+            {!loading && !results && searchMode !== "commentary" && (
               <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
                 <Search className="h-12 w-12 text-muted-foreground/30 mb-4" />
                 <p className="text-muted-foreground">
                   Search for a scripture by reference or phrase to see results here.
+                </p>
+              </div>
+            )}
+
+            {/* Empty Commentary State */}
+            {!loading && searchMode === "commentary" && commentaryResults.length === 0 && commentaryQuery === "" && (
+              <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                <FileText className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                <p className="text-muted-foreground">
+                  Search your uploaded commentaries by verse reference or phrase.
                 </p>
               </div>
             )}
