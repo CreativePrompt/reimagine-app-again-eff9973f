@@ -1,13 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { RichTextEditor } from "@/components/notes/RichTextEditor";
+import { RichTextEditor, RichTextEditorRef } from "@/components/notes/RichTextEditor";
 import { useNotesStore } from "@/lib/store/notesStore";
 import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut, Highlighter, Settings, Focus, Search } from "lucide-react";
-import { useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -84,9 +83,17 @@ export default function NoteEditor() {
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const readerContentRef = useRef<HTMLElement>(null);
   const readerContainerRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<{ insertText: (text: string) => void } | null>(null);
+  const editorRef = useRef<RichTextEditorRef>(null);
 
-  // Handle inserting scripture from sidebar into editor
+  // Handle inserting scripture from sidebar into editor at cursor position
+  const handleInsertAtCursor = useCallback((text: string) => {
+    if (editorRef.current) {
+      editorRef.current.insertAtCursor(text);
+      setHasUnsavedChanges(true);
+    }
+  }, []);
+
+  // Handle inserting scripture from sidebar into editor (fallback: append)
   const handleInsertScripture = useCallback((reference: string, text: string) => {
     const formattedText = `\n\n${reference} — "${text}" (ESV)\n\n`;
     // Append to content
@@ -584,6 +591,7 @@ export default function NoteEditor() {
 
                 {/* Content - Rich Text Editor */}
                 <RichTextEditor
+                  ref={editorRef}
                   value={content}
                   onChange={(value) => handleChange('content', value)}
                   placeholder="Start writing your note..."
@@ -673,6 +681,7 @@ export default function NoteEditor() {
         isOpen={scriptureSearchOpen}
         onClose={() => setScriptureSearchOpen(false)}
         onInsertScripture={handleInsertScripture}
+        insertAtCursor={handleInsertAtCursor}
       />
     </div>
   );
