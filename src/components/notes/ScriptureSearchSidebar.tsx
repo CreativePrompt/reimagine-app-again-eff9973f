@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   Search, 
   Book, 
@@ -16,7 +17,8 @@ import {
   Link2,
   Copy,
   Check,
-  FileText
+  FileText,
+  Maximize2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { BIBLE_BOOKS, getAllBooks } from "@/lib/bibleBooks";
@@ -27,6 +29,8 @@ interface ScriptureSearchSidebarProps {
   isOpen: boolean;
   onClose: () => void;
   onInsertScripture?: (reference: string, text: string) => void;
+  getEditorCursorPosition?: () => number | null;
+  insertAtCursor?: (text: string) => void;
 }
 
 interface VerseResult {
@@ -38,6 +42,7 @@ interface VerseResult {
 interface PhraseSearchResult {
   reference: string;
   content: string;
+  relevanceScore?: number;
 }
 
 interface CommentaryResult {
@@ -45,7 +50,9 @@ interface CommentaryResult {
   commentaryTitle: string;
   author?: string;
   excerpt: string;
+  fullContext?: string;
   matchedReference?: string;
+  relevanceScore: number;
 }
 
 interface SearchResults {
@@ -71,13 +78,22 @@ const CROSS_REFERENCES: { [key: string]: string[] } = {
   "Proverbs 3:5-6": ["Jeremiah 29:11", "Psalm 37:5", "Isaiah 26:3"],
 };
 
-export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: ScriptureSearchSidebarProps) {
+export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture, insertAtCursor }: ScriptureSearchSidebarProps) {
   const { toast } = useToast();
   const [searchMode, setSearchMode] = useState<"reference" | "phrase" | "commentary">("reference");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SearchResults | null>(null);
   const [copiedRef, setCopiedRef] = useState<string | null>(null);
   const [showAllRelated, setShowAllRelated] = useState(false);
+  
+  // Popup state for viewing more context
+  const [contextPopupOpen, setContextPopupOpen] = useState(false);
+  const [contextPopupContent, setContextPopupContent] = useState<{
+    title: string;
+    subtitle?: string;
+    content: string;
+    type: 'verse' | 'commentary';
+  } | null>(null);
   
   // Reference search state
   const [selectedBook, setSelectedBook] = useState<string>("");
@@ -103,6 +119,12 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
       loadCommentaries();
     }
   }, [isOpen, loadCommentaries]);
+
+  // Open popup to view more context
+  const openContextPopup = useCallback((title: string, content: string, type: 'verse' | 'commentary', subtitle?: string) => {
+    setContextPopupContent({ title, content, type, subtitle });
+    setContextPopupOpen(true);
+  }, []);
 
   // Fetch a passage from the ESV API
   const fetchPassage = useCallback(async (passage: string): Promise<VerseResult | null> => {
@@ -411,17 +433,26 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
     });
   }, [toast]);
 
-  // Insert verse into editor
+  // Insert verse into editor at cursor position
   const handleInsert = useCallback((reference: string, text: string) => {
-    if (onInsertScripture) {
-      const cleanText = text.replace(/\[\d+\]\s*/g, '').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+    const cleanText = text.replace(/\[\d+\]\s*/g, '').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+    const formattedText = `\n\n${reference} — "${cleanText}" (ESV)\n\n`;
+    
+    // Try to insert at cursor position first
+    if (insertAtCursor) {
+      insertAtCursor(formattedText);
+      toast({
+        title: "Inserted",
+        description: "Scripture inserted at cursor position."
+      });
+    } else if (onInsertScripture) {
       onInsertScripture(reference, cleanText);
       toast({
         title: "Inserted",
         description: "Scripture inserted into your note."
       });
     }
-  }, [onInsertScripture, toast]);
+  }, [onInsertScripture, insertAtCursor, toast]);
 
   // Get max chapters for selected book
   const getMaxChapters = () => {
@@ -460,7 +491,50 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
     });
   };
 
-  // Search through uploaded commentaries
+  // Calculate relevance score for phrase matching
+  const calculateRelevanceScore = useCallback((text: string, query: string): number => {
+    const lowerText = text.toLowerCase();
+    const lowerQuery = query.toLowerCase().trim();
+    
+    // Exact phrase match = highest score (1000 points per match)
+    let score = 0;
+    const exactMatches = (lowerText.match(new RegExp(lowerQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')) || []).length;
+    score += exactMatches * 1000;
+    
+    // Check for consecutive word matches (partial phrase)
+    const queryWords = lowerQuery.split(/\s+/).filter(w => w.length > 2);
+    if (queryWords.length > 1) {
+      // Check for 2+ consecutive words
+      for (let i = 0; i < queryWords.length - 1; i++) {
+        const twoWordPhrase = queryWords.slice(i, i + 2).join(' ');
+        const twoWordMatches = (lowerText.match(new RegExp(twoWordPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')) || []).length;
+        score += twoWordMatches * 200; // 200 points for consecutive 2-word matches
+      }
+      
+      // Check for 3+ consecutive words
+      if (queryWords.length >= 3) {
+        for (let i = 0; i < queryWords.length - 2; i++) {
+          const threeWordPhrase = queryWords.slice(i, i + 3).join(' ');
+          const threeWordMatches = (lowerText.match(new RegExp(threeWordPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')) || []).length;
+          score += threeWordMatches * 400; // 400 points for 3-word matches
+        }
+      }
+    }
+    
+    // Individual word matches (10 points each)
+    for (const word of queryWords) {
+      const wordMatches = (lowerText.match(new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'gi')) || []).length;
+      score += wordMatches * 10;
+    }
+    
+    // Bonus for having all words present
+    const allWordsPresent = queryWords.every(w => lowerText.includes(w));
+    if (allWordsPresent) score += 50;
+    
+    return score;
+  }, []);
+
+  // Search through uploaded commentaries with improved phrase matching
   const handleCommentarySearch = useCallback(async () => {
     if (!commentaryQuery.trim()) {
       toast({
@@ -475,77 +549,100 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
     setCommentaryResults([]);
 
     try {
-      const searchTerms = commentaryQuery.toLowerCase().trim();
+      const searchPhrase = commentaryQuery.toLowerCase().trim();
+      const searchWords = searchPhrase.split(/\s+/).filter(w => w.length > 2);
       const results: CommentaryResult[] = [];
 
-      // Search through each commentary's extracted text
       for (const commentary of commentaries) {
         if (!commentary.extracted_text) continue;
 
         const text = commentary.extracted_text;
         const lowerText = text.toLowerCase();
         
-        // Find all matches of the search term
-        let searchIndex = 0;
-        const words = searchTerms.split(/\s+/).filter(w => w.length > 2);
+        // Strategy: Find positions that contain the search phrase or words
+        const matchPositions: { pos: number; score: number; isExact: boolean }[] = [];
         
-        // Try to find exact phrase first, then individual words
-        let matchPositions: number[] = [];
-        
-        // Exact phrase search
-        let pos = lowerText.indexOf(searchTerms);
-        while (pos !== -1 && matchPositions.length < 10) {
-          matchPositions.push(pos);
-          pos = lowerText.indexOf(searchTerms, pos + 1);
+        // 1. First priority: Exact phrase matches
+        let pos = lowerText.indexOf(searchPhrase);
+        while (pos !== -1 && matchPositions.length < 20) {
+          matchPositions.push({ pos, score: 1000, isExact: true });
+          pos = lowerText.indexOf(searchPhrase, pos + 1);
         }
-
-        // If no exact matches, try word-by-word with context
-        if (matchPositions.length === 0 && words.length > 0) {
-          for (const word of words) {
-            let wordPos = lowerText.indexOf(word);
-            while (wordPos !== -1 && matchPositions.length < 10) {
-              // Check if this position is already close to another match
-              const isNearExisting = matchPositions.some(p => Math.abs(p - wordPos) < 200);
+        
+        // 2. Second priority: Look for windows where multiple words appear close together
+        if (searchWords.length > 1) {
+          const windowSize = 200; // Check 200 char windows
+          for (let i = 0; i < lowerText.length - windowSize; i += 50) {
+            const window = lowerText.substring(i, i + windowSize);
+            const wordsInWindow = searchWords.filter(w => window.includes(w));
+            
+            // Only add if not already near an exact match and has multiple words
+            if (wordsInWindow.length >= 2) {
+              const isNearExisting = matchPositions.some(m => Math.abs(m.pos - i) < 150);
               if (!isNearExisting) {
-                matchPositions.push(wordPos);
+                const windowScore = wordsInWindow.length * 100 + 
+                  (wordsInWindow.length === searchWords.length ? 200 : 0);
+                matchPositions.push({ pos: i, score: windowScore, isExact: false });
+              }
+            }
+          }
+        }
+        
+        // 3. Third priority: Individual word matches (only if no better matches)
+        if (matchPositions.length < 3 && searchWords.length > 0) {
+          for (const word of searchWords) {
+            let wordPos = lowerText.indexOf(word);
+            let count = 0;
+            while (wordPos !== -1 && count < 3) {
+              const isNearExisting = matchPositions.some(m => Math.abs(m.pos - wordPos) < 150);
+              if (!isNearExisting) {
+                matchPositions.push({ pos: wordPos, score: 10, isExact: false });
+                count++;
               }
               wordPos = lowerText.indexOf(word, wordPos + 1);
             }
           }
         }
+        
+        // Sort by score descending
+        matchPositions.sort((a, b) => b.score - a.score);
 
-        // Extract excerpts around each match
-        for (const matchPos of matchPositions.slice(0, 5)) {
-          // Get context around the match (300 chars before and after)
-          const contextStart = Math.max(0, matchPos - 150);
-          const contextEnd = Math.min(text.length, matchPos + 300);
+        // Extract excerpts for top matches
+        for (const match of matchPositions.slice(0, 5)) {
+          const contextStart = Math.max(0, match.pos - 150);
+          const contextEnd = Math.min(text.length, match.pos + 350);
+          
+          // Get larger context for popup
+          const fullContextStart = Math.max(0, match.pos - 500);
+          const fullContextEnd = Math.min(text.length, match.pos + 800);
           
           let excerpt = text.substring(contextStart, contextEnd);
+          let fullContext = text.substring(fullContextStart, fullContextEnd);
           
-          // Clean up the excerpt
           if (contextStart > 0) excerpt = '...' + excerpt;
           if (contextEnd < text.length) excerpt = excerpt + '...';
+          if (fullContextStart > 0) fullContext = '...' + fullContext;
+          if (fullContextEnd < text.length) fullContext = fullContext + '...';
           
-          // Try to extract a reference if present in the excerpt
           const refMatch = excerpt.match(/(\d?\s?[A-Za-z]+\.?\s+\d+:\d+(?:-\d+)?)/);
+          
+          // Calculate final relevance score for this excerpt
+          const excerptScore = calculateRelevanceScore(excerpt, searchPhrase);
           
           results.push({
             commentaryId: commentary.id,
             commentaryTitle: commentary.title,
             author: commentary.author || undefined,
             excerpt: excerpt.replace(/\s+/g, ' ').trim(),
-            matchedReference: refMatch ? refMatch[1] : undefined
+            fullContext: fullContext.replace(/\s+/g, ' ').trim(),
+            matchedReference: refMatch ? refMatch[1] : undefined,
+            relevanceScore: excerptScore + (match.isExact ? 500 : 0)
           });
         }
       }
 
-      // Sort by relevance (excerpts with more matching words first)
-      const searchWords = searchTerms.split(/\s+/).filter(w => w.length > 2);
-      results.sort((a, b) => {
-        const aMatches = searchWords.filter(w => a.excerpt.toLowerCase().includes(w)).length;
-        const bMatches = searchWords.filter(w => b.excerpt.toLowerCase().includes(w)).length;
-        return bMatches - aMatches;
-      });
+      // Sort by relevance score (highest first)
+      results.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
       setCommentaryResults(results);
 
@@ -567,7 +664,7 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
     } finally {
       setLoading(false);
     }
-  }, [commentaryQuery, commentaries, toast]);
+  }, [commentaryQuery, commentaries, toast, calculateRelevanceScore]);
 
   // Highlight search terms in commentary excerpt
   const highlightCommentaryText = (text: string, query: string) => {
@@ -809,7 +906,7 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
                           : cleanVerseText(results.mainVerse.text)
                         }
                       </p>
-                      <div className="flex gap-2 mt-3">
+                      <div className="flex gap-2 mt-3 flex-wrap">
                         <Button 
                           size="sm" 
                           variant="outline"
@@ -825,7 +922,19 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
                           )}
                           Copy
                         </Button>
-                        {onInsertScripture && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => openContextPopup(
+                            results.mainVerse!.canonical || results.mainVerse!.reference,
+                            cleanVerseText(results.mainVerse!.text),
+                            'verse'
+                          )}
+                        >
+                          <Maximize2 className="h-3 w-3 mr-1" />
+                          View More
+                        </Button>
+                        {(onInsertScripture || insertAtCursor) && (
                           <Button 
                             size="sm"
                             onClick={() => handleInsert(
@@ -885,22 +994,35 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
                                 className="h-6 w-6 p-0"
                                 onClick={() => handleCopy(verse.canonical || verse.reference, verse.text)}
                               >
-                                {copiedRef === (verse.canonical || verse.reference) ? (
-                                  <Check className="h-3 w-3" />
-                                ) : (
-                                  <Copy className="h-3 w-3" />
-                                )}
-                              </Button>
-                              {onInsertScripture && (
-                                <Button 
-                                  size="sm" 
-                                  variant="ghost"
-                                  className="h-6 w-6 p-0"
-                                  onClick={() => handleInsert(verse.canonical || verse.reference, verse.text)}
-                                >
-                                  <ChevronRight className="h-3 w-3" />
-                                </Button>
+                              {copiedRef === (verse.canonical || verse.reference) ? (
+                                <Check className="h-3 w-3" />
+                              ) : (
+                                <Copy className="h-3 w-3" />
                               )}
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              className="h-6 w-6 p-0"
+                              title="View More"
+                              onClick={() => openContextPopup(
+                                verse.canonical || verse.reference,
+                                cleanVerseText(verse.text),
+                                'verse'
+                              )}
+                            >
+                              <Maximize2 className="h-3 w-3" />
+                            </Button>
+                            {(onInsertScripture || insertAtCursor) && (
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                className="h-6 w-6 p-0"
+                                onClick={() => handleInsert(verse.canonical || verse.reference, verse.text)}
+                              >
+                                <ChevronRight className="h-3 w-3" />
+                              </Button>
+                            )}
                             </div>
                           </div>
                           <p className="text-xs leading-relaxed text-muted-foreground">
@@ -1021,10 +1143,10 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
                           </span>
                         )}
                       </div>
-                      <p className="text-sm leading-relaxed text-foreground/80">
+                      <p className="text-sm leading-relaxed text-foreground/80 line-clamp-4">
                         {highlightCommentaryText(result.excerpt, commentaryQuery)}
                       </p>
-                      <div className="flex gap-2 mt-3">
+                      <div className="flex gap-2 mt-3 flex-wrap">
                         <Button 
                           size="sm" 
                           variant="outline"
@@ -1045,16 +1167,37 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
                           )}
                           Copy
                         </Button>
-                        {onInsertScripture && (
+                        <Button 
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openContextPopup(
+                            result.commentaryTitle,
+                            result.fullContext || result.excerpt,
+                            'commentary',
+                            result.author
+                          )}
+                        >
+                          <Maximize2 className="h-3 w-3 mr-1" />
+                          View More
+                        </Button>
+                        {(onInsertScripture || insertAtCursor) && (
                           <Button 
                             size="sm"
                             onClick={() => {
-                              const formatted = `[${result.commentaryTitle}${result.author ? ` - ${result.author}` : ''}]\n${result.excerpt}`;
-                              onInsertScripture(result.commentaryTitle, formatted);
-                              toast({
-                                title: "Inserted",
-                                description: "Commentary inserted into your note."
-                              });
+                              const formatted = `\n\n[${result.commentaryTitle}${result.author ? ` - ${result.author}` : ''}]\n${result.excerpt}\n\n`;
+                              if (insertAtCursor) {
+                                insertAtCursor(formatted);
+                                toast({
+                                  title: "Inserted",
+                                  description: "Commentary inserted at cursor position."
+                                });
+                              } else if (onInsertScripture) {
+                                onInsertScripture(result.commentaryTitle, formatted);
+                                toast({
+                                  title: "Inserted",
+                                  description: "Commentary inserted into your note."
+                                });
+                              }
                             }}
                           >
                             <ChevronRight className="h-3 w-3 mr-1" />
@@ -1090,6 +1233,76 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture }: S
           </ScrollArea>
         </motion.div>
       )}
+
+      {/* Context Popup Dialog */}
+      <Dialog open={contextPopupOpen} onOpenChange={setContextPopupOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {contextPopupContent?.type === 'verse' ? (
+                <BookOpen className="h-5 w-5 text-primary" />
+              ) : (
+                <FileText className="h-5 w-5 text-orange-600" />
+              )}
+              {contextPopupContent?.title}
+            </DialogTitle>
+            {contextPopupContent?.subtitle && (
+              <p className="text-sm text-muted-foreground">{contextPopupContent.subtitle}</p>
+            )}
+          </DialogHeader>
+          <ScrollArea className="flex-1 mt-4">
+            <div className="pr-4">
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                {contextPopupContent?.content && (
+                  contextPopupContent.type === 'commentary' 
+                    ? highlightCommentaryText(contextPopupContent.content, commentaryQuery)
+                    : contextPopupContent.content
+                )}
+              </p>
+            </div>
+          </ScrollArea>
+          <div className="flex gap-2 mt-4 pt-4 border-t">
+            <Button 
+              variant="outline"
+              onClick={() => {
+                if (contextPopupContent) {
+                  navigator.clipboard.writeText(contextPopupContent.content);
+                  toast({
+                    title: "Copied",
+                    description: "Content copied to clipboard."
+                  });
+                }
+              }}
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              Copy All
+            </Button>
+            {(onInsertScripture || insertAtCursor) && contextPopupContent && (
+              <Button 
+                onClick={() => {
+                  const formatted = contextPopupContent.type === 'commentary'
+                    ? `\n\n[${contextPopupContent.title}${contextPopupContent.subtitle ? ` - ${contextPopupContent.subtitle}` : ''}]\n${contextPopupContent.content}\n\n`
+                    : `\n\n${contextPopupContent.title} — "${contextPopupContent.content}" (ESV)\n\n`;
+                  
+                  if (insertAtCursor) {
+                    insertAtCursor(formatted);
+                  } else if (onInsertScripture) {
+                    onInsertScripture(contextPopupContent.title, contextPopupContent.content);
+                  }
+                  setContextPopupOpen(false);
+                  toast({
+                    title: "Inserted",
+                    description: "Content inserted into your note."
+                  });
+                }}
+              >
+                <ChevronRight className="h-4 w-4 mr-2" />
+                Insert at Cursor
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </AnimatePresence>
   );
 }
