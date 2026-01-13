@@ -1,28 +1,47 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { BibleDocumentView } from "@/components/bible/BibleDocumentView";
 import { useBibleStore } from "@/lib/store/bibleStore";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, BookOpen, StickyNote } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, BookOpen, StickyNote, BookText, X, Loader2 } from "lucide-react";
 import { getBookByName, getAllBooks } from "@/lib/bibleBooks";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { SearchResultsSidebar } from "@/components/commentary/SearchResultsSidebar";
 import { NotesPanel } from "@/components/commentary/NotesPanel";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+interface ChapterData {
+  chapter: number;
+  text: string;
+  startOffset: number;
+}
+
+interface CommentaryData {
+  verse: string;
+  content: string;
+  loading: boolean;
+}
 
 export default function BibleReader() {
   const { book, chapter } = useParams<{ book: string; chapter: string }>();
   const navigate = useNavigate();
-  const [bibleText, setBibleText] = useState<string>("");
+  const [chapters, setChapters] = useState<ChapterData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Array<{ index: number; offset: number; context: string }>>([]);
   const [showSearchSidebar, setShowSearchSidebar] = useState(false);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const [showNotesPanel, setShowNotesPanel] = useState(false);
+  const [showCommentaryPanel, setShowCommentaryPanel] = useState(false);
+  const [commentary, setCommentary] = useState<CommentaryData>({ verse: '', content: '', loading: false });
+  const [selectedVerse, setSelectedVerse] = useState<string | null>(null);
+  const [viewMoreDialogOpen, setViewMoreDialogOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const loadingRef = useRef<boolean>(false);
   
   const {
     highlights,
@@ -39,17 +58,51 @@ export default function BibleReader() {
   const bookInfo = getBookByName(book || "");
   const currentChapter = parseInt(chapter || "1");
 
+  // Combine all chapter texts for searching and display
+  const fullText = chapters.map(c => c.text).join('\n\n');
+
   useEffect(() => {
     if (book && chapter) {
-      loadBibleText();
+      loadInitialChapters();
       loadHighlightsAndNotes(book, currentChapter);
     }
   }, [book, chapter]);
 
-  const loadBibleText = async () => {
+  const loadInitialChapters = async () => {
     setIsLoading(true);
+    setChapters([]);
+    
+    // Load current chapter and 2 chapters ahead
+    const chaptersToLoad = [];
+    for (let i = 0; i <= 2; i++) {
+      const chapNum = currentChapter + i;
+      if (bookInfo && chapNum <= bookInfo.chapters) {
+        chaptersToLoad.push(chapNum);
+      }
+    }
+    
+    const loadedChapters: ChapterData[] = [];
+    let runningOffset = 0;
+    
+    for (const chapNum of chaptersToLoad) {
+      const text = await fetchChapterText(chapNum);
+      if (text) {
+        loadedChapters.push({
+          chapter: chapNum,
+          text,
+          startOffset: runningOffset,
+        });
+        runningOffset += text.length + 2; // +2 for the \n\n separator
+      }
+    }
+    
+    setChapters(loadedChapters);
+    setIsLoading(false);
+  };
+
+  const fetchChapterText = async (chapterNum: number): Promise<string | null> => {
     try {
-      const passage = `${book} ${chapter}`;
+      const passage = `${book} ${chapterNum}`;
       const { data, error } = await supabase.functions.invoke('esv-bible', {
         body: { passage, includeVerseNumbers: true, includeHeadings: true }
       });
@@ -57,39 +110,123 @@ export default function BibleReader() {
       if (error) throw error;
 
       if (data.passages && data.passages.length > 0) {
-        setBibleText(data.passages[0]);
+        return data.passages[0];
       }
-    } catch (error: any) {
+      return null;
+    } catch (error) {
       console.error('Error loading Bible text:', error);
-      toast.error('Failed to load Bible text');
-    } finally {
-      setIsLoading(false);
+      return null;
     }
   };
 
-  const handleSearch = () => {
-    if (!searchQuery.trim() || !bibleText) {
+  // Load more chapters when scrolling near the bottom
+  const handleScroll = useCallback(async () => {
+    if (!contentRef.current || loadingRef.current) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = contentRef.current;
+    const nearBottom = scrollTop + clientHeight >= scrollHeight - 500;
+    
+    if (nearBottom && chapters.length > 0 && bookInfo) {
+      const lastLoadedChapter = chapters[chapters.length - 1].chapter;
+      if (lastLoadedChapter < bookInfo.chapters) {
+        loadingRef.current = true;
+        const nextChapter = lastLoadedChapter + 1;
+        const text = await fetchChapterText(nextChapter);
+        
+        if (text) {
+          setChapters(prev => {
+            const lastOffset = prev.length > 0 
+              ? prev[prev.length - 1].startOffset + prev[prev.length - 1].text.length + 2
+              : 0;
+            return [...prev, {
+              chapter: nextChapter,
+              text,
+              startOffset: lastOffset,
+            }];
+          });
+        }
+        loadingRef.current = false;
+      }
+    }
+  }, [chapters, bookInfo, book]);
+
+  useEffect(() => {
+    const scrollEl = contentRef.current;
+    if (scrollEl) {
+      scrollEl.addEventListener('scroll', handleScroll);
+      return () => scrollEl.removeEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
+
+  // Parse scripture reference like "Acts 2:38-42" or "John 3:16"
+  const parseScriptureReference = (query: string): { book: string; chapter: number; startVerse?: number; endVerse?: number } | null => {
+    // Pattern: Book Chapter:Verse or Book Chapter:StartVerse-EndVerse
+    const referenceRegex = /^((?:\d\s)?[a-zA-Z]+(?:\s[a-zA-Z]+)?)\s*(\d+)(?::(\d+)(?:-(\d+))?)?$/i;
+    const match = query.trim().match(referenceRegex);
+    
+    if (!match) return null;
+    
+    const [, bookName, chapterStr, startVerseStr, endVerseStr] = match;
+    return {
+      book: bookName.trim(),
+      chapter: parseInt(chapterStr),
+      startVerse: startVerseStr ? parseInt(startVerseStr) : undefined,
+      endVerse: endVerseStr ? parseInt(endVerseStr) : undefined,
+    };
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
       setSearchResults([]);
       setShowSearchSidebar(false);
       return;
     }
 
+    // Check if it's a scripture reference
+    const reference = parseScriptureReference(searchQuery);
+    
+    if (reference) {
+      // Navigate to the specific passage
+      const bookMatch = getBookByName(reference.book);
+      if (bookMatch) {
+        // If it's a different book or chapter, navigate there
+        if (bookMatch.name !== book || reference.chapter !== currentChapter) {
+          navigate(`/bible/${bookMatch.name}/${reference.chapter}`);
+          toast.success(`Navigating to ${bookMatch.name} ${reference.chapter}${reference.startVerse ? `:${reference.startVerse}${reference.endVerse ? `-${reference.endVerse}` : ''}` : ''}`);
+        }
+        
+        // If there's a specific verse, try to scroll to it
+        if (reference.startVerse && fullText) {
+          const versePattern = new RegExp(`\\[${reference.startVerse}\\]|\\b${reference.startVerse}\\s`, 'i');
+          const verseMatch = fullText.match(versePattern);
+          if (verseMatch && verseMatch.index !== undefined) {
+            setTimeout(() => {
+              scrollToOffset(verseMatch.index!);
+            }, 500);
+          }
+        }
+        return;
+      } else {
+        toast.error(`Book "${reference.book}" not found`);
+      }
+    }
+
+    // Otherwise, do a text search
     const results: Array<{ index: number; offset: number; context: string }> = [];
     const searchLower = searchQuery.toLowerCase();
     let index = 0;
 
-    let searchIndex = bibleText.toLowerCase().indexOf(searchLower, 0);
+    let searchIndex = fullText.toLowerCase().indexOf(searchLower, 0);
     while (searchIndex !== -1) {
       const contextStart = Math.max(0, searchIndex - 50);
-      const contextEnd = Math.min(bibleText.length, searchIndex + searchQuery.length + 50);
-      let context = bibleText.substring(contextStart, contextEnd);
+      const contextEnd = Math.min(fullText.length, searchIndex + searchQuery.length + 50);
+      let context = fullText.substring(contextStart, contextEnd);
       
       if (contextStart > 0) context = '...' + context;
-      if (contextEnd < bibleText.length) context = context + '...';
+      if (contextEnd < fullText.length) context = context + '...';
 
-      // Format context for SearchResultsSidebar (uses ** for highlighting)
       const highlightedContext = context.replace(
-        new RegExp(`(${searchQuery})`, 'gi'),
+        new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'),
         '**$1**'
       );
 
@@ -99,44 +236,38 @@ export default function BibleReader() {
         context: highlightedContext,
       });
 
-      searchIndex = bibleText.toLowerCase().indexOf(searchLower, searchIndex + 1);
+      searchIndex = fullText.toLowerCase().indexOf(searchLower, searchIndex + 1);
     }
 
     setSearchResults(results);
     setShowSearchSidebar(results.length > 0);
     setCurrentSearchIndex(0);
+    
+    if (results.length === 0 && searchQuery.trim()) {
+      toast.info('No results found in loaded chapters');
+    }
   };
 
-  const scrollToSearchResult = (index: number) => {
-    if (!contentRef.current || !bibleText || !searchResults[index]) {
-      return;
-    }
+  const scrollToOffset = (offset: number) => {
+    if (!contentRef.current || !fullText) return;
     
-    const offset = searchResults[index].offset;
-    const element = contentRef.current;
-    const text = bibleText;
+    const ratio = offset / fullText.length;
+    const scrollPosition = ratio * contentRef.current.scrollHeight;
     
-    const ratio = offset / text.length;
-    const scrollPosition = ratio * element.scrollHeight;
-    
-    element.scrollTo({ 
+    contentRef.current.scrollTo({ 
       top: Math.max(0, scrollPosition - 150), 
       behavior: "smooth" 
     });
-    
+  };
+
+  const scrollToSearchResult = (index: number) => {
+    if (!searchResults[index]) return;
+    scrollToOffset(searchResults[index].offset);
     setCurrentSearchIndex(index);
   };
 
   const handleNavigateToNote = (offset: number) => {
-    if (!contentRef.current || !bibleText) return;
-    
-    const ratio = offset / bibleText.length;
-    const scrollPosition = ratio * contentRef.current.scrollHeight;
-    
-    contentRef.current.scrollTo({
-      top: Math.max(0, scrollPosition - 150),
-      behavior: "smooth"
-    });
+    scrollToOffset(offset);
   };
 
   const goToPreviousChapter = () => {
@@ -169,6 +300,37 @@ export default function BibleReader() {
     }
   };
 
+  // Fetch Coffman commentary for a verse
+  const fetchCommentary = async (verse?: string) => {
+    setCommentary({ verse: verse || `${book} ${currentChapter}`, content: '', loading: true });
+    setShowCommentaryPanel(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('coffman-commentary', {
+        body: { 
+          book, 
+          chapter: currentChapter,
+          verse: verse || null
+        }
+      });
+
+      if (error) throw error;
+
+      setCommentary({
+        verse: verse || `${book} ${currentChapter}`,
+        content: data.content || 'No commentary found for this passage.',
+        loading: false,
+      });
+    } catch (error) {
+      console.error('Error fetching commentary:', error);
+      setCommentary({
+        verse: verse || `${book} ${currentChapter}`,
+        content: 'Failed to load commentary. Please try again.',
+        loading: false,
+      });
+    }
+  };
+
   if (!bookInfo) {
     return (
       <AppLayout>
@@ -186,7 +348,8 @@ export default function BibleReader() {
   return (
     <AppLayout>
       <div className="h-full flex">
-        <div className="flex-1 overflow-auto" ref={contentRef}>
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
           <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border">
             <div className="container mx-auto p-4">
@@ -202,11 +365,25 @@ export default function BibleReader() {
                   </Button>
                   <div>
                     <h1 className="text-2xl font-bold">{book} {chapter}</h1>
-                    <p className="text-sm text-muted-foreground">ESV Translation</p>
+                    <p className="text-sm text-muted-foreground">ESV Translation • Continuous Scroll</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <Button
+                    variant={showCommentaryPanel ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      if (!showCommentaryPanel) {
+                        fetchCommentary();
+                      } else {
+                        setShowCommentaryPanel(false);
+                      }
+                    }}
+                  >
+                    <BookText className="h-4 w-4 mr-1" />
+                    Commentary
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -222,7 +399,6 @@ export default function BibleReader() {
                     disabled={currentChapter === 1 && getAllBooks()[0].name === book}
                   >
                     <ChevronLeft className="h-4 w-4" />
-                    Previous
                   </Button>
                   <Button
                     variant="outline"
@@ -230,17 +406,16 @@ export default function BibleReader() {
                     onClick={goToNextChapter}
                     disabled={currentChapter === bookInfo.chapters && getAllBooks()[getAllBooks().length - 1].name === book}
                   >
-                    Next
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
-              {/* Search */}
+              {/* Search - now supports verse references */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
-                  placeholder="Search in this chapter..."
+                  placeholder="Search text or verse reference (e.g., Acts 2:38-42, John 3:16)..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -251,31 +426,115 @@ export default function BibleReader() {
                   className="absolute right-2 top-1/2 transform -translate-y-1/2"
                   onClick={handleSearch}
                 >
-                  Search
+                  Go
                 </Button>
               </div>
             </div>
           </div>
 
-          {/* Content */}
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-muted-foreground">Loading...</div>
-            </div>
-          ) : (
-            <BibleDocumentView
-              text={bibleText}
-              highlights={highlights}
-              notes={notes}
-              onHighlight={(text, start, end, color) => addHighlight(book!, currentChapter, text, start, end, color)}
-              onRemoveHighlight={removeHighlight}
-              onUpdateHighlight={updateHighlight}
-              onAddNote={(content, offset) => addNote(book!, currentChapter, content, offset)}
-              onUpdateNote={updateNote}
-              onDeleteNote={deleteNote}
-            />
-          )}
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-auto" ref={contentRef}>
+            {isLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Loading...
+                </div>
+              </div>
+            ) : (
+              <div>
+                {chapters.map((chapterData, idx) => (
+                  <div key={chapterData.chapter} className="border-b border-border/50">
+                    {/* Chapter header */}
+                    <div className="sticky top-0 z-10 bg-muted/80 backdrop-blur px-8 py-2 text-sm font-medium text-muted-foreground">
+                      {book} Chapter {chapterData.chapter}
+                    </div>
+                    <BibleDocumentView
+                      text={chapterData.text}
+                      highlights={highlights.filter(h => true)} // Filter for this chapter if needed
+                      notes={notes}
+                      onHighlight={(text, start, end, color) => addHighlight(book!, chapterData.chapter, text, start, end, color)}
+                      onRemoveHighlight={removeHighlight}
+                      onUpdateHighlight={updateHighlight}
+                      onAddNote={(content, offset) => addNote(book!, chapterData.chapter, content, offset)}
+                      onUpdateNote={updateNote}
+                      onDeleteNote={deleteNote}
+                    />
+                  </div>
+                ))}
+                
+                {/* Loading indicator for more chapters */}
+                {chapters.length > 0 && bookInfo && chapters[chapters.length - 1].chapter < bookInfo.chapters && (
+                  <div className="flex items-center justify-center py-8 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Scroll for more chapters...
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Commentary Panel */}
+        {showCommentaryPanel && (
+          <div className="w-96 border-l border-border bg-background flex flex-col">
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold">Coffman Commentary</h3>
+                <p className="text-sm text-muted-foreground">{commentary.verse}</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowCommentaryPanel(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <ScrollArea className="flex-1 p-4">
+              {commentary.loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                  Loading commentary...
+                </div>
+              ) : (
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <p className="whitespace-pre-wrap leading-relaxed">{commentary.content}</p>
+                  
+                  {commentary.content && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-4"
+                      onClick={() => setViewMoreDialogOpen(true)}
+                    >
+                      View Full Commentary
+                    </Button>
+                  )}
+                </div>
+              )}
+            </ScrollArea>
+            
+            {/* Verse quick access */}
+            <div className="p-4 border-t border-border">
+              <p className="text-xs text-muted-foreground mb-2">Jump to verse:</p>
+              <div className="flex flex-wrap gap-1">
+                {[1, 5, 10, 15, 20, 25, 30].filter(v => v <= 40).map(verse => (
+                  <Button
+                    key={verse}
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => fetchCommentary(`${currentChapter}:${verse}`)}
+                  >
+                    :{verse}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Search Results Sidebar */}
         <SearchResultsSidebar
@@ -296,6 +555,34 @@ export default function BibleReader() {
           onDeleteNote={deleteNote}
           onNavigateToNote={handleNavigateToNote}
         />
+
+        {/* View More Dialog */}
+        <Dialog open={viewMoreDialogOpen} onOpenChange={setViewMoreDialogOpen}>
+          <DialogContent className="max-w-3xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle>Coffman Commentary - {commentary.verse}</DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="max-h-[60vh] pr-4">
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                <p className="whitespace-pre-wrap leading-relaxed">{commentary.content}</p>
+              </div>
+            </ScrollArea>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  navigator.clipboard.writeText(commentary.content);
+                  toast.success('Commentary copied to clipboard');
+                }}
+              >
+                Copy
+              </Button>
+              <Button onClick={() => setViewMoreDialogOpen(false)}>
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
