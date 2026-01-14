@@ -20,10 +20,16 @@ interface ChapterData {
   startOffset: number;
 }
 
+interface VerseCommentary {
+  verseRef: string;
+  verseText: string;
+  commentary: string;
+}
+
 interface CommentaryData {
-  verse: string;
-  content: string;
+  verses: VerseCommentary[];
   loading: boolean;
+  selectedVerse: string | null;
 }
 
 export default function BibleReader() {
@@ -37,9 +43,14 @@ export default function BibleReader() {
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const [showNotesPanel, setShowNotesPanel] = useState(false);
   const [showCommentaryPanel, setShowCommentaryPanel] = useState(false);
-  const [commentary, setCommentary] = useState<CommentaryData>({ verse: '', content: '', loading: false });
-  const [selectedVerse, setSelectedVerse] = useState<string | null>(null);
+  const [commentary, setCommentary] = useState<CommentaryData>({ 
+    verses: [], 
+    loading: false, 
+    selectedVerse: null 
+  });
+  const [expandedVerse, setExpandedVerse] = useState<string | null>(null);
   const [viewMoreDialogOpen, setViewMoreDialogOpen] = useState(false);
+  const [viewMoreVerseData, setViewMoreVerseData] = useState<VerseCommentary | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef<boolean>(false);
   
@@ -300,9 +311,9 @@ export default function BibleReader() {
     }
   };
 
-  // Fetch Coffman commentary for a verse
-  const fetchCommentary = async (verse?: string) => {
-    setCommentary({ verse: verse || `${book} ${currentChapter}`, content: '', loading: true });
+  // Fetch Coffman commentary for the chapter
+  const fetchCommentary = async (specificVerse?: string) => {
+    setCommentary({ verses: [], loading: true, selectedVerse: specificVerse || null });
     setShowCommentaryPanel(true);
     
     try {
@@ -310,24 +321,25 @@ export default function BibleReader() {
         body: { 
           book, 
           chapter: currentChapter,
-          verse: verse || null
+          verse: specificVerse || null
         }
       });
 
       if (error) throw error;
 
       setCommentary({
-        verse: verse || `${book} ${currentChapter}`,
-        content: data.content || 'No commentary found for this passage.',
+        verses: data.verses || [],
         loading: false,
+        selectedVerse: specificVerse || null,
       });
     } catch (error) {
       console.error('Error fetching commentary:', error);
       setCommentary({
-        verse: verse || `${book} ${currentChapter}`,
-        content: 'Failed to load commentary. Please try again.',
+        verses: [],
         loading: false,
+        selectedVerse: null,
       });
+      toast.error('Failed to load commentary. Please try again.');
     }
   };
 
@@ -477,11 +489,15 @@ export default function BibleReader() {
 
         {/* Commentary Panel */}
         {showCommentaryPanel && (
-          <div className="w-96 border-l border-border bg-background flex flex-col">
-            <div className="p-4 border-b border-border flex items-center justify-between">
+          <div className="w-[420px] border-l border-border bg-background flex flex-col">
+            {/* Header */}
+            <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
               <div>
-                <h3 className="font-semibold">Coffman Commentary</h3>
-                <p className="text-sm text-muted-foreground">{commentary.verse}</p>
+                <h3 className="font-semibold text-lg">Coffman Commentary</h3>
+                <p className="text-sm text-muted-foreground">
+                  {book} {currentChapter}
+                  {commentary.selectedVerse && ` • Verse ${commentary.selectedVerse}`}
+                </p>
               </div>
               <Button
                 variant="ghost"
@@ -492,45 +508,128 @@ export default function BibleReader() {
               </Button>
             </div>
             
-            <ScrollArea className="flex-1 p-4">
+            {/* Commentary Content */}
+            <ScrollArea className="flex-1">
               {commentary.loading ? (
-                <div className="flex items-center justify-center py-8">
+                <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                  Loading commentary...
+                  <span className="text-muted-foreground">Loading commentary...</span>
+                </div>
+              ) : commentary.verses.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                  <BookText className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                  <p className="text-muted-foreground">No commentary found for this passage.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                    onClick={() => fetchCommentary()}
+                  >
+                    Try Again
+                  </Button>
                 </div>
               ) : (
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <p className="whitespace-pre-wrap leading-relaxed">{commentary.content}</p>
-                  
-                  {commentary.content && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-4"
-                      onClick={() => setViewMoreDialogOpen(true)}
+                <div className="divide-y divide-border">
+                  {commentary.verses.map((verse, index) => (
+                    <div 
+                      key={`${verse.verseRef}-${index}`} 
+                      className="group"
                     >
-                      View Full Commentary
-                    </Button>
-                  )}
+                      {/* Verse Header */}
+                      <button
+                        className="w-full text-left p-4 hover:bg-muted/50 transition-colors"
+                        onClick={() => setExpandedVerse(
+                          expandedVerse === verse.verseRef ? null : verse.verseRef
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            {/* Verse Reference Badge */}
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-primary/10 text-primary font-semibold text-sm mb-2">
+                              {book} {verse.verseRef}
+                            </span>
+                            
+                            {/* Verse Text Quote */}
+                            {verse.verseText && (
+                              <p className="text-sm font-medium text-foreground mt-2 italic border-l-2 border-primary/30 pl-3">
+                                "{verse.verseText}"
+                              </p>
+                            )}
+                            
+                            {/* Commentary Preview */}
+                            <p className={`text-sm text-muted-foreground mt-2 leading-relaxed ${
+                              expandedVerse === verse.verseRef ? '' : 'line-clamp-3'
+                            }`}>
+                              {verse.commentary}
+                            </p>
+                          </div>
+                          
+                          <ChevronRight className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform ${
+                            expandedVerse === verse.verseRef ? 'rotate-90' : ''
+                          }`} />
+                        </div>
+                      </button>
+                      
+                      {/* Expanded Content */}
+                      {expandedVerse === verse.verseRef && (
+                        <div className="px-4 pb-4 bg-muted/20">
+                          <div className="flex gap-2 pt-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setViewMoreVerseData(verse);
+                                setViewMoreDialogOpen(true);
+                              }}
+                            >
+                              View Full
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                navigator.clipboard.writeText(
+                                  `${book} ${verse.verseRef}\n${verse.verseText ? `"${verse.verseText}"\n\n` : ''}${verse.commentary}`
+                                );
+                                toast.success('Commentary copied');
+                              }}
+                            >
+                              Copy
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </ScrollArea>
             
-            {/* Verse quick access */}
-            <div className="p-4 border-t border-border">
-              <p className="text-xs text-muted-foreground mb-2">Jump to verse:</p>
+            {/* Verse Quick Access Footer */}
+            <div className="p-3 border-t border-border bg-muted/30">
+              <p className="text-xs text-muted-foreground mb-2">Quick jump to verse:</p>
               <div className="flex flex-wrap gap-1">
-                {[1, 5, 10, 15, 20, 25, 30].filter(v => v <= 40).map(verse => (
-                  <Button
-                    key={verse}
-                    variant="outline"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => fetchCommentary(`${currentChapter}:${verse}`)}
-                  >
-                    :{verse}
-                  </Button>
-                ))}
+                {Array.from({ length: 10 }, (_, i) => i * 3 + 1)
+                  .filter(v => v <= 30)
+                  .map(verse => (
+                    <Button
+                      key={verse}
+                      variant={commentary.selectedVerse === String(verse) ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => fetchCommentary(String(verse))}
+                    >
+                      :{verse}
+                    </Button>
+                  ))}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => fetchCommentary()}
+                >
+                  All
+                </Button>
               </div>
             </div>
           </div>
@@ -560,19 +659,47 @@ export default function BibleReader() {
         <Dialog open={viewMoreDialogOpen} onOpenChange={setViewMoreDialogOpen}>
           <DialogContent className="max-w-3xl max-h-[80vh]">
             <DialogHeader>
-              <DialogTitle>Coffman Commentary - {commentary.verse}</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <BookText className="h-5 w-5" />
+                Coffman Commentary — {book} {viewMoreVerseData?.verseRef || currentChapter}
+              </DialogTitle>
             </DialogHeader>
             <ScrollArea className="max-h-[60vh] pr-4">
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <p className="whitespace-pre-wrap leading-relaxed">{commentary.content}</p>
-              </div>
+              {viewMoreVerseData ? (
+                <div className="space-y-4">
+                  {/* Verse Reference */}
+                  <div className="inline-flex items-center px-3 py-1.5 rounded-md bg-primary/10 text-primary font-semibold">
+                    {book} {viewMoreVerseData.verseRef}
+                  </div>
+                  
+                  {/* Verse Text */}
+                  {viewMoreVerseData.verseText && (
+                    <blockquote className="border-l-4 border-primary/40 pl-4 py-2 italic text-foreground bg-muted/30 rounded-r-lg">
+                      "{viewMoreVerseData.verseText}"
+                    </blockquote>
+                  )}
+                  
+                  {/* Commentary */}
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <p className="whitespace-pre-wrap leading-relaxed text-foreground">
+                      {viewMoreVerseData.commentary}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-muted-foreground">No commentary selected.</p>
+              )}
             </ScrollArea>
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex justify-end gap-2 pt-4 border-t">
               <Button
                 variant="outline"
                 onClick={() => {
-                  navigator.clipboard.writeText(commentary.content);
-                  toast.success('Commentary copied to clipboard');
+                  if (viewMoreVerseData) {
+                    navigator.clipboard.writeText(
+                      `${book} ${viewMoreVerseData.verseRef}\n${viewMoreVerseData.verseText ? `"${viewMoreVerseData.verseText}"\n\n` : ''}${viewMoreVerseData.commentary}`
+                    );
+                    toast.success('Commentary copied to clipboard');
+                  }
                 }}
               >
                 Copy
