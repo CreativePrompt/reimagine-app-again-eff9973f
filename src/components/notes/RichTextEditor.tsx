@@ -14,6 +14,7 @@ interface RichTextEditorProps {
 
 export interface RichTextEditorRef {
   insertAtCursor: (text: string) => void;
+  getContent: () => string;
 }
 
 export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
@@ -21,6 +22,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     const containerRef = useRef<HTMLDivElement>(null);
     const quillRef = useRef<any>(null);
     const [editorReady, setEditorReady] = useState(false);
+    const lastValueRef = useRef<string>(value);
 
     const modules = useMemo(() => ({
       toolbar: [
@@ -37,6 +39,9 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         ['link', 'image'],
         ['clean']
       ],
+      clipboard: {
+        matchVisual: false, // Prevents scroll issues on paste
+      },
     }), []);
 
     const formats = [
@@ -57,13 +62,86 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       return () => clearTimeout(timer);
     }, []);
 
-    // Expose insertAtCursor method via ref
+    // Handle paste to preserve scroll position
+    useEffect(() => {
+      if (!editorReady || !quillRef.current) return;
+
+      const quill = quillRef.current.getEditor();
+      if (!quill) return;
+
+      const handlePaste = () => {
+        // Store scroll position before paste
+        const scrollContainer = containerRef.current?.querySelector('.ql-editor');
+        const scrollTop = scrollContainer?.scrollTop || 0;
+
+        // Restore scroll position after paste (with a small delay to allow DOM update)
+        requestAnimationFrame(() => {
+          if (scrollContainer) {
+            scrollContainer.scrollTop = scrollTop;
+          }
+        });
+      };
+
+      quill.root.addEventListener('paste', handlePaste);
+      return () => {
+        quill.root.removeEventListener('paste', handlePaste);
+      };
+    }, [editorReady]);
+
+    // Handle blur to ensure content is saved when tab loses focus
+    useEffect(() => {
+      if (!editorReady || !quillRef.current) return;
+
+      const quill = quillRef.current.getEditor();
+      if (!quill) return;
+
+      const handleBlur = () => {
+        const currentContent = quill.root.innerHTML;
+        if (currentContent !== lastValueRef.current) {
+          lastValueRef.current = currentContent;
+          onChange(currentContent);
+        }
+      };
+
+      // Also sync on visibility change (tab switching)
+      const handleVisibilityChange = () => {
+        if (document.hidden && quillRef.current) {
+          const quillInstance = quillRef.current.getEditor();
+          if (quillInstance) {
+            const currentContent = quillInstance.root.innerHTML;
+            if (currentContent !== lastValueRef.current) {
+              lastValueRef.current = currentContent;
+              onChange(currentContent);
+            }
+          }
+        }
+      };
+
+      quill.root.addEventListener('blur', handleBlur);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        quill.root.removeEventListener('blur', handleBlur);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+    }, [editorReady, onChange]);
+
+    // Track value changes from parent
+    useEffect(() => {
+      lastValueRef.current = value;
+    }, [value]);
+
+    // Expose methods via ref
     useImperativeHandle(ref, () => ({
       insertAtCursor: (text: string) => {
         if (!quillRef.current) return;
         
         const quill = quillRef.current.getEditor();
         if (!quill) return;
+
+        // Store scroll position
+        const scrollContainer = containerRef.current?.querySelector('.ql-editor');
+        const scrollTop = scrollContainer?.scrollTop || 0;
 
         // Get current selection/cursor position
         const range = quill.getSelection();
@@ -77,9 +155,28 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         
         // Update the onChange with new content
         const newContent = quill.root.innerHTML;
+        lastValueRef.current = newContent;
         onChange(newContent);
+
+        // Restore scroll position
+        requestAnimationFrame(() => {
+          if (scrollContainer) {
+            scrollContainer.scrollTop = scrollTop;
+          }
+        });
+      },
+      getContent: () => {
+        if (!quillRef.current) return value;
+        const quill = quillRef.current.getEditor();
+        return quill ? quill.root.innerHTML : value;
       }
-    }), [onChange]);
+    }), [onChange, value]);
+
+    // Handle onChange wrapper to track content
+    const handleChange = useCallback((newValue: string) => {
+      lastValueRef.current = newValue;
+      onChange(newValue);
+    }, [onChange]);
 
     // Clean up ESV text - remove extra whitespace and newlines to make it a single sentence
     const cleanVerseText = (text: string): string => {
@@ -123,6 +220,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
 
       // Update the onChange with new content
       const newContent = quill.root.innerHTML;
+      lastValueRef.current = newContent;
       onChange(newContent);
     }, [onChange]);
 
@@ -133,7 +231,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
             ref={quillRef}
             theme="snow"
             value={value}
-            onChange={onChange}
+            onChange={handleChange}
             modules={modules}
             formats={formats}
             placeholder={placeholder}
