@@ -6,9 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RichTextEditor, RichTextEditorRef } from "@/components/notes/RichTextEditor";
 import { useNotesStore } from "@/lib/store/notesStore";
-import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut, Highlighter, Settings, Focus, Search } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut, Highlighter, Settings, Focus, Search, Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { HighlightSettingsDialog, HighlightSettings, PRESET_COLORS } from "@/components/notes/HighlightSettingsDialog";
 import { SpotlightPopup } from "@/components/notes/SpotlightPopup";
@@ -17,6 +17,8 @@ import { ScriptureSearchSidebar } from "@/components/notes/ScriptureSearchSideba
 import "@/components/notes/RichTextEditor.css";
 
 type ViewMode = 'edit' | 'reader';
+
+const AUTO_SAVE_INTERVAL = 30000; // 30 seconds
 
 const LOCAL_STORAGE_KEY = 'note-highlight-settings';
 const SPOTLIGHT_STORAGE_KEY = 'note-spotlight-settings';
@@ -84,6 +86,8 @@ export default function NoteEditor() {
   const readerContentRef = useRef<HTMLElement>(null);
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<RichTextEditorRef>(null);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [lastAutoSave, setLastAutoSave] = useState<Date | null>(null);
 
   // Handle inserting scripture from sidebar into editor at cursor position
   const handleInsertAtCursor = useCallback((text: string) => {
@@ -257,11 +261,83 @@ export default function NoteEditor() {
     }
   }, [id, notes, setCurrentNote]);
 
+  // Auto-save effect
+  useEffect(() => {
+    if (!id || !hasUnsavedChanges) return;
+
+    // Clear any existing timer
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    // Set up new auto-save timer
+    autoSaveTimerRef.current = setTimeout(async () => {
+      // Get latest content from editor if available
+      let currentContent = content;
+      if (editorRef.current) {
+        currentContent = editorRef.current.getContent();
+      }
+
+      await updateNote(id, { title, content: currentContent, tags });
+      setHasUnsavedChanges(false);
+      setLastAutoSave(new Date());
+      toast({
+        title: "Auto-saved",
+        description: "Your changes have been automatically saved.",
+        duration: 2000,
+      });
+    }, AUTO_SAVE_INTERVAL);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [id, hasUnsavedChanges, title, content, tags, updateNote, toast]);
+
+  // Handle visibility change - save on tab blur
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.hidden && id && hasUnsavedChanges) {
+        // Get latest content from editor
+        let currentContent = content;
+        if (editorRef.current) {
+          currentContent = editorRef.current.getContent();
+        }
+
+        await updateNote(id, { title, content: currentContent, tags });
+        setHasUnsavedChanges(false);
+        setLastAutoSave(new Date());
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [id, hasUnsavedChanges, title, content, tags, updateNote]);
+
+  // Clean up auto-save timer on unmount
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleSave = async () => {
     if (!id) return;
     
-    await updateNote(id, { title, content, tags });
+    // Get latest content from editor
+    let currentContent = content;
+    if (editorRef.current) {
+      currentContent = editorRef.current.getContent();
+    }
+    
+    await updateNote(id, { title, content: currentContent, tags });
     setHasUnsavedChanges(false);
+    setLastAutoSave(new Date());
     toast({
       title: "Note saved",
       description: "Your changes have been saved successfully.",
@@ -511,9 +587,17 @@ export default function NoteEditor() {
               </>
             )}
             
-            {hasUnsavedChanges && (
-              <span className="text-sm text-muted-foreground">Unsaved changes</span>
-            )}
+            {hasUnsavedChanges ? (
+              <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5" />
+                Unsaved changes
+              </span>
+            ) : lastAutoSave ? (
+              <span className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5" />
+                Saved at {format(lastAutoSave, 'h:mm a')}
+              </span>
+            ) : null}
             <Button 
               variant="outline" 
               size="sm" 
