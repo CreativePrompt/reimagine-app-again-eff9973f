@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SpotlightSettings } from "./SpotlightSettingsDialog";
+import { SpotlightSettings, EMPHASIS_COLORS } from "./SpotlightSettingsDialog";
 import { parseScriptureFromHighlight, getVerseGroup, getTotalPages, ParsedVerse } from "@/lib/verseParser";
 
 interface SpotlightPopupProps {
@@ -16,6 +16,13 @@ interface EmphasisRange {
   start: number;
   end: number;
   text: string;
+  colorId: string; // Color ID from EMPHASIS_COLORS
+}
+
+interface ColorMenuPosition {
+  x: number;
+  y: number;
+  emphasisIndex: number;
 }
 
 export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPopupProps) {
@@ -23,6 +30,8 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
   const contentRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [emphasisList, setEmphasisList] = useState<EmphasisRange[]>([]);
+  const [colorMenu, setColorMenu] = useState<ColorMenuPosition | null>(null);
+  const colorMenuRef = useRef<HTMLDivElement>(null);
 
   // Parse scripture from the highlighted text
   const parsedScripture = useMemo(() => {
@@ -76,6 +85,7 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
           start: range.startOffset,
           end: range.endOffset,
           text: selectedText,
+          colorId: settings.defaultEmphasisColor,
         };
 
         if (settings.multiEmphasisEnabled) {
@@ -113,6 +123,11 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
 
   // Handle click to clear all emphasis - only if we weren't selecting
   const handleContentClick = useCallback((e: React.MouseEvent) => {
+    // Close color menu if open
+    if (colorMenu) {
+      setColorMenu(null);
+      return;
+    }
     // If we were selecting text, don't clear emphasis
     if (isSelectingRef.current) {
       isSelectingRef.current = false;
@@ -127,7 +142,47 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
       }
       setEmphasisList([]);
     }
-  }, [emphasisList.length]);
+  }, [emphasisList.length, colorMenu]);
+
+  // Handle right-click to open color menu
+  const handleEmphasisContextMenu = useCallback((e: React.MouseEvent, emphasisIndex: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setColorMenu({
+      x: e.clientX,
+      y: e.clientY,
+      emphasisIndex,
+    });
+  }, []);
+
+  // Handle color selection from menu
+  const handleColorSelect = useCallback((colorId: string) => {
+    if (colorMenu === null) return;
+    setEmphasisList(prev => prev.map((emp, idx) => 
+      idx === colorMenu.emphasisIndex ? { ...emp, colorId } : emp
+    ));
+    setColorMenu(null);
+  }, [colorMenu]);
+
+  // Handle "make all same color" option
+  const handleMakeAllSameColor = useCallback((colorId: string) => {
+    setEmphasisList(prev => prev.map(emp => ({ ...emp, colorId })));
+    setColorMenu(null);
+  }, []);
+
+  // Close color menu when clicking outside
+  useEffect(() => {
+    if (!colorMenu) return;
+    
+    const handleClickOutside = (e: MouseEvent) => {
+      if (colorMenuRef.current && !colorMenuRef.current.contains(e.target as Node)) {
+        setColorMenu(null);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [colorMenu]);
 
   // Handle click outside
   useEffect(() => {
@@ -208,25 +263,42 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
 
   const isPresentation = settings.mode === 'presentation';
 
+  // Get emphasis style classes based on color
+  const getEmphasisStyles = (colorId: string, isLight: boolean, emphasisIndex: number) => {
+    const color = EMPHASIS_COLORS.find(c => c.id === colorId) || EMPHASIS_COLORS[0];
+    
+    if (settings.emphasisStyle === 'highlight') {
+      return {
+        className: `rounded-sm px-0.5 -mx-0.5 box-decoration-clone cursor-pointer ${color.text}`,
+        style: { 
+          display: 'inline' as const,
+          backgroundColor: isLight ? `${color.hex}cc` : color.hex,
+        },
+      };
+    } else {
+      return {
+        className: `cursor-pointer`,
+        style: { 
+          display: 'inline' as const,
+          textDecoration: 'underline',
+          textDecorationColor: color.hex,
+          textDecorationThickness: '4px',
+          textUnderlineOffset: '4px',
+        },
+      };
+    }
+  };
+
   // Render text with multiple emphasis ranges applied - keeps text inline without layout changes
   const renderTextWithEmphasis = (textContent: string, isLight: boolean) => {
     if (emphasisList.length === 0) return textContent;
 
-    // Use decoration-only styles that don't affect layout
-    const emphasisStyles = settings.emphasisStyle === 'highlight'
-      ? isLight
-        ? 'bg-amber-400/80 text-gray-900 rounded-sm px-0.5 -mx-0.5 box-decoration-clone'
-        : 'bg-amber-400 text-gray-900 rounded-sm px-0.5 -mx-0.5 box-decoration-clone'
-      : isLight
-        ? 'underline decoration-amber-400 decoration-4 underline-offset-4'
-        : 'underline decoration-amber-500 decoration-4 underline-offset-4';
-
     // Find all emphasis positions and sort them
-    const positions: { start: number; end: number; text: string }[] = [];
-    emphasisList.forEach((emp) => {
+    const positions: { start: number; end: number; text: string; colorId: string; originalIndex: number }[] = [];
+    emphasisList.forEach((emp, originalIdx) => {
       const index = textContent.indexOf(emp.text);
       if (index !== -1) {
-        positions.push({ start: index, end: index + emp.text.length, text: emp.text });
+        positions.push({ start: index, end: index + emp.text.length, text: emp.text, colorId: emp.colorId, originalIndex: originalIdx });
       }
     });
 
@@ -244,15 +316,19 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
       if (pos.start > lastEnd) {
         parts.push(textContent.slice(lastEnd, pos.start));
       }
-      // Add the emphasized text
+      
+      const emphasisStyle = getEmphasisStyles(pos.colorId, isLight, pos.originalIndex);
+      
+      // Add the emphasized text with right-click handler
       parts.push(
         <motion.span
           key={`emphasis-${idx}`}
           initial={{ opacity: 0.7 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.25 }}
-          className={emphasisStyles}
-          style={{ display: 'inline' }}
+          className={emphasisStyle.className}
+          style={emphasisStyle.style}
+          onContextMenu={(e) => handleEmphasisContextMenu(e, pos.originalIndex)}
         >
           {pos.text}
         </motion.span>
@@ -589,6 +665,60 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
             )}
             </div>
           </motion.div>
+
+          {/* Color Selection Context Menu */}
+          <AnimatePresence>
+            {colorMenu && (
+              <motion.div
+                ref={colorMenuRef}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+                className="fixed z-[60] bg-popover border rounded-lg shadow-xl p-3 min-w-[200px]"
+                style={{
+                  left: Math.min(colorMenu.x, window.innerWidth - 220),
+                  top: Math.min(colorMenu.y, window.innerHeight - 200),
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Select Color</p>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {EMPHASIS_COLORS.map((color) => (
+                    <button
+                      key={color.id}
+                      onClick={() => handleColorSelect(color.id)}
+                      className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${
+                        emphasisList[colorMenu.emphasisIndex]?.colorId === color.id
+                          ? 'ring-2 ring-primary ring-offset-1 border-primary'
+                          : 'border-border hover:border-muted-foreground'
+                      }`}
+                      style={{ backgroundColor: color.hex }}
+                      title={color.name}
+                    />
+                  ))}
+                </div>
+                
+                {emphasisList.length > 1 && (
+                  <>
+                    <div className="border-t my-2" />
+                    <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Apply to All</p>
+                    <div className="flex flex-wrap gap-2">
+                      {EMPHASIS_COLORS.map((color) => (
+                        <button
+                          key={`all-${color.id}`}
+                          onClick={() => handleMakeAllSameColor(color.id)}
+                          className="w-6 h-6 rounded-full border border-border hover:border-muted-foreground transition-all hover:scale-110"
+                          style={{ backgroundColor: color.hex }}
+                          title={`Make all ${color.name}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </>
       )}
     </AnimatePresence>
