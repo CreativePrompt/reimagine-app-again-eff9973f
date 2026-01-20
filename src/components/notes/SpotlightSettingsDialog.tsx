@@ -12,7 +12,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Focus, Upload, Trash2, Check, Image as ImageIcon, BookOpen } from "lucide-react";
+import { Focus, Upload, Trash2, Check, Image as ImageIcon, BookOpen, Highlighter, Underline } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +37,9 @@ export interface SpotlightSettings {
   // Scripture verse pagination settings
   versesPerPage: 1 | 2 | 3;
   showVerseNumbers: boolean;
+  // Live text emphasis settings
+  liveEmphasisEnabled: boolean;
+  emphasisStyle: 'highlight' | 'underline';
 }
 
 export const DEFAULT_SPOTLIGHT_SETTINGS: SpotlightSettings = {
@@ -54,6 +57,8 @@ export const DEFAULT_SPOTLIGHT_SETTINGS: SpotlightSettings = {
   overlayDarkness: 30,
   versesPerPage: 2,
   showVerseNumbers: true,
+  liveEmphasisEnabled: true,
+  emphasisStyle: 'highlight',
 };
 
 interface SpotlightSettingsDialogProps {
@@ -463,6 +468,69 @@ export function SpotlightSettingsDialog({
                           }
                         />
                       </div>
+                    </div>
+
+                    {/* Live Text Emphasis Settings */}
+                    <div className="space-y-4 pt-4 border-t">
+                      <div className="flex items-center gap-2">
+                        <Highlighter className="h-4 w-4 text-primary" />
+                        <Label className="text-sm font-semibold">Live Text Emphasis</Label>
+                      </div>
+                      
+                      <p className="text-xs text-muted-foreground">
+                        Select text in the spotlight popup to emphasize it with an animated effect
+                      </p>
+
+                      {/* Enable Live Emphasis */}
+                      <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                        <div className="space-y-0.5">
+                          <Label className="text-sm font-medium">Enable Live Emphasis</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Select text with mouse to animate and emphasize it
+                          </p>
+                        </div>
+                        <Switch
+                          checked={localSettings.liveEmphasisEnabled}
+                          onCheckedChange={(checked) =>
+                            setLocalSettings((prev) => ({ ...prev, liveEmphasisEnabled: checked }))
+                          }
+                        />
+                      </div>
+
+                      {localSettings.liveEmphasisEnabled && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Emphasis Style</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => setLocalSettings((prev) => ({ ...prev, emphasisStyle: 'highlight' }))}
+                              className={`px-4 py-3 text-sm rounded-md border transition-all flex items-center justify-center gap-2 ${
+                                localSettings.emphasisStyle === 'highlight'
+                                  ? 'bg-primary text-primary-foreground border-primary'
+                                  : 'bg-background hover:bg-muted border-border'
+                              }`}
+                            >
+                              <Highlighter className="h-4 w-4" />
+                              Highlight
+                            </button>
+                            <button
+                              onClick={() => setLocalSettings((prev) => ({ ...prev, emphasisStyle: 'underline' }))}
+                              className={`px-4 py-3 text-sm rounded-md border transition-all flex items-center justify-center gap-2 ${
+                                localSettings.emphasisStyle === 'underline'
+                                  ? 'bg-primary text-primary-foreground border-primary'
+                                  : 'bg-background hover:bg-muted border-border'
+                              }`}
+                            >
+                              <Underline className="h-4 w-4" />
+                              Underline
+                            </button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Click anywhere in the popup to deselect emphasized text
+                          </p>
+                        </div>
+                      )}
                     </div>
 
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,17 @@ interface SpotlightPopupProps {
   settings: SpotlightSettings;
 }
 
+interface EmphasisRange {
+  start: number;
+  end: number;
+  text: string;
+}
+
 export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(0);
+  const [emphasis, setEmphasis] = useState<EmphasisRange | null>(null);
 
   // Parse scripture from the highlighted text
   const parsedScripture = useMemo(() => {
@@ -27,9 +35,10 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
     ? getTotalPages(parsedScripture.verses.length, settings.versesPerPage)
     : 1;
 
-  // Reset page when text changes
+  // Reset page and emphasis when text changes
   useEffect(() => {
     setCurrentPage(0);
+    setEmphasis(null);
   }, [text]);
 
   // Get current verses to display
@@ -41,11 +50,46 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
   // Navigation handlers
   const goToPrevPage = () => {
     setCurrentPage(prev => Math.max(0, prev - 1));
+    setEmphasis(null);
   };
 
   const goToNextPage = () => {
     setCurrentPage(prev => Math.min(totalPages - 1, prev + 1));
+    setEmphasis(null);
   };
+
+  // Handle text selection for emphasis
+  const handleTextSelection = useCallback(() => {
+    if (!settings.liveEmphasisEnabled) return;
+
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !selection.toString().trim()) {
+      return;
+    }
+
+    const selectedText = selection.toString().trim();
+    if (selectedText && contentRef.current) {
+      // Check if selection is within our content area
+      const range = selection.getRangeAt(0);
+      if (contentRef.current.contains(range.commonAncestorContainer)) {
+        setEmphasis({
+          start: range.startOffset,
+          end: range.endOffset,
+          text: selectedText,
+        });
+        // Clear the selection to show our custom emphasis
+        selection.removeAllRanges();
+      }
+    }
+  }, [settings.liveEmphasisEnabled]);
+
+  // Handle click to clear emphasis
+  const handleContentClick = useCallback((e: React.MouseEvent) => {
+    // Only clear if clicking on the content area, not on navigation
+    if (emphasis && !e.defaultPrevented) {
+      setEmphasis(null);
+    }
+  }, [emphasis]);
 
   // Handle click outside
   useEffect(() => {
@@ -74,7 +118,11 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        if (emphasis) {
+          setEmphasis(null);
+        } else {
+          onClose();
+        }
       } else if (e.key === "ArrowLeft" && hasMultipleVerses && currentPage > 0) {
         goToPrevPage();
       } else if (e.key === "ArrowRight" && hasMultipleVerses && currentPage < totalPages - 1) {
@@ -84,7 +132,20 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose, hasMultipleVerses, currentPage, totalPages]);
+  }, [isOpen, onClose, hasMultipleVerses, currentPage, totalPages, emphasis]);
+
+  // Add mouseup listener for text selection
+  useEffect(() => {
+    if (!isOpen || !settings.liveEmphasisEnabled) return;
+
+    const handleMouseUp = () => {
+      // Small delay to allow selection to complete
+      setTimeout(handleTextSelection, 10);
+    };
+
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => document.removeEventListener("mouseup", handleMouseUp);
+  }, [isOpen, settings.liveEmphasisEnabled, handleTextSelection]);
 
   // Calculate popup dimensions
   const getPopupWidth = () => {
@@ -109,17 +170,64 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
 
   const isPresentation = settings.mode === 'presentation';
 
-  // Format verse text for display
-  const formatVerseText = (verse: ParsedVerse) => {
+  // Render text with emphasis applied
+  const renderTextWithEmphasis = (textContent: string, isLight: boolean) => {
+    if (!emphasis) return textContent;
+
+    // Find the emphasized text in the content
+    const index = textContent.indexOf(emphasis.text);
+    if (index === -1) return textContent;
+
+    const before = textContent.slice(0, index);
+    const emphasized = textContent.slice(index, index + emphasis.text.length);
+    const after = textContent.slice(index + emphasis.text.length);
+
+    const emphasisStyles = settings.emphasisStyle === 'highlight'
+      ? isLight
+        ? 'bg-amber-400/80 text-gray-900 px-1 rounded'
+        : 'bg-amber-400 text-gray-900 px-1 rounded'
+      : isLight
+        ? 'border-b-4 border-amber-400'
+        : 'border-b-4 border-amber-500';
+
+    return (
+      <>
+        {before}
+        <motion.span
+          initial={{ scale: 1, y: 0 }}
+          animate={{ 
+            scale: 1.08,
+            y: -2,
+          }}
+          transition={{ 
+            duration: 0.35, 
+            ease: [0.34, 1.56, 0.64, 1],
+          }}
+          className={`inline-block ${emphasisStyles}`}
+          style={{
+            textShadow: isLight ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(255,255,255,0.2)',
+          }}
+        >
+          {emphasized}
+        </motion.span>
+        {after}
+      </>
+    );
+  };
+
+  // Format verse text for display with emphasis support
+  const formatVerseText = (verse: ParsedVerse, isLight: boolean = true) => {
+    const verseText = verse.text;
+    
     if (settings.showVerseNumbers) {
       return (
         <span>
           <sup className="font-bold mr-1 text-lg opacity-70">{verse.verseNumber}</sup>
-          {verse.text}
+          {renderTextWithEmphasis(verseText, isLight)}
         </span>
       );
     }
-    return verse.text;
+    return renderTextWithEmphasis(verseText, isLight);
   };
 
   // Get the verse range being displayed
@@ -264,7 +372,11 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
                 )}
 
                 {/* Content */}
-                <div className="relative z-[5] flex-1 flex items-center justify-center p-8 md:p-12">
+                <div 
+                  ref={contentRef}
+                  className="relative z-[5] flex-1 flex items-center justify-center p-8 md:p-12 cursor-text select-text"
+                  onClick={handleContentClick}
+                >
                   <AnimatePresence mode="wait">
                     <motion.blockquote
                       key={hasMultipleVerses ? currentPage : 'single'}
@@ -285,12 +397,12 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
                         <div className="space-y-4">
                           {currentVerses.map((verse, idx) => (
                             <p key={verse.verseNumber} className={idx > 0 ? 'mt-4' : ''}>
-                              {formatVerseText(verse)}
+                              {formatVerseText(verse, settings.textColor === 'light')}
                             </p>
                           ))}
                         </div>
                       ) : (
-                        `"${text}"`
+                        renderTextWithEmphasis(`"${text}"`, settings.textColor === 'light')
                       )}
                     </motion.blockquote>
                   </AnimatePresence>
@@ -377,7 +489,11 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
                 </div>
 
                 {/* Content */}
-                <div className={`p-8 overflow-y-auto ${settings.popupHeight !== 'auto' ? getPopupHeight() : 'max-h-[60vh]'}`}>
+                <div 
+                  className={`p-8 overflow-y-auto cursor-text select-text ${settings.popupHeight !== 'auto' ? getPopupHeight() : 'max-h-[60vh]'}`}
+                  onClick={handleContentClick}
+                  ref={!isPresentation ? contentRef : undefined}
+                >
                   <AnimatePresence mode="wait">
                     <motion.blockquote
                       key={hasMultipleVerses ? currentPage : 'single'}
@@ -391,12 +507,12 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
                         <div className="space-y-4">
                           {currentVerses.map((verse, idx) => (
                             <p key={verse.verseNumber} className={idx > 0 ? 'mt-4' : ''}>
-                              {formatVerseText(verse)}
+                              {formatVerseText(verse, false)}
                             </p>
                           ))}
                         </div>
                       ) : (
-                        text
+                        renderTextWithEmphasis(text, false)
                       )}
                     </motion.blockquote>
                   </AnimatePresence>
