@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Highlighter, Underline } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SpotlightSettings, EMPHASIS_COLORS, FONT_OPTIONS, AnimationPreset } from "./SpotlightSettingsDialog";
 import { parseScriptureFromHighlight, getVerseGroup, getTotalPages, ParsedVerse } from "@/lib/verseParser";
@@ -109,7 +109,7 @@ export function SpotlightPopup({ text, isOpen, onClose, settings, onUpdateSettin
         selection.removeAllRanges();
       }
     }
-  }, [settings.liveEmphasisEnabled, settings.multiEmphasisEnabled]);
+  }, [settings.liveEmphasisEnabled, settings.multiEmphasisEnabled, settings.defaultEmphasisColor]);
 
   // Track if we're currently selecting text
   const isSelectingRef = useRef(false);
@@ -746,14 +746,57 @@ export function SpotlightPopup({ text, isOpen, onClose, settings, onUpdateSettin
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.15 }}
-                className="fixed z-[60] bg-popover border rounded-lg shadow-xl p-3 min-w-[200px]"
+                className="fixed z-[60] bg-popover border rounded-lg shadow-xl p-3 min-w-[240px]"
                 style={{
-                  left: Math.min(colorMenu.x, window.innerWidth - 220),
-                  top: Math.min(colorMenu.y, window.innerHeight - 200),
+                  left: Math.min(colorMenu.x, window.innerWidth - 260),
+                  top: Math.min(colorMenu.y, window.innerHeight - 280),
                 }}
                 onClick={(e) => e.stopPropagation()}
                 onMouseDown={(e) => e.stopPropagation()}
               >
+                {/* Emphasis Style Toggle */}
+                <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Emphasis Style</p>
+                <div className="flex gap-2 mb-3">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      if (onUpdateSettings) {
+                        onUpdateSettings({ ...settings, emphasisStyle: 'highlight' });
+                      }
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-md border transition-all ${
+                      settings.emphasisStyle === 'highlight'
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background hover:bg-muted border-border'
+                    }`}
+                  >
+                    <Highlighter className="h-3.5 w-3.5" />
+                    Highlight
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      if (onUpdateSettings) {
+                        onUpdateSettings({ ...settings, emphasisStyle: 'underline' });
+                      }
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-md border transition-all ${
+                      settings.emphasisStyle === 'underline'
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background hover:bg-muted border-border'
+                    }`}
+                  >
+                    <Underline className="h-3.5 w-3.5" />
+                    Underline
+                  </button>
+                </div>
+
+                <div className="border-t my-2" />
+                
                 <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Select Color</p>
                 <div className="flex flex-wrap gap-2 mb-3">
                   {EMPHASIS_COLORS.map((color) => (
@@ -776,28 +819,29 @@ export function SpotlightPopup({ text, isOpen, onClose, settings, onUpdateSettin
                   ))}
                 </div>
                 
-                {emphasisList.length > 1 && (
-                  <>
-                    <div className="border-t my-2" />
-                    <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Apply to All</p>
-                    <div className="flex flex-wrap gap-2">
-                      {EMPHASIS_COLORS.map((color) => (
-                        <button
-                          key={`all-${color.id}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            handleMakeAllSameColor(color.id);
-                          }}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          className="w-6 h-6 rounded-full border border-border hover:border-muted-foreground transition-all hover:scale-110"
-                          style={{ backgroundColor: color.hex }}
-                          title={`Make all ${color.name}`}
-                        />
-                      ))}
-                    </div>
-                  </>
-                )}
+                <div className="border-t my-2" />
+                <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Set Default & Apply to All</p>
+                <p className="text-[10px] text-muted-foreground mb-2 px-1">Changes all current highlights and sets this color for future highlights</p>
+                <div className="flex flex-wrap gap-2">
+                  {EMPHASIS_COLORS.map((color) => (
+                    <button
+                      key={`all-${color.id}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        handleMakeAllSameColor(color.id);
+                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      className={`w-6 h-6 rounded-full border transition-all hover:scale-110 ${
+                        settings.defaultEmphasisColor === color.id
+                          ? 'ring-2 ring-primary ring-offset-1 border-primary'
+                          : 'border-border hover:border-muted-foreground'
+                      }`}
+                      style={{ backgroundColor: color.hex }}
+                      title={`Set default to ${color.name}`}
+                    />
+                  ))}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
