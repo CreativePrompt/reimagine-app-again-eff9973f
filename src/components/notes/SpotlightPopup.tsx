@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X } from "lucide-react";
+import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SpotlightSettings } from "./SpotlightSettingsDialog";
+import { parseScriptureFromHighlight, getVerseGroup, getTotalPages, ParsedVerse } from "@/lib/verseParser";
 
 interface SpotlightPopupProps {
   text: string;
@@ -13,6 +14,38 @@ interface SpotlightPopupProps {
 
 export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+
+  // Parse scripture from the highlighted text
+  const parsedScripture = useMemo(() => {
+    return parseScriptureFromHighlight(text);
+  }, [text]);
+
+  // Check if this is a scripture with multiple verses
+  const hasMultipleVerses = parsedScripture && parsedScripture.verses.length > 1;
+  const totalPages = hasMultipleVerses 
+    ? getTotalPages(parsedScripture.verses.length, settings.versesPerPage)
+    : 1;
+
+  // Reset page when text changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [text]);
+
+  // Get current verses to display
+  const currentVerses = useMemo(() => {
+    if (!hasMultipleVerses) return [];
+    return getVerseGroup(parsedScripture.verses, currentPage, settings.versesPerPage);
+  }, [parsedScripture, currentPage, settings.versesPerPage, hasMultipleVerses]);
+
+  // Navigation handlers
+  const goToPrevPage = () => {
+    setCurrentPage(prev => Math.max(0, prev - 1));
+  };
+
+  const goToNextPage = () => {
+    setCurrentPage(prev => Math.min(totalPages - 1, prev + 1));
+  };
 
   // Handle click outside
   useEffect(() => {
@@ -35,19 +68,23 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
     };
   }, [isOpen, onClose]);
 
-  // Handle Esc key
+  // Handle Esc key and arrow keys for navigation
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleEsc = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         onClose();
+      } else if (e.key === "ArrowLeft" && hasMultipleVerses && currentPage > 0) {
+        goToPrevPage();
+      } else if (e.key === "ArrowRight" && hasMultipleVerses && currentPage < totalPages - 1) {
+        goToNextPage();
       }
     };
 
-    document.addEventListener("keydown", handleEsc);
-    return () => document.removeEventListener("keydown", handleEsc);
-  }, [isOpen, onClose]);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose, hasMultipleVerses, currentPage, totalPages]);
 
   // Calculate popup dimensions
   const getPopupWidth = () => {
@@ -71,6 +108,28 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
   };
 
   const isPresentation = settings.mode === 'presentation';
+
+  // Format verse text for display
+  const formatVerseText = (verse: ParsedVerse) => {
+    if (settings.showVerseNumbers) {
+      return (
+        <span>
+          <sup className="font-bold mr-1 text-lg opacity-70">{verse.verseNumber}</sup>
+          {verse.text}
+        </span>
+      );
+    }
+    return verse.text;
+  };
+
+  // Get the verse range being displayed
+  const getDisplayedVerseRange = () => {
+    if (!hasMultipleVerses || currentVerses.length === 0) return '';
+    const firstVerse = currentVerses[0].verseNumber;
+    const lastVerse = currentVerses[currentVerses.length - 1].verseNumber;
+    if (firstVerse === lastVerse) return `v. ${firstVerse}`;
+    return `vv. ${firstVerse}-${lastVerse}`;
+  };
 
   return (
     <AnimatePresence>
@@ -140,31 +199,128 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
                   <X className="h-5 w-5" />
                 </Button>
 
+                {/* Scripture Reference Header */}
+                {parsedScripture && (
+                  <div className="relative z-[5] pt-6 px-8">
+                    <div 
+                      className={`text-center ${
+                        settings.textColor === 'light' ? 'text-white' : 'text-gray-900'
+                      }`}
+                      style={{
+                        textShadow: settings.textColor === 'light' 
+                          ? '0 2px 10px rgba(0,0,0,0.5)' 
+                          : '0 2px 10px rgba(255,255,255,0.3)',
+                      }}
+                    >
+                      <h2 className="text-xl md:text-2xl font-bold tracking-wide">
+                        {parsedScripture.reference}
+                      </h2>
+                      {hasMultipleVerses && (
+                        <p className="text-sm md:text-base opacity-70 mt-1">
+                          {getDisplayedVerseRange()} of {parsedScripture.verses.length} verses
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Navigation Arrows */}
+                {hasMultipleVerses && totalPages > 1 && (
+                  <>
+                    {/* Left Arrow */}
+                    <button
+                      onClick={goToPrevPage}
+                      disabled={currentPage === 0}
+                      className={`absolute left-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full backdrop-blur-sm transition-all ${
+                        currentPage === 0 
+                          ? 'opacity-30 cursor-not-allowed' 
+                          : 'opacity-70 hover:opacity-100 hover:scale-110'
+                      } ${
+                        settings.textColor === 'light'
+                          ? 'text-white bg-white/10 hover:bg-white/20'
+                          : 'text-gray-900 bg-gray-900/10 hover:bg-gray-900/20'
+                      }`}
+                    >
+                      <ChevronLeft className="h-8 w-8" />
+                    </button>
+
+                    {/* Right Arrow */}
+                    <button
+                      onClick={goToNextPage}
+                      disabled={currentPage === totalPages - 1}
+                      className={`absolute right-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full backdrop-blur-sm transition-all ${
+                        currentPage === totalPages - 1 
+                          ? 'opacity-30 cursor-not-allowed' 
+                          : 'opacity-70 hover:opacity-100 hover:scale-110'
+                      } ${
+                        settings.textColor === 'light'
+                          ? 'text-white bg-white/10 hover:bg-white/20'
+                          : 'text-gray-900 bg-gray-900/10 hover:bg-gray-900/20'
+                      }`}
+                    >
+                      <ChevronRight className="h-8 w-8" />
+                    </button>
+                  </>
+                )}
+
                 {/* Content */}
                 <div className="relative z-[5] flex-1 flex items-center justify-center p-8 md:p-12">
-                  <blockquote
-                    className={`text-2xl md:text-3xl lg:text-4xl leading-relaxed font-serif italic text-center max-w-4xl ${
-                      settings.textColor === 'light' ? 'text-white' : 'text-gray-900'
-                    }`}
-                    style={{
-                      textShadow: settings.textColor === 'light' 
-                        ? '0 2px 10px rgba(0,0,0,0.5)' 
-                        : '0 2px 10px rgba(255,255,255,0.3)',
-                    }}
-                  >
-                    "{text}"
-                  </blockquote>
+                  <AnimatePresence mode="wait">
+                    <motion.blockquote
+                      key={hasMultipleVerses ? currentPage : 'single'}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.2 }}
+                      className={`text-2xl md:text-3xl lg:text-4xl leading-relaxed font-serif italic text-center max-w-4xl ${
+                        settings.textColor === 'light' ? 'text-white' : 'text-gray-900'
+                      }`}
+                      style={{
+                        textShadow: settings.textColor === 'light' 
+                          ? '0 2px 10px rgba(0,0,0,0.5)' 
+                          : '0 2px 10px rgba(255,255,255,0.3)',
+                      }}
+                    >
+                      {hasMultipleVerses ? (
+                        <div className="space-y-4">
+                          {currentVerses.map((verse, idx) => (
+                            <p key={verse.verseNumber} className={idx > 0 ? 'mt-4' : ''}>
+                              {formatVerseText(verse)}
+                            </p>
+                          ))}
+                        </div>
+                      ) : (
+                        `"${text}"`
+                      )}
+                    </motion.blockquote>
+                  </AnimatePresence>
                 </div>
 
-                {/* Footer hint */}
+                {/* Footer with pagination indicators */}
                 <div className="relative z-[5] py-4">
-                  <p
-                    className={`text-xs text-center ${
-                      settings.textColor === 'light' ? 'text-white/60' : 'text-gray-900/60'
-                    }`}
-                  >
-                    Press <kbd className="px-1.5 py-0.5 bg-white/20 rounded text-xs font-mono">Esc</kbd> or click outside to close
-                  </p>
+                  {hasMultipleVerses && totalPages > 1 ? (
+                    <div className="flex items-center justify-center gap-2">
+                      {Array.from({ length: totalPages }).map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setCurrentPage(idx)}
+                          className={`w-2 h-2 rounded-full transition-all ${
+                            idx === currentPage
+                              ? settings.textColor === 'light' ? 'bg-white w-6' : 'bg-gray-900 w-6'
+                              : settings.textColor === 'light' ? 'bg-white/40 hover:bg-white/60' : 'bg-gray-900/40 hover:bg-gray-900/60'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p
+                      className={`text-xs text-center ${
+                        settings.textColor === 'light' ? 'text-white/60' : 'text-gray-900/60'
+                      }`}
+                    >
+                      Press <kbd className="px-1.5 py-0.5 bg-white/20 rounded text-xs font-mono">Esc</kbd> or click outside to close
+                    </p>
+                  )}
                 </div>
               </div>
             ) : (
@@ -174,29 +330,86 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
                 <div className="flex items-center justify-between px-6 py-4 border-b bg-muted/30">
                   <div className="flex items-center gap-2">
                     <div className="h-3 w-3 rounded-full bg-amber-400" />
-                    <span className="text-sm font-medium text-muted-foreground">Spotlight</span>
+                    <span className="text-sm font-medium text-muted-foreground">
+                      {parsedScripture ? parsedScripture.reference : 'Spotlight'}
+                    </span>
+                    {hasMultipleVerses && (
+                      <span className="text-xs text-muted-foreground ml-2">
+                        ({getDisplayedVerseRange()})
+                      </span>
+                    )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={onClose}
-                    className="h-8 w-8 rounded-full hover:bg-muted"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {hasMultipleVerses && totalPages > 1 && (
+                      <div className="flex items-center gap-1 mr-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={goToPrevPage}
+                          disabled={currentPage === 0}
+                          className="h-8 w-8"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-xs text-muted-foreground min-w-[40px] text-center">
+                          {currentPage + 1} / {totalPages}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={goToNextPage}
+                          disabled={currentPage === totalPages - 1}
+                          className="h-8 w-8"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={onClose}
+                      className="h-8 w-8 rounded-full hover:bg-muted"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Content */}
                 <div className={`p-8 overflow-y-auto ${settings.popupHeight !== 'auto' ? getPopupHeight() : 'max-h-[60vh]'}`}>
-                  <blockquote className="text-xl md:text-2xl leading-relaxed font-serif italic text-foreground/90 border-l-4 border-amber-400 pl-6">
-                    {text}
-                  </blockquote>
+                  <AnimatePresence mode="wait">
+                    <motion.blockquote
+                      key={hasMultipleVerses ? currentPage : 'single'}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.2 }}
+                      className="text-xl md:text-2xl leading-relaxed font-serif italic text-foreground/90 border-l-4 border-amber-400 pl-6"
+                    >
+                      {hasMultipleVerses ? (
+                        <div className="space-y-4">
+                          {currentVerses.map((verse, idx) => (
+                            <p key={verse.verseNumber} className={idx > 0 ? 'mt-4' : ''}>
+                              {formatVerseText(verse)}
+                            </p>
+                          ))}
+                        </div>
+                      ) : (
+                        text
+                      )}
+                    </motion.blockquote>
+                  </AnimatePresence>
                 </div>
 
                 {/* Footer hint */}
                 <div className="px-6 py-3 border-t bg-muted/30">
                   <p className="text-xs text-muted-foreground text-center">
-                    Press <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> or click outside to close
+                    {hasMultipleVerses ? (
+                      <>Use <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">←</kbd> <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">→</kbd> to navigate • <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> to close</>
+                    ) : (
+                      <>Press <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> or click outside to close</>
+                    )}
                   </p>
                 </div>
               </div>

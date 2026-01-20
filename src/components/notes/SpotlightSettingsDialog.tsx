@@ -12,7 +12,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Focus, Upload, Trash2, Check, Image as ImageIcon } from "lucide-react";
+import { Focus, Upload, Trash2, Check, Image as ImageIcon, BookOpen } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -34,6 +34,9 @@ export interface SpotlightSettings {
   backgroundType: 'preset' | 'custom' | 'none';
   textColor: 'light' | 'dark';
   overlayDarkness: number; // 0-100
+  // Scripture verse pagination settings
+  versesPerPage: 1 | 2 | 3;
+  showVerseNumbers: boolean;
 }
 
 export const DEFAULT_SPOTLIGHT_SETTINGS: SpotlightSettings = {
@@ -49,6 +52,8 @@ export const DEFAULT_SPOTLIGHT_SETTINGS: SpotlightSettings = {
   backgroundType: 'none',
   textColor: 'light',
   overlayDarkness: 30,
+  versesPerPage: 2,
+  showVerseNumbers: true,
 };
 
 interface SpotlightSettingsDialogProps {
@@ -410,7 +415,57 @@ export function SpotlightSettingsDialog({
                       />
                     </div>
 
-                    {/* Preset Backgrounds */}
+                    {/* Scripture Verse Settings */}
+                    <div className="space-y-4 pt-4 border-t">
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-primary" />
+                        <Label className="text-sm font-semibold">Scripture Verse Display</Label>
+                      </div>
+
+                      {/* Verses Per Page */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Verses per page</span>
+                          <span className="text-sm font-medium">{localSettings.versesPerPage} verse{localSettings.versesPerPage > 1 ? 's' : ''}</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          {([1, 2, 3] as const).map((count) => (
+                            <button
+                              key={count}
+                              onClick={() => setLocalSettings((prev) => ({ ...prev, versesPerPage: count }))}
+                              className={`px-3 py-2 text-xs rounded-md border transition-all ${
+                                localSettings.versesPerPage === count
+                                  ? 'bg-primary text-primary-foreground border-primary'
+                                  : 'bg-background hover:bg-muted border-border'
+                              }`}
+                            >
+                              {count} Verse{count > 1 ? 's' : ''}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          When displaying Bible verses, show this many at a time with navigation arrows
+                        </p>
+                      </div>
+
+                      {/* Show Verse Numbers */}
+                      <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                        <div className="space-y-0.5">
+                          <Label className="text-sm font-medium">Show Verse Numbers</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Display verse numbers before each verse
+                          </p>
+                        </div>
+                        <Switch
+                          checked={localSettings.showVerseNumbers}
+                          onCheckedChange={(checked) =>
+                            setLocalSettings((prev) => ({ ...prev, showVerseNumbers: checked }))
+                          }
+                        />
+                      </div>
+                    </div>
+
+
                     <div className="space-y-3">
                       <Label className="text-sm font-medium">Preset Backgrounds</Label>
                       <div className="grid grid-cols-4 gap-2">
