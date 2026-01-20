@@ -18,6 +18,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { PRESET_BACKGROUNDS } from "@/lib/presetBackgrounds";
 
+// Available emphasis colors
+export const EMPHASIS_COLORS = [
+  { id: 'yellow', name: 'Yellow', bg: 'bg-amber-400', text: 'text-gray-900', hex: '#fbbf24' },
+  { id: 'green', name: 'Green', bg: 'bg-emerald-400', text: 'text-gray-900', hex: '#34d399' },
+  { id: 'blue', name: 'Blue', bg: 'bg-sky-400', text: 'text-gray-900', hex: '#38bdf8' },
+  { id: 'pink', name: 'Pink', bg: 'bg-pink-400', text: 'text-gray-900', hex: '#f472b6' },
+  { id: 'purple', name: 'Purple', bg: 'bg-violet-400', text: 'text-white', hex: '#a78bfa' },
+  { id: 'orange', name: 'Orange', bg: 'bg-orange-400', text: 'text-gray-900', hex: '#fb923c' },
+  { id: 'red', name: 'Red', bg: 'bg-red-400', text: 'text-white', hex: '#f87171' },
+  { id: 'cyan', name: 'Cyan', bg: 'bg-cyan-400', text: 'text-gray-900', hex: '#22d3ee' },
+];
+
 export interface SpotlightSettings {
   enabled: boolean;
   mode: 'standard' | 'presentation'; // Standard popup or presentation with background
@@ -41,6 +53,7 @@ export interface SpotlightSettings {
   liveEmphasisEnabled: boolean;
   emphasisStyle: 'highlight' | 'underline';
   multiEmphasisEnabled: boolean; // Allow multiple highlights at once
+  defaultEmphasisColor: string; // Default color ID for new emphasis
 }
 
 export const DEFAULT_SPOTLIGHT_SETTINGS: SpotlightSettings = {
@@ -61,6 +74,7 @@ export const DEFAULT_SPOTLIGHT_SETTINGS: SpotlightSettings = {
   liveEmphasisEnabled: true,
   emphasisStyle: 'highlight',
   multiEmphasisEnabled: false,
+  defaultEmphasisColor: 'yellow',
 };
 
 interface SpotlightSettingsDialogProps {
@@ -527,6 +541,35 @@ export function SpotlightSettingsDialog({
                               <Underline className="h-4 w-4" />
                               Underline
                             </button>
+                          </div>
+
+                          {/* Default Emphasis Color */}
+                          <div className="space-y-3 mt-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-muted-foreground">Default Emphasis Color</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {EMPHASIS_COLORS.map((color) => (
+                                <button
+                                  key={color.id}
+                                  onClick={() => setLocalSettings((prev) => ({ ...prev, defaultEmphasisColor: color.id }))}
+                                  className={`w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center ${
+                                    localSettings.defaultEmphasisColor === color.id
+                                      ? 'ring-2 ring-primary ring-offset-2 border-primary'
+                                      : 'border-border hover:border-muted-foreground'
+                                  }`}
+                                  style={{ backgroundColor: color.hex }}
+                                  title={color.name}
+                                >
+                                  {localSettings.defaultEmphasisColor === color.id && (
+                                    <Check className="h-4 w-4 text-gray-900" />
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Right-click on highlighted text to change its color
+                            </p>
                           </div>
 
                           {/* Multi-select toggle */}
