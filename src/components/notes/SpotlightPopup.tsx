@@ -82,11 +82,16 @@ export function SpotlightPopup({ text, isOpen, onClose, settings, onUpdateSettin
       // Check if selection is within our content area
       const range = selection.getRangeAt(0);
       if (contentRef.current.contains(range.commonAncestorContainer)) {
+        // Use default color from settings, fallback to 'yellow' if invalid
+        const defaultColor = EMPHASIS_COLORS.find(c => c.id === settings.defaultEmphasisColor)
+          ? settings.defaultEmphasisColor
+          : 'yellow';
+        
         const newEmphasis: EmphasisRange = {
           start: range.startOffset,
           end: range.endOffset,
           text: selectedText,
-          colorId: settings.defaultEmphasisColor,
+          colorId: defaultColor,
         };
 
         if (settings.multiEmphasisEnabled) {
@@ -580,21 +585,20 @@ export function SpotlightPopup({ text, isOpen, onClose, settings, onUpdateSettin
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
                       transition={{ duration: 0.2 }}
-                      className={`leading-relaxed italic text-center max-w-4xl ${
+                      className={`text-2xl md:text-3xl lg:text-4xl leading-relaxed italic text-center max-w-4xl ${
                         settings.textColor === 'light' ? 'text-white' : 'text-gray-900'
                       }`}
                       style={{
                         fontFamily: getFontFamily(),
-                        fontSize: `calc(1.5rem * ${getFontSize()})`,
                         textShadow: settings.textColor === 'light' 
                           ? '0 2px 10px rgba(0,0,0,0.5)' 
                           : '0 2px 10px rgba(255,255,255,0.3)',
                       }}
                     >
                       {hasMultipleVerses ? (
-                        <div className="space-y-4">
+                        <div className="space-y-2">
                           {currentVerses.map((verse, idx) => (
-                            <p key={verse.verseNumber} className={idx > 0 ? 'mt-4' : ''}>
+                            <p key={verse.verseNumber} className={idx > 0 ? 'mt-2' : ''}>
                               {formatVerseText(verse, settings.textColor === 'light')}
                             </p>
                           ))}
