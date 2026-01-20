@@ -40,6 +40,7 @@ export interface SpotlightSettings {
   // Live text emphasis settings
   liveEmphasisEnabled: boolean;
   emphasisStyle: 'highlight' | 'underline';
+  multiEmphasisEnabled: boolean; // Allow multiple highlights at once
 }
 
 export const DEFAULT_SPOTLIGHT_SETTINGS: SpotlightSettings = {
@@ -59,6 +60,7 @@ export const DEFAULT_SPOTLIGHT_SETTINGS: SpotlightSettings = {
   showVerseNumbers: true,
   liveEmphasisEnabled: true,
   emphasisStyle: 'highlight',
+  multiEmphasisEnabled: false,
 };
 
 interface SpotlightSettingsDialogProps {
@@ -526,8 +528,25 @@ export function SpotlightSettingsDialog({
                               Underline
                             </button>
                           </div>
+
+                          {/* Multi-select toggle */}
+                          <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg mt-3">
+                            <div className="space-y-0.5">
+                              <Label className="text-sm font-medium">Multi-Select Mode</Label>
+                              <p className="text-xs text-muted-foreground">
+                                Highlight multiple parts of the text at once
+                              </p>
+                            </div>
+                            <Switch
+                              checked={localSettings.multiEmphasisEnabled}
+                              onCheckedChange={(checked) =>
+                                setLocalSettings((prev) => ({ ...prev, multiEmphasisEnabled: checked }))
+                              }
+                            />
+                          </div>
+
                           <p className="text-xs text-muted-foreground">
-                            Click anywhere in the popup to deselect emphasized text
+                            Click anywhere in the popup to clear {localSettings.multiEmphasisEnabled ? 'all' : ''} emphasized text
                           </p>
                         </div>
                       )}
