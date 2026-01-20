@@ -231,34 +231,34 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
                     <button
                       onClick={goToPrevPage}
                       disabled={currentPage === 0}
-                      className={`absolute left-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full backdrop-blur-sm transition-all ${
+                      className={`absolute left-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full backdrop-blur-sm transition-all ${
                         currentPage === 0 
                           ? 'opacity-30 cursor-not-allowed' 
-                          : 'opacity-70 hover:opacity-100 hover:scale-110'
+                          : 'opacity-60 hover:opacity-100 hover:scale-105'
                       } ${
                         settings.textColor === 'light'
                           ? 'text-white bg-white/10 hover:bg-white/20'
                           : 'text-gray-900 bg-gray-900/10 hover:bg-gray-900/20'
                       }`}
                     >
-                      <ChevronLeft className="h-8 w-8" />
+                      <ChevronLeft className="h-5 w-5" />
                     </button>
 
                     {/* Right Arrow */}
                     <button
                       onClick={goToNextPage}
                       disabled={currentPage === totalPages - 1}
-                      className={`absolute right-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full backdrop-blur-sm transition-all ${
+                      className={`absolute right-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full backdrop-blur-sm transition-all ${
                         currentPage === totalPages - 1 
                           ? 'opacity-30 cursor-not-allowed' 
-                          : 'opacity-70 hover:opacity-100 hover:scale-110'
+                          : 'opacity-60 hover:opacity-100 hover:scale-105'
                       } ${
                         settings.textColor === 'light'
                           ? 'text-white bg-white/10 hover:bg-white/20'
                           : 'text-gray-900 bg-gray-900/10 hover:bg-gray-900/20'
                       }`}
                     >
-                      <ChevronRight className="h-8 w-8" />
+                      <ChevronRight className="h-5 w-5" />
                     </button>
                   </>
                 )}

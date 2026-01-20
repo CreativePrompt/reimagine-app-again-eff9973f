@@ -23,7 +23,11 @@ export interface ParsedScripture {
  * - "v.1 In the beginning..." (v. prefix)
  * - Just numbered sentences in the text
  */
-export function parseVersesFromText(text: string): ParsedVerse[] {
+/**
+ * Parse verses from text, optionally using the starting verse number from a reference.
+ * If startingVerse is provided, verses will be numbered starting from that number.
+ */
+export function parseVersesFromText(text: string, startingVerse?: number): ParsedVerse[] {
   const verses: ParsedVerse[] = [];
   
   // Pattern to match verse numbers in various formats:
@@ -50,19 +54,25 @@ export function parseVersesFromText(text: string): ParsedVerse[] {
   if (verseMatches.length === 0) {
     // Try splitting by sentences for a basic breakdown
     const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+    const baseVerse = startingVerse || 1;
     sentences.forEach((sentence, index) => {
       verses.push({
-        verseNumber: index + 1,
+        verseNumber: baseVerse + index,
         text: sentence.trim(),
       });
     });
     return verses;
   }
   
-  // Sort by verse number to handle out-of-order matches
+  // Sort by position to handle matches in order
   verseMatches.sort((a, b) => a.start - b.start);
   
   // Second pass: extract verse text
+  // If we have a startingVerse and the parsed numbers don't match (e.g., text has 1,2,3 but reference says 13-17),
+  // we need to renumber based on the starting verse
+  const firstParsedVerse = verseMatches[0]?.verseNumber || 1;
+  const needsRenumbering = startingVerse && firstParsedVerse === 1 && startingVerse > 1;
+  
   for (let i = 0; i < verseMatches.length; i++) {
     const current = verseMatches[i];
     const next = verseMatches[i + 1];
@@ -80,8 +90,13 @@ export function parseVersesFromText(text: string): ParsedVerse[] {
       .trim();
     
     if (verseText) {
+      // Calculate the correct verse number
+      const verseNumber = needsRenumbering 
+        ? startingVerse + i 
+        : current.verseNumber;
+      
       verses.push({
-        verseNumber: current.verseNumber,
+        verseNumber,
         text: verseText,
       });
     }
@@ -148,8 +163,8 @@ export function parseScriptureFromHighlight(text: string): ParsedScripture | nul
     verseContent = afterRef.replace(/^\s*[-–—:]\s*["']?\s*/, '').replace(/["']?\s*\(ESV\)\s*$/, '');
   }
   
-  // Parse the verse content into individual verses
-  const verses = parseVersesFromText(verseContent);
+  // Parse the verse content into individual verses, passing the starting verse number
+  const verses = parseVersesFromText(verseContent, startVerse);
   
   // If we couldn't parse verses but have content, create a single verse
   if (verses.length === 0 && verseContent.trim()) {
