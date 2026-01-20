@@ -12,7 +12,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Focus, Upload, Trash2, Check, Image as ImageIcon, BookOpen, Highlighter, Underline } from "lucide-react";
+import { Focus, Upload, Trash2, Check, Image as ImageIcon, BookOpen, Highlighter, Underline, RotateCcw, Type, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +29,28 @@ export const EMPHASIS_COLORS = [
   { id: 'red', name: 'Red', bg: 'bg-red-400', text: 'text-white', hex: '#f87171' },
   { id: 'cyan', name: 'Cyan', bg: 'bg-cyan-400', text: 'text-gray-900', hex: '#22d3ee' },
 ];
+
+// Animation presets for spotlight popup
+export const ANIMATION_PRESETS = [
+  { id: 'fade', name: 'Fade', description: 'Simple fade in' },
+  { id: 'zoom', name: 'Zoom', description: 'Scale up from center' },
+  { id: 'slideUp', name: 'Slide Up', description: 'Slide from bottom' },
+  { id: 'slideDown', name: 'Slide Down', description: 'Slide from top' },
+  { id: 'fadeZoom', name: 'Fade + Zoom', description: 'Fade with subtle zoom' },
+] as const;
+
+export type AnimationPreset = typeof ANIMATION_PRESETS[number]['id'];
+
+// Font options for presentation
+export const FONT_OPTIONS = [
+  { id: 'serif', name: 'Serif', fontFamily: 'Georgia, serif' },
+  { id: 'sans', name: 'Sans Serif', fontFamily: 'system-ui, sans-serif' },
+  { id: 'classic', name: 'Classic', fontFamily: '"Times New Roman", Times, serif' },
+  { id: 'modern', name: 'Modern', fontFamily: 'Inter, system-ui, sans-serif' },
+  { id: 'elegant', name: 'Elegant', fontFamily: '"Playfair Display", Georgia, serif' },
+] as const;
+
+export type FontOption = typeof FONT_OPTIONS[number]['id'];
 
 export interface SpotlightSettings {
   enabled: boolean;
@@ -54,6 +76,11 @@ export interface SpotlightSettings {
   emphasisStyle: 'highlight' | 'underline';
   multiEmphasisEnabled: boolean; // Allow multiple highlights at once
   defaultEmphasisColor: string; // Default color ID for new emphasis
+  // Animation settings
+  animationPreset: AnimationPreset;
+  // Font settings
+  fontOption: FontOption;
+  fontSize: number; // scale factor 0.8 - 2.0
 }
 
 export const DEFAULT_SPOTLIGHT_SETTINGS: SpotlightSettings = {
@@ -75,6 +102,9 @@ export const DEFAULT_SPOTLIGHT_SETTINGS: SpotlightSettings = {
   emphasisStyle: 'highlight',
   multiEmphasisEnabled: false,
   defaultEmphasisColor: 'yellow',
+  animationPreset: 'fadeZoom',
+  fontOption: 'serif',
+  fontSize: 1.0,
 };
 
 interface SpotlightSettingsDialogProps {
@@ -217,8 +247,8 @@ export function SpotlightSettingsDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 min-h-0 max-h-[calc(90vh-140px)]">
-          <div className="space-y-6 py-4 pr-4">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin', scrollbarColor: 'hsl(var(--muted-foreground)) transparent' }}>
+          <div className="space-y-6 py-4 pr-2">
             {/* Enable Spotlight */}
             <div className="flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
               <div className="space-y-0.5">
@@ -547,6 +577,15 @@ export function SpotlightSettingsDialog({
                           <div className="space-y-3 mt-3">
                             <div className="flex items-center justify-between">
                               <span className="text-sm text-muted-foreground">Default Emphasis Color</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setLocalSettings((prev) => ({ ...prev, defaultEmphasisColor: 'yellow' }))}
+                                className="h-7 text-xs gap-1"
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                                Reset to Default
+                              </Button>
                             </div>
                             <div className="flex flex-wrap gap-2">
                               {EMPHASIS_COLORS.map((color) => (
@@ -568,7 +607,7 @@ export function SpotlightSettingsDialog({
                               ))}
                             </div>
                             <p className="text-xs text-muted-foreground">
-                              Right-click on highlighted text to change its color
+                              Right-click on highlighted text to change its color. Use "Apply to All" to set the default for future highlights.
                             </p>
                           </div>
 
@@ -593,6 +632,82 @@ export function SpotlightSettingsDialog({
                           </p>
                         </div>
                       )}
+                    </div>
+
+                    {/* Animation Settings */}
+                    <div className="space-y-4 pt-4 border-t">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <Label className="text-sm font-semibold">Animation</Label>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <span className="text-sm text-muted-foreground">Popup Animation</span>
+                        <div className="grid grid-cols-3 gap-2">
+                          {ANIMATION_PRESETS.map((preset) => (
+                            <button
+                              key={preset.id}
+                              onClick={() => setLocalSettings((prev) => ({ ...prev, animationPreset: preset.id }))}
+                              className={`px-3 py-2 text-xs rounded-md border transition-all ${
+                                localSettings.animationPreset === preset.id
+                                  ? 'bg-primary text-primary-foreground border-primary'
+                                  : 'bg-background hover:bg-muted border-border'
+                              }`}
+                              title={preset.description}
+                            >
+                              {preset.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Font Settings */}
+                    <div className="space-y-4 pt-4 border-t">
+                      <div className="flex items-center gap-2">
+                        <Type className="h-4 w-4 text-primary" />
+                        <Label className="text-sm font-semibold">Text Style</Label>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <span className="text-sm text-muted-foreground">Font Style</span>
+                        <div className="grid grid-cols-3 gap-2">
+                          {FONT_OPTIONS.map((font) => (
+                            <button
+                              key={font.id}
+                              onClick={() => setLocalSettings((prev) => ({ ...prev, fontOption: font.id }))}
+                              className={`px-3 py-2 text-xs rounded-md border transition-all ${
+                                localSettings.fontOption === font.id
+                                  ? 'bg-primary text-primary-foreground border-primary'
+                                  : 'bg-background hover:bg-muted border-border'
+                              }`}
+                              style={{ fontFamily: font.fontFamily }}
+                            >
+                              {font.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Font Size</span>
+                          <span className="text-sm font-medium">{Math.round(localSettings.fontSize * 100)}%</span>
+                        </div>
+                        <Slider
+                          value={[localSettings.fontSize]}
+                          onValueChange={([value]) =>
+                            setLocalSettings((prev) => ({ ...prev, fontSize: value }))
+                          }
+                          min={0.8}
+                          max={2.0}
+                          step={0.1}
+                        />
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Smaller</span>
+                          <span>Larger</span>
+                        </div>
+                      </div>
                     </div>
 
 
@@ -736,7 +851,7 @@ export function SpotlightSettingsDialog({
               </>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
