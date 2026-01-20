@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
   const popupRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(0);
-  const [emphasis, setEmphasis] = useState<EmphasisRange | null>(null);
+  const [emphasisList, setEmphasisList] = useState<EmphasisRange[]>([]);
 
   // Parse scripture from the highlighted text
   const parsedScripture = useMemo(() => {
@@ -38,7 +38,7 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
   // Reset page and emphasis when text changes
   useEffect(() => {
     setCurrentPage(0);
-    setEmphasis(null);
+    setEmphasisList([]);
   }, [text]);
 
   // Get current verses to display
@@ -50,12 +50,12 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
   // Navigation handlers
   const goToPrevPage = () => {
     setCurrentPage(prev => Math.max(0, prev - 1));
-    setEmphasis(null);
+    setEmphasisList([]);
   };
 
   const goToNextPage = () => {
     setCurrentPage(prev => Math.min(totalPages - 1, prev + 1));
-    setEmphasis(null);
+    setEmphasisList([]);
   };
 
   // Handle text selection for emphasis
@@ -72,24 +72,36 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
       // Check if selection is within our content area
       const range = selection.getRangeAt(0);
       if (contentRef.current.contains(range.commonAncestorContainer)) {
-        setEmphasis({
+        const newEmphasis: EmphasisRange = {
           start: range.startOffset,
           end: range.endOffset,
           text: selectedText,
-        });
+        };
+
+        if (settings.multiEmphasisEnabled) {
+          // Add to existing list (avoid duplicates)
+          setEmphasisList(prev => {
+            const exists = prev.some(e => e.text === selectedText);
+            if (exists) return prev;
+            return [...prev, newEmphasis];
+          });
+        } else {
+          // Single mode - replace existing
+          setEmphasisList([newEmphasis]);
+        }
         // Clear the selection to show our custom emphasis
         selection.removeAllRanges();
       }
     }
-  }, [settings.liveEmphasisEnabled]);
+  }, [settings.liveEmphasisEnabled, settings.multiEmphasisEnabled]);
 
-  // Handle click to clear emphasis
+  // Handle click to clear all emphasis
   const handleContentClick = useCallback((e: React.MouseEvent) => {
     // Only clear if clicking on the content area, not on navigation
-    if (emphasis && !e.defaultPrevented) {
-      setEmphasis(null);
+    if (emphasisList.length > 0 && !e.defaultPrevented) {
+      setEmphasisList([]);
     }
-  }, [emphasis]);
+  }, [emphasisList.length]);
 
   // Handle click outside
   useEffect(() => {
@@ -118,8 +130,8 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (emphasis) {
-          setEmphasis(null);
+        if (emphasisList.length > 0) {
+          setEmphasisList([]);
         } else {
           onClose();
         }
@@ -132,7 +144,7 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose, hasMultipleVerses, currentPage, totalPages, emphasis]);
+  }, [isOpen, onClose, hasMultipleVerses, currentPage, totalPages, emphasisList.length]);
 
   // Add mouseup listener for text selection
   useEffect(() => {
@@ -170,17 +182,9 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
 
   const isPresentation = settings.mode === 'presentation';
 
-  // Render text with emphasis applied - keeps text inline without layout changes
+  // Render text with multiple emphasis ranges applied - keeps text inline without layout changes
   const renderTextWithEmphasis = (textContent: string, isLight: boolean) => {
-    if (!emphasis) return textContent;
-
-    // Find the emphasized text in the content
-    const index = textContent.indexOf(emphasis.text);
-    if (index === -1) return textContent;
-
-    const before = textContent.slice(0, index);
-    const emphasized = textContent.slice(index, index + emphasis.text.length);
-    const after = textContent.slice(index + emphasis.text.length);
+    if (emphasisList.length === 0) return textContent;
 
     // Use decoration-only styles that don't affect layout
     const emphasisStyles = settings.emphasisStyle === 'highlight'
@@ -191,21 +195,51 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
         ? 'underline decoration-amber-400 decoration-4 underline-offset-4'
         : 'underline decoration-amber-500 decoration-4 underline-offset-4';
 
-    return (
-      <>
-        {before}
+    // Find all emphasis positions and sort them
+    const positions: { start: number; end: number; text: string }[] = [];
+    emphasisList.forEach((emp) => {
+      const index = textContent.indexOf(emp.text);
+      if (index !== -1) {
+        positions.push({ start: index, end: index + emp.text.length, text: emp.text });
+      }
+    });
+
+    if (positions.length === 0) return textContent;
+
+    // Sort by start position
+    positions.sort((a, b) => a.start - b.start);
+
+    // Build the rendered output
+    const parts: React.ReactNode[] = [];
+    let lastEnd = 0;
+
+    positions.forEach((pos, idx) => {
+      // Add text before this emphasis
+      if (pos.start > lastEnd) {
+        parts.push(textContent.slice(lastEnd, pos.start));
+      }
+      // Add the emphasized text
+      parts.push(
         <motion.span
+          key={`emphasis-${idx}`}
           initial={{ opacity: 0.7 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.25 }}
           className={emphasisStyles}
           style={{ display: 'inline' }}
         >
-          {emphasized}
+          {pos.text}
         </motion.span>
-        {after}
-      </>
-    );
+      );
+      lastEnd = pos.end;
+    });
+
+    // Add remaining text after last emphasis
+    if (lastEnd < textContent.length) {
+      parts.push(textContent.slice(lastEnd));
+    }
+
+    return <>{parts}</>;
   };
 
   // Format verse text for display with emphasis support
