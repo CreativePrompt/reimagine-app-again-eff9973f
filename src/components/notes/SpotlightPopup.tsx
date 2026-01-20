@@ -170,7 +170,7 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
 
   const isPresentation = settings.mode === 'presentation';
 
-  // Render text with emphasis applied
+  // Render text with emphasis applied - keeps text inline without layout changes
   const renderTextWithEmphasis = (textContent: string, isLight: boolean) => {
     if (!emphasis) return textContent;
 
@@ -182,31 +182,24 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
     const emphasized = textContent.slice(index, index + emphasis.text.length);
     const after = textContent.slice(index + emphasis.text.length);
 
+    // Use decoration-only styles that don't affect layout
     const emphasisStyles = settings.emphasisStyle === 'highlight'
       ? isLight
-        ? 'bg-amber-400/80 text-gray-900 px-1 rounded'
-        : 'bg-amber-400 text-gray-900 px-1 rounded'
+        ? 'bg-amber-400/80 text-gray-900 rounded-sm px-0.5 -mx-0.5 box-decoration-clone'
+        : 'bg-amber-400 text-gray-900 rounded-sm px-0.5 -mx-0.5 box-decoration-clone'
       : isLight
-        ? 'border-b-4 border-amber-400'
-        : 'border-b-4 border-amber-500';
+        ? 'underline decoration-amber-400 decoration-4 underline-offset-4'
+        : 'underline decoration-amber-500 decoration-4 underline-offset-4';
 
     return (
       <>
         {before}
         <motion.span
-          initial={{ scale: 1, y: 0 }}
-          animate={{ 
-            scale: 1.08,
-            y: -2,
-          }}
-          transition={{ 
-            duration: 0.35, 
-            ease: [0.34, 1.56, 0.64, 1],
-          }}
-          className={`inline-block ${emphasisStyles}`}
-          style={{
-            textShadow: isLight ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(255,255,255,0.2)',
-          }}
+          initial={{ opacity: 0.7 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.25 }}
+          className={emphasisStyles}
+          style={{ display: 'inline' }}
         >
           {emphasized}
         </motion.span>
