@@ -170,18 +170,27 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
     setColorMenu(null);
   }, []);
 
-  // Close color menu when clicking outside
+  // Close color menu when clicking outside (but not when clicking in popup)
   useEffect(() => {
     if (!colorMenu) return;
     
     const handleClickOutside = (e: MouseEvent) => {
-      if (colorMenuRef.current && !colorMenuRef.current.contains(e.target as Node)) {
-        setColorMenu(null);
+      // Don't close if clicking inside the color menu
+      if (colorMenuRef.current && colorMenuRef.current.contains(e.target as Node)) {
+        return;
       }
+      // Don't close if clicking inside the popup
+      if (popupRef.current && popupRef.current.contains(e.target as Node)) {
+        setColorMenu(null);
+        e.stopPropagation();
+        return;
+      }
+      setColorMenu(null);
     };
     
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    // Use capture phase to handle before other handlers
+    document.addEventListener('mousedown', handleClickOutside, true);
+    return () => document.removeEventListener('mousedown', handleClickOutside, true);
   }, [colorMenu]);
 
   // Handle click outside
@@ -189,6 +198,10 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
     if (!isOpen) return;
 
     const handleClickOutside = (e: MouseEvent) => {
+      // Don't close if color menu is open and clicking inside it
+      if (colorMenuRef.current && colorMenuRef.current.contains(e.target as Node)) {
+        return;
+      }
       if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
         onClose();
       }
@@ -681,13 +694,19 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
                   top: Math.min(colorMenu.y, window.innerHeight - 200),
                 }}
                 onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
               >
                 <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Select Color</p>
                 <div className="flex flex-wrap gap-2 mb-3">
                   {EMPHASIS_COLORS.map((color) => (
                     <button
                       key={color.id}
-                      onClick={() => handleColorSelect(color.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        handleColorSelect(color.id);
+                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
                       className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${
                         emphasisList[colorMenu.emphasisIndex]?.colorId === color.id
                           ? 'ring-2 ring-primary ring-offset-1 border-primary'
@@ -707,7 +726,12 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
                       {EMPHASIS_COLORS.map((color) => (
                         <button
                           key={`all-${color.id}`}
-                          onClick={() => handleMakeAllSameColor(color.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            handleMakeAllSameColor(color.id);
+                          }}
+                          onMouseDown={(e) => e.stopPropagation()}
                           className="w-6 h-6 rounded-full border border-border hover:border-muted-foreground transition-all hover:scale-110"
                           style={{ backgroundColor: color.hex }}
                           title={`Make all ${color.name}`}
