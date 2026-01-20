@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SpotlightSettings, EMPHASIS_COLORS } from "./SpotlightSettingsDialog";
+import { SpotlightSettings, EMPHASIS_COLORS, FONT_OPTIONS, AnimationPreset } from "./SpotlightSettingsDialog";
 import { parseScriptureFromHighlight, getVerseGroup, getTotalPages, ParsedVerse } from "@/lib/verseParser";
 
 interface SpotlightPopupProps {
@@ -10,6 +10,7 @@ interface SpotlightPopupProps {
   isOpen: boolean;
   onClose: () => void;
   settings: SpotlightSettings;
+  onUpdateSettings?: (settings: SpotlightSettings) => void;
 }
 
 interface EmphasisRange {
@@ -25,7 +26,7 @@ interface ColorMenuPosition {
   emphasisIndex: number;
 }
 
-export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPopupProps) {
+export function SpotlightPopup({ text, isOpen, onClose, settings, onUpdateSettings }: SpotlightPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(0);
@@ -164,11 +165,15 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
     setColorMenu(null);
   }, [colorMenu]);
 
-  // Handle "make all same color" option
+  // Handle "make all same color" option - also updates default color for future highlights
   const handleMakeAllSameColor = useCallback((colorId: string) => {
     setEmphasisList(prev => prev.map(emp => ({ ...emp, colorId })));
+    // Also update the default color in settings for future highlights
+    if (onUpdateSettings) {
+      onUpdateSettings({ ...settings, defaultEmphasisColor: colorId });
+    }
     setColorMenu(null);
-  }, []);
+  }, [settings, onUpdateSettings]);
 
   // Close color menu when clicking outside (but not when clicking in popup)
   useEffect(() => {
@@ -275,6 +280,55 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
   };
 
   const isPresentation = settings.mode === 'presentation';
+
+  // Get animation variants based on preset
+  const getAnimationVariants = () => {
+    const preset = settings.animationPreset || 'fadeZoom';
+    switch (preset) {
+      case 'fade':
+        return {
+          initial: { opacity: 0 },
+          animate: { opacity: 1 },
+          exit: { opacity: 0 },
+        };
+      case 'zoom':
+        return {
+          initial: { opacity: 0, scale: 0.8 },
+          animate: { opacity: 1, scale: 1 },
+          exit: { opacity: 0, scale: 0.8 },
+        };
+      case 'slideUp':
+        return {
+          initial: { opacity: 0, y: 50 },
+          animate: { opacity: 1, y: 0 },
+          exit: { opacity: 0, y: 50 },
+        };
+      case 'slideDown':
+        return {
+          initial: { opacity: 0, y: -50 },
+          animate: { opacity: 1, y: 0 },
+          exit: { opacity: 0, y: -50 },
+        };
+      case 'fadeZoom':
+      default:
+        return {
+          initial: { opacity: 0, scale: 0.95 },
+          animate: { opacity: 1, scale: 1 },
+          exit: { opacity: 0, scale: 0.95 },
+        };
+    }
+  };
+
+  // Get font family based on settings
+  const getFontFamily = () => {
+    const fontOption = FONT_OPTIONS.find(f => f.id === settings.fontOption);
+    return fontOption?.fontFamily || 'Georgia, serif';
+  };
+
+  // Get font size multiplier
+  const getFontSize = () => {
+    return settings.fontSize || 1.0;
+  };
 
   // Get emphasis style classes based on color
   const getEmphasisStyles = (colorId: string, isLight: boolean, emphasisIndex: number) => {
@@ -403,10 +457,8 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
 
           {/* Spotlight Popup */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+            {...getAnimationVariants()}
+            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
             className={`fixed inset-0 z-50 flex items-center justify-center`}
             onClick={onClose}
           >
@@ -528,10 +580,12 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
                       transition={{ duration: 0.2 }}
-                      className={`text-2xl md:text-3xl lg:text-4xl leading-relaxed font-serif italic text-center max-w-4xl ${
+                      className={`leading-relaxed italic text-center max-w-4xl ${
                         settings.textColor === 'light' ? 'text-white' : 'text-gray-900'
                       }`}
                       style={{
+                        fontFamily: getFontFamily(),
+                        fontSize: `calc(1.5rem * ${getFontSize()})`,
                         textShadow: settings.textColor === 'light' 
                           ? '0 2px 10px rgba(0,0,0,0.5)' 
                           : '0 2px 10px rgba(255,255,255,0.3)',

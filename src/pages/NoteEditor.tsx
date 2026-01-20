@@ -750,6 +750,7 @@ export default function NoteEditor() {
         isOpen={spotlightOpen}
         onClose={handleSpotlightClose}
         settings={spotlightSettings}
+        onUpdateSettings={handleSaveSpotlightSettings}
       />
 
       {/* Spotlight Settings Dialog */}
