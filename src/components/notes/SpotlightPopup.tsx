@@ -95,10 +95,36 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
     }
   }, [settings.liveEmphasisEnabled, settings.multiEmphasisEnabled]);
 
-  // Handle click to clear all emphasis
+  // Track if we're currently selecting text
+  const isSelectingRef = useRef(false);
+
+  // Handle mousedown to track if we're starting a selection
+  const handleContentMouseDown = useCallback(() => {
+    isSelectingRef.current = false;
+  }, []);
+
+  // Handle mouse move during selection
+  const handleContentMouseMove = useCallback(() => {
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) {
+      isSelectingRef.current = true;
+    }
+  }, []);
+
+  // Handle click to clear all emphasis - only if we weren't selecting
   const handleContentClick = useCallback((e: React.MouseEvent) => {
-    // Only clear if clicking on the content area, not on navigation
+    // If we were selecting text, don't clear emphasis
+    if (isSelectingRef.current) {
+      isSelectingRef.current = false;
+      return;
+    }
+    // Only clear if clicking on the content area with no selection happening
     if (emphasisList.length > 0 && !e.defaultPrevented) {
+      const selection = window.getSelection();
+      // Don't clear if there's an active selection
+      if (selection && !selection.isCollapsed) {
+        return;
+      }
       setEmphasisList([]);
     }
   }, [emphasisList.length]);
@@ -402,6 +428,8 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
                 <div 
                   ref={contentRef}
                   className="relative z-[5] flex-1 flex items-center justify-center p-8 md:p-12 cursor-text select-text"
+                  onMouseDown={handleContentMouseDown}
+                  onMouseMove={handleContentMouseMove}
                   onClick={handleContentClick}
                 >
                   <AnimatePresence mode="wait">
@@ -518,6 +546,8 @@ export function SpotlightPopup({ text, isOpen, onClose, settings }: SpotlightPop
                 {/* Content */}
                 <div 
                   className={`p-8 overflow-y-auto cursor-text select-text ${settings.popupHeight !== 'auto' ? getPopupHeight() : 'max-h-[60vh]'}`}
+                  onMouseDown={handleContentMouseDown}
+                  onMouseMove={handleContentMouseMove}
                   onClick={handleContentClick}
                   ref={!isPresentation ? contentRef : undefined}
                 >
