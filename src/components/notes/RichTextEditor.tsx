@@ -62,7 +62,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       return () => clearTimeout(timer);
     }, []);
 
-    // Handle paste to preserve scroll position
+    // Handle paste to preserve scroll position - aggressive fix for browser extensions
     useEffect(() => {
       if (!editorReady || !quillRef.current) return;
 
@@ -70,29 +70,55 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       if (!quill) return;
 
       const handlePaste = (e: ClipboardEvent) => {
-        // Store scroll positions before paste
+        // Store scroll positions before paste from ALL possible scroll containers
         const editorContainer = containerRef.current?.querySelector('.ql-editor') as HTMLElement;
         const pageContainer = document.querySelector('.note-editor-page') as HTMLElement;
         const mainContainer = document.querySelector('main') as HTMLElement;
+        const scrollArea = document.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement;
         
-        const editorScrollTop = editorContainer?.scrollTop || 0;
-        const pageScrollTop = pageContainer?.scrollTop || 0;
-        const mainScrollTop = mainContainer?.scrollTop || 0;
-        const windowScrollY = window.scrollY;
-
-        // Use multiple restoration attempts to ensure scroll is preserved
-        const restoreScroll = () => {
-          if (editorContainer) editorContainer.scrollTop = editorScrollTop;
-          if (pageContainer) pageContainer.scrollTop = pageScrollTop;
-          if (mainContainer) mainContainer.scrollTop = mainScrollTop;
-          window.scrollTo({ top: windowScrollY, behavior: 'instant' });
+        const savedPositions = {
+          editor: editorContainer?.scrollTop || 0,
+          page: pageContainer?.scrollTop || 0,
+          main: mainContainer?.scrollTop || 0,
+          scrollArea: scrollArea?.scrollTop || 0,
+          window: window.scrollY,
         };
 
-        // Restore immediately and after DOM updates
-        requestAnimationFrame(restoreScroll);
-        setTimeout(restoreScroll, 0);
-        setTimeout(restoreScroll, 50);
-        setTimeout(restoreScroll, 100);
+        // Aggressive restoration that fights against browser extension DOM changes
+        const restoreScroll = () => {
+          if (editorContainer) editorContainer.scrollTop = savedPositions.editor;
+          if (pageContainer) pageContainer.scrollTop = savedPositions.page;
+          if (mainContainer) mainContainer.scrollTop = savedPositions.main;
+          if (scrollArea) scrollArea.scrollTop = savedPositions.scrollArea;
+          window.scrollTo({ top: savedPositions.window, behavior: 'instant' });
+        };
+
+        // Use MutationObserver to catch any DOM changes that might reset scroll
+        const observer = new MutationObserver(() => {
+          restoreScroll();
+        });
+
+        // Watch the entire document for changes (catches Grammarly, etc.)
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+        });
+
+        // Restore immediately
+        restoreScroll();
+
+        // Multiple restoration attempts at various intervals
+        const intervals = [0, 10, 20, 50, 100, 150, 200, 300];
+        const timeouts = intervals.map(delay => 
+          setTimeout(restoreScroll, delay)
+        );
+
+        // Disconnect observer and clear timeouts after paste is complete
+        setTimeout(() => {
+          observer.disconnect();
+          timeouts.forEach(clearTimeout);
+        }, 500);
       };
 
       quill.root.addEventListener('paste', handlePaste);
