@@ -62,68 +62,85 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       return () => clearTimeout(timer);
     }, []);
 
-    // Handle paste to preserve scroll position - aggressive fix for browser extensions
+    // The REAL scroll container in NoteEditor is: div.flex-1.overflow-y-auto (parent of the p-8 div)
+    // We need to capture scroll position BEFORE paste and restore AFTER Quill finishes
     useEffect(() => {
       if (!editorReady || !quillRef.current) return;
 
       const quill = quillRef.current.getEditor();
       if (!quill) return;
 
-      const handlePaste = (e: ClipboardEvent) => {
-        // Store scroll positions before paste from ALL possible scroll containers
-        const editorContainer = containerRef.current?.querySelector('.ql-editor') as HTMLElement;
-        const pageContainer = document.querySelector('.note-editor-page') as HTMLElement;
-        const mainContainer = document.querySelector('main') as HTMLElement;
-        const scrollArea = document.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement;
-        
-        const savedPositions = {
-          editor: editorContainer?.scrollTop || 0,
-          page: pageContainer?.scrollTop || 0,
-          main: mainContainer?.scrollTop || 0,
-          scrollArea: scrollArea?.scrollTop || 0,
-          window: window.scrollY,
-        };
-
-        // Aggressive restoration that fights against browser extension DOM changes
-        const restoreScroll = () => {
-          if (editorContainer) editorContainer.scrollTop = savedPositions.editor;
-          if (pageContainer) pageContainer.scrollTop = savedPositions.page;
-          if (mainContainer) mainContainer.scrollTop = savedPositions.main;
-          if (scrollArea) scrollArea.scrollTop = savedPositions.scrollArea;
-          window.scrollTo({ top: savedPositions.window, behavior: 'instant' });
-        };
-
-        // Use MutationObserver to catch any DOM changes that might reset scroll
-        const observer = new MutationObserver(() => {
-          restoreScroll();
-        });
-
-        // Watch the entire document for changes (catches Grammarly, etc.)
-        observer.observe(document.body, {
-          childList: true,
-          subtree: true,
-          attributes: true,
-        });
-
-        // Restore immediately
-        restoreScroll();
-
-        // Multiple restoration attempts at various intervals
-        const intervals = [0, 10, 20, 50, 100, 150, 200, 300];
-        const timeouts = intervals.map(delay => 
-          setTimeout(restoreScroll, delay)
-        );
-
-        // Disconnect observer and clear timeouts after paste is complete
-        setTimeout(() => {
-          observer.disconnect();
-          timeouts.forEach(clearTimeout);
-        }, 500);
+      // Get the actual scroll container - the parent with overflow-y-auto
+      const getScrollContainer = () => {
+        // Walk up from the editor to find the scrollable parent
+        let element = containerRef.current?.parentElement;
+        while (element) {
+          const style = window.getComputedStyle(element);
+          if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+            return element;
+          }
+          element = element.parentElement;
+        }
+        return null;
       };
 
-      quill.root.addEventListener('paste', handlePaste);
+      let savedScrollTop = 0;
+      let isPasting = false;
+
+      // Capture scroll BEFORE anything happens
+      const handleBeforePaste = () => {
+        const scrollContainer = getScrollContainer();
+        if (scrollContainer) {
+          savedScrollTop = scrollContainer.scrollTop;
+          isPasting = true;
+        }
+      };
+
+      // Restore scroll after Quill processes the paste
+      const handleTextChange = (delta: any, oldDelta: any, source: string) => {
+        if (isPasting && source === 'user') {
+          const scrollContainer = getScrollContainer();
+          if (scrollContainer) {
+            // Force scroll restoration synchronously
+            scrollContainer.scrollTop = savedScrollTop;
+            
+            // Also restore after any microtasks
+            queueMicrotask(() => {
+              scrollContainer.scrollTop = savedScrollTop;
+            });
+            
+            // And after any frames
+            requestAnimationFrame(() => {
+              scrollContainer.scrollTop = savedScrollTop;
+              requestAnimationFrame(() => {
+                scrollContainer.scrollTop = savedScrollTop;
+                isPasting = false;
+              });
+            });
+          }
+        }
+      };
+
+      // Use 'beforeinput' which fires before paste is processed
+      const handleBeforeInput = (e: InputEvent) => {
+        if (e.inputType === 'insertFromPaste' || e.inputType === 'insertFromPasteAsQuotation') {
+          handleBeforePaste();
+        }
+      };
+
+      // Also capture on regular paste event as fallback
+      const handlePaste = () => {
+        handleBeforePaste();
+      };
+
+      quill.root.addEventListener('beforeinput', handleBeforeInput as EventListener);
+      quill.root.addEventListener('paste', handlePaste, { capture: true });
+      quill.on('text-change', handleTextChange);
+
       return () => {
+        quill.root.removeEventListener('beforeinput', handleBeforeInput as EventListener);
         quill.root.removeEventListener('paste', handlePaste);
+        quill.off('text-change', handleTextChange);
       };
     }, [editorReady]);
 
