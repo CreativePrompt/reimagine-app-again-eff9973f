@@ -21,6 +21,7 @@ import Bible from "./pages/Bible";
 import BibleReader from "./pages/BibleReader";
 import PresentationView from "./pages/PresentationView";
 import PresenterView from "./pages/PresenterView";
+import Timer from "./pages/Timer";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,6 +57,7 @@ const App = () => {
               <Route path="/ideas" element={<Dashboard />} />
               <Route path="/resources" element={<Dashboard />} />
               <Route path="/archive" element={<Dashboard />} />
+              <Route path="/timer" element={<Timer />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
