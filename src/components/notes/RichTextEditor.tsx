@@ -69,17 +69,30 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       const quill = quillRef.current.getEditor();
       if (!quill) return;
 
-      const handlePaste = () => {
-        // Store scroll position before paste
-        const scrollContainer = containerRef.current?.querySelector('.ql-editor');
-        const scrollTop = scrollContainer?.scrollTop || 0;
+      const handlePaste = (e: ClipboardEvent) => {
+        // Store scroll positions before paste
+        const editorContainer = containerRef.current?.querySelector('.ql-editor') as HTMLElement;
+        const pageContainer = document.querySelector('.note-editor-page') as HTMLElement;
+        const mainContainer = document.querySelector('main') as HTMLElement;
+        
+        const editorScrollTop = editorContainer?.scrollTop || 0;
+        const pageScrollTop = pageContainer?.scrollTop || 0;
+        const mainScrollTop = mainContainer?.scrollTop || 0;
+        const windowScrollY = window.scrollY;
 
-        // Restore scroll position after paste (with a small delay to allow DOM update)
-        requestAnimationFrame(() => {
-          if (scrollContainer) {
-            scrollContainer.scrollTop = scrollTop;
-          }
-        });
+        // Use multiple restoration attempts to ensure scroll is preserved
+        const restoreScroll = () => {
+          if (editorContainer) editorContainer.scrollTop = editorScrollTop;
+          if (pageContainer) pageContainer.scrollTop = pageScrollTop;
+          if (mainContainer) mainContainer.scrollTop = mainScrollTop;
+          window.scrollTo({ top: windowScrollY, behavior: 'instant' });
+        };
+
+        // Restore immediately and after DOM updates
+        requestAnimationFrame(restoreScroll);
+        setTimeout(restoreScroll, 0);
+        setTimeout(restoreScroll, 50);
+        setTimeout(restoreScroll, 100);
       };
 
       quill.root.addEventListener('paste', handlePaste);
