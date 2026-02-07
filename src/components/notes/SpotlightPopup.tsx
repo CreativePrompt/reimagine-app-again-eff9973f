@@ -5,19 +5,21 @@ import { Button } from "@/components/ui/button";
 import { SpotlightSettings, EMPHASIS_COLORS, FONT_OPTIONS, AnimationPreset } from "./SpotlightSettingsDialog";
 import { parseScriptureFromHighlight, getVerseGroup, getTotalPages, ParsedVerse } from "@/lib/verseParser";
 
+interface EmphasisRange {
+  start: number;
+  end: number;
+  text: string;
+  colorId: string;
+}
+
 interface SpotlightPopupProps {
   text: string;
   isOpen: boolean;
   onClose: () => void;
   settings: SpotlightSettings;
   onUpdateSettings?: (settings: SpotlightSettings) => void;
-}
-
-interface EmphasisRange {
-  start: number;
-  end: number;
-  text: string;
-  colorId: string; // Color ID from EMPHASIS_COLORS
+  onEmphasisChange?: (emphasisList: EmphasisRange[]) => void;
+  onPageChange?: (currentPage: number, totalPages: number) => void;
 }
 
 interface ColorMenuPosition {
@@ -26,7 +28,17 @@ interface ColorMenuPosition {
   emphasisIndex: number;
 }
 
-export function SpotlightPopup({ text, isOpen, onClose, settings, onUpdateSettings }: SpotlightPopupProps) {
+export type { EmphasisRange };
+
+export function SpotlightPopup({ 
+  text, 
+  isOpen, 
+  onClose, 
+  settings, 
+  onUpdateSettings,
+  onEmphasisChange,
+  onPageChange,
+}: SpotlightPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(0);
@@ -49,7 +61,19 @@ export function SpotlightPopup({ text, isOpen, onClose, settings, onUpdateSettin
   useEffect(() => {
     setCurrentPage(0);
     setEmphasisList([]);
+    onEmphasisChange?.([]);
+    onPageChange?.(0, totalPages);
   }, [text]);
+
+  // Report page changes
+  useEffect(() => {
+    onPageChange?.(currentPage, totalPages);
+  }, [currentPage, totalPages, onPageChange]);
+
+  // Report emphasis changes
+  useEffect(() => {
+    onEmphasisChange?.(emphasisList);
+  }, [emphasisList, onEmphasisChange]);
 
   // Get current verses to display
   const currentVerses = useMemo(() => {

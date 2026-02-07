@@ -14,6 +14,7 @@ import { HighlightSettingsDialog, HighlightSettings, PRESET_COLORS } from "@/com
 import { SpotlightPopup } from "@/components/notes/SpotlightPopup";
 import { SpotlightSettingsDialog, SpotlightSettings, DEFAULT_SPOTLIGHT_SETTINGS } from "@/components/notes/SpotlightSettingsDialog";
 import { ScriptureSearchSidebar } from "@/components/notes/ScriptureSearchSidebar";
+import { PresenterModeBar } from "@/components/notes/PresenterModeBar";
 import "@/components/notes/RichTextEditor.css";
 
 type ViewMode = 'edit' | 'reader';
@@ -83,6 +84,14 @@ export default function NoteEditor() {
   });
   const [spotlightText, setSpotlightText] = useState("");
   const [spotlightOpen, setSpotlightOpen] = useState(false);
+  const [spotlightPage, setSpotlightPage] = useState(0);
+  const [spotlightTotalPages, setSpotlightTotalPages] = useState(1);
+  const [emphasisList, setEmphasisList] = useState<Array<{
+    start: number;
+    end: number;
+    text: string;
+    colorId: string;
+  }>>([]);
   const readerContentRef = useRef<HTMLElement>(null);
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<RichTextEditorRef>(null);
@@ -195,6 +204,9 @@ export default function NoteEditor() {
   const handleSpotlightClose = useCallback(() => {
     setSpotlightOpen(false);
     setSpotlightText("");
+    setEmphasisList([]);
+    setSpotlightPage(0);
+    setSpotlightTotalPages(1);
   }, []);
 
   // Save highlight settings and apply CSS variables
@@ -552,7 +564,7 @@ export default function NoteEditor() {
                       variant={spotlightSettings.enabled ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setSpotlightSettingsOpen(true)}
-                      className={spotlightSettings.enabled ? 'bg-amber-500 hover:bg-amber-500/90 text-white' : ''}
+                      className={spotlightSettings.enabled ? 'bg-[hsl(var(--orange-warm))] hover:bg-[hsl(var(--orange-warm))]/90 text-white' : ''}
                     >
                       <Focus className="h-4 w-4 mr-1" />
                       Spotlight
@@ -584,6 +596,23 @@ export default function NoteEditor() {
                     <ZoomIn className="h-3.5 w-3.5" />
                   </Button>
                 </div>
+
+                {/* Presenter Mode - Only in reader + highlight mode */}
+                {highlightMode && spotlightSettings.enabled && id && (
+                  <>
+                    <div className="h-4 w-px bg-border" />
+                    <PresenterModeBar
+                      noteId={id}
+                      noteTitle={title}
+                      spotlightText={spotlightText}
+                      spotlightOpen={spotlightOpen}
+                      spotlightSettings={spotlightSettings}
+                      currentPage={spotlightPage}
+                      totalPages={spotlightTotalPages}
+                      emphasisList={emphasisList}
+                    />
+                  </>
+                )}
               </>
             )}
             
@@ -593,7 +622,7 @@ export default function NoteEditor() {
                 Unsaved changes
               </span>
             ) : lastAutoSave ? (
-              <span className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1.5">
+              <span className="text-sm text-primary flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5" />
                 Saved at {format(lastAutoSave, 'h:mm a')}
               </span>
@@ -751,6 +780,11 @@ export default function NoteEditor() {
         onClose={handleSpotlightClose}
         settings={spotlightSettings}
         onUpdateSettings={handleSaveSpotlightSettings}
+        onEmphasisChange={setEmphasisList}
+        onPageChange={(page, total) => {
+          setSpotlightPage(page);
+          setSpotlightTotalPages(total);
+        }}
       />
 
       {/* Spotlight Settings Dialog */}
