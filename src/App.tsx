@@ -22,6 +22,7 @@ import BibleReader from "./pages/BibleReader";
 import PresentationView from "./pages/PresentationView";
 import PresenterView from "./pages/PresenterView";
 import Timer from "./pages/Timer";
+import NotesLiveView from "./pages/NotesLiveView";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const App = () => {
               <Route path="/sermon/:id" element={<SermonEditor />} />
               <Route path="/notes" element={<Notes />} />
               <Route path="/notes/:id" element={<NoteEditor />} />
+              <Route path="/notes/live/:sessionId" element={<NotesLiveView />} />
               <Route path="/commentary" element={<Commentary />} />
               <Route path="/commentary/:id" element={<CommentaryReader />} />
               <Route path="/bible" element={<Bible />} />
