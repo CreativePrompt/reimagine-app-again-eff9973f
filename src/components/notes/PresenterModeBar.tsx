@@ -10,17 +10,17 @@ import {
   Check, 
   Users,
   Wifi,
-  WifiOff
+  WifiOff,
+  PanelRightOpen,
+  PanelRightClose,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   generateSessionId, 
   createPresentationChannel, 
-  broadcastSpotlightUpdate,
   broadcastInitialState,
   NotePresentationState,
-  NotePresentationUpdate
 } from "@/lib/notesPresentation";
 import { SpotlightSettings } from "@/components/notes/SpotlightSettingsDialog";
 
@@ -38,6 +38,9 @@ interface PresenterModeBarProps {
     text: string;
     colorId: string;
   }>;
+  sidePanelOpen?: boolean;
+  onSidePanelToggle?: () => void;
+  onLiveStateChange?: (isLive: boolean, audienceCount: number, audienceUrl: string) => void;
 }
 
 export function PresenterModeBar({
@@ -49,6 +52,9 @@ export function PresenterModeBar({
   currentPage,
   totalPages,
   emphasisList,
+  sidePanelOpen = false,
+  onSidePanelToggle,
+  onLiveStateChange,
 }: PresenterModeBarProps) {
   const { toast } = useToast();
   const [isLive, setIsLive] = useState(false);
@@ -63,6 +69,11 @@ export function PresenterModeBar({
     const baseUrl = window.location.origin;
     return `${baseUrl}/notes/live/${sessionId}`;
   }, [sessionId]);
+
+  // Notify parent of live state changes
+  useEffect(() => {
+    onLiveStateChange?.(isLive, audienceCount, getAudienceUrl());
+  }, [isLive, audienceCount, getAudienceUrl, onLiveStateChange]);
 
   // Start presenter mode
   const startPresenterMode = useCallback(() => {
@@ -165,15 +176,33 @@ export function PresenterModeBar({
 
   if (!isLive) {
     return (
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={startPresenterMode}
-        className="gap-2"
-      >
-        <Radio className="h-4 w-4" />
-        Go Live
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={startPresenterMode}
+          className="gap-2"
+        >
+          <Radio className="h-4 w-4" />
+          Go Live
+        </Button>
+        
+        {/* Side Panel Toggle (available before going live too) */}
+        {onSidePanelToggle && (
+          <Button
+            variant={sidePanelOpen ? "secondary" : "outline"}
+            size="sm"
+            onClick={onSidePanelToggle}
+            title={sidePanelOpen ? "Hide presenter panel" : "Show presenter panel"}
+          >
+            {sidePanelOpen ? (
+              <PanelRightClose className="h-4 w-4" />
+            ) : (
+              <PanelRightOpen className="h-4 w-4" />
+            )}
+          </Button>
+        )}
+      </div>
     );
   }
 
@@ -234,6 +263,23 @@ export function PresenterModeBar({
         >
           <ExternalLink className="h-4 w-4" />
         </Button>
+        
+        {/* Side Panel Toggle */}
+        {onSidePanelToggle && (
+          <Button
+            variant={sidePanelOpen ? "secondary" : "ghost"}
+            size="sm"
+            onClick={onSidePanelToggle}
+            className="h-8 px-2"
+            title={sidePanelOpen ? "Hide presenter panel" : "Show presenter panel"}
+          >
+            {sidePanelOpen ? (
+              <PanelRightClose className="h-4 w-4" />
+            ) : (
+              <PanelRightOpen className="h-4 w-4" />
+            )}
+          </Button>
+        )}
       </div>
 
       {/* Stop Button */}

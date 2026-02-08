@@ -15,6 +15,8 @@ import { SpotlightPopup } from "@/components/notes/SpotlightPopup";
 import { SpotlightSettingsDialog, SpotlightSettings, DEFAULT_SPOTLIGHT_SETTINGS } from "@/components/notes/SpotlightSettingsDialog";
 import { ScriptureSearchSidebar } from "@/components/notes/ScriptureSearchSidebar";
 import { PresenterModeBar } from "@/components/notes/PresenterModeBar";
+import { PresenterSidePanel } from "@/components/notes/PresenterSidePanel";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import "@/components/notes/RichTextEditor.css";
 
 type ViewMode = 'edit' | 'reader';
@@ -97,6 +99,38 @@ export default function NoteEditor() {
   const editorRef = useRef<RichTextEditorRef>(null);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [lastAutoSave, setLastAutoSave] = useState<Date | null>(null);
+  
+  // Presenter side panel state
+  const [sidePanelOpen, setSidePanelOpen] = useState(false);
+  const [presenterLiveState, setPresenterLiveState] = useState({
+    isLive: false,
+    audienceCount: 0,
+    audienceUrl: '',
+  });
+
+  // Handle live state changes from PresenterModeBar
+  const handleLiveStateChange = useCallback((isLive: boolean, audienceCount: number, audienceUrl: string) => {
+    setPresenterLiveState({ isLive, audienceCount, audienceUrl });
+  }, []);
+
+  // Handle copy audience URL
+  const handleCopyAudienceUrl = useCallback(() => {
+    navigator.clipboard.writeText(presenterLiveState.audienceUrl);
+    toast({
+      title: "Link Copied",
+      description: "Audience link copied to clipboard.",
+    });
+  }, [presenterLiveState.audienceUrl, toast]);
+
+  // Handle open audience view
+  const handleOpenAudienceView = useCallback(() => {
+    window.open(presenterLiveState.audienceUrl, '_blank');
+  }, [presenterLiveState.audienceUrl]);
+
+  // Handle page change from side panel
+  const handleSidePanelPageChange = useCallback((page: number) => {
+    setSpotlightPage(page);
+  }, []);
 
   // Handle inserting scripture from sidebar into editor at cursor position
   const handleInsertAtCursor = useCallback((text: string) => {
@@ -610,6 +644,9 @@ export default function NoteEditor() {
                       currentPage={spotlightPage}
                       totalPages={spotlightTotalPages}
                       emphasisList={emphasisList}
+                      sidePanelOpen={sidePanelOpen}
+                      onSidePanelToggle={() => setSidePanelOpen(!sidePanelOpen)}
+                      onLiveStateChange={handleLiveStateChange}
                     />
                   </>
                 )}
@@ -712,55 +749,83 @@ export default function NoteEditor() {
               </motion.div>
             </div>
           ) : (
-            /* Reader View */
-            <div 
-              ref={readerContainerRef}
-              className="p-8 bg-muted/30 min-h-full overflow-auto"
-              onClick={handleOutsideClick}
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 1 }}
-                animate={{ opacity: 1, scale: zoom / 100 }}
-                transition={{ 
-                  duration: 0.3,
-                  scale: { duration: 0.2, ease: [0.4, 0, 0.2, 1] }
-                }}
-                className="max-w-3xl mx-auto bg-card rounded-lg shadow-lg p-12 md:p-16 origin-top"
-              >
-                {/* Reader Header */}
-                <header className="text-center mb-12 pb-8 border-b">
-                  <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">{title || "Untitled Note"}</h1>
-                  {tags.length > 0 && (
-                    <div className="flex flex-wrap justify-center gap-2 mb-4">
-                      {tags.map((tag, index) => (
-                        <Badge 
-                          key={index}
-                          variant="secondary"
-                          className="text-xs"
-                        >
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                  {currentNote && (
-                    <p className="text-sm text-muted-foreground">
-                      Updated {formatDistanceToNow(new Date(currentNote.updated_at), { addSuffix: true })}
-                    </p>
-                  )}
-                </header>
+            /* Reader View with optional Side Panel */
+            <ResizablePanelGroup direction="horizontal" className="h-full">
+              {/* Main Reader Panel */}
+              <ResizablePanel defaultSize={sidePanelOpen ? 65 : 100} minSize={40}>
+                <div 
+                  ref={readerContainerRef}
+                  className="p-8 bg-muted/30 h-full overflow-auto"
+                  onClick={handleOutsideClick}
+                >
+                  <motion.div
+                    initial={{ opacity: 0, scale: 1 }}
+                    animate={{ opacity: 1, scale: zoom / 100 }}
+                    transition={{ 
+                      duration: 0.3,
+                      scale: { duration: 0.2, ease: [0.4, 0, 0.2, 1] }
+                    }}
+                    className="max-w-3xl mx-auto bg-card rounded-lg shadow-lg p-12 md:p-16 origin-top"
+                  >
+                    {/* Reader Header */}
+                    <header className="text-center mb-12 pb-8 border-b">
+                      <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">{title || "Untitled Note"}</h1>
+                      {tags.length > 0 && (
+                        <div className="flex flex-wrap justify-center gap-2 mb-4">
+                          {tags.map((tag, index) => (
+                            <Badge 
+                              key={index}
+                              variant="secondary"
+                              className="text-xs"
+                            >
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      {currentNote && (
+                        <p className="text-sm text-muted-foreground">
+                          Updated {formatDistanceToNow(new Date(currentNote.updated_at), { addSuffix: true })}
+                        </p>
+                      )}
+                    </header>
 
-                {/* Reader Content */}
-                <article 
-                  ref={readerContentRef}
-                  className={`reader-content ${highlightMode ? 'highlight-mode-active' : ''}`}
-                  style={getHighlightColorStyles()}
-                  onClick={handleReaderContentClick}
-                  onMouseUp={handleTextSelection}
-                  dangerouslySetInnerHTML={{ __html: content || '<p class="text-muted-foreground italic">No content yet...</p>' }}
-                />
-              </motion.div>
-            </div>
+                    {/* Reader Content */}
+                    <article 
+                      ref={readerContentRef}
+                      className={`reader-content ${highlightMode ? 'highlight-mode-active' : ''}`}
+                      style={getHighlightColorStyles()}
+                      onClick={handleReaderContentClick}
+                      onMouseUp={handleTextSelection}
+                      dangerouslySetInnerHTML={{ __html: content || '<p class="text-muted-foreground italic">No content yet...</p>' }}
+                    />
+                  </motion.div>
+                </div>
+              </ResizablePanel>
+
+              {/* Presenter Side Panel */}
+              {sidePanelOpen && highlightMode && spotlightSettings.enabled && (
+                <>
+                  <ResizableHandle withHandle />
+                  <ResizablePanel defaultSize={35} minSize={20} maxSize={50}>
+                    <PresenterSidePanel
+                      spotlightText={spotlightText}
+                      spotlightOpen={spotlightOpen}
+                      spotlightSettings={spotlightSettings}
+                      emphasisList={emphasisList}
+                      currentPage={spotlightPage}
+                      totalPages={spotlightTotalPages}
+                      onPageChange={handleSidePanelPageChange}
+                      audienceCount={presenterLiveState.audienceCount}
+                      isLive={presenterLiveState.isLive}
+                      audienceUrl={presenterLiveState.audienceUrl}
+                      onCopyUrl={handleCopyAudienceUrl}
+                      onOpenAudienceView={handleOpenAudienceView}
+                    />
+                  </ResizablePanel>
+                </>
+              )}
+            </ResizablePanelGroup>
           )}
         </div>
       </div>
