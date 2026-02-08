@@ -10,6 +10,15 @@ export default function NotesLiveView() {
   const { sessionId } = useParams();
   const [state, setState] = useState<NotePresentationState | null>(null);
   const [connected, setConnected] = useState(false);
+  
+  // Keep last spotlight content to persist between highlights
+  const [lastSpotlight, setLastSpotlight] = useState<{
+    text: string;
+    settings: SpotlightSettings;
+    emphasisList: Array<{ start: number; end: number; text: string; colorId: string }>;
+    currentPage: number;
+    totalPages: number;
+  } | null>(null);
 
   // Connect to realtime channel
   useEffect(() => {
@@ -27,19 +36,66 @@ export default function NotesLiveView() {
         
         if (update.type === 'init') {
           setState(update.payload as NotePresentationState);
+          // Save last spotlight if there's content
+          const newState = update.payload as NotePresentationState;
+          if (newState.spotlightText) {
+            setLastSpotlight({
+              text: newState.spotlightText,
+              settings: newState.spotlightSettings,
+              emphasisList: newState.emphasisList || [],
+              currentPage: newState.currentPage || 0,
+              totalPages: newState.totalPages || 1,
+            });
+          }
         } else if (update.type === 'spotlight') {
-          setState(prev => prev ? { ...prev, ...update.payload } : null);
+          setState(prev => {
+            const newState = prev ? { ...prev, ...update.payload } : null;
+            // Save last spotlight if there's content
+            if (newState?.spotlightText) {
+              setLastSpotlight({
+                text: newState.spotlightText,
+                settings: newState.spotlightSettings,
+                emphasisList: newState.emphasisList || [],
+                currentPage: newState.currentPage || 0,
+                totalPages: newState.totalPages || 1,
+              });
+            }
+            return newState;
+          });
         } else if (update.type === 'emphasis') {
-          setState(prev => prev ? { ...prev, emphasisList: update.payload.emphasisList || [] } : null);
+          setState(prev => {
+            const newState = prev ? { ...prev, emphasisList: update.payload.emphasisList || [] } : null;
+            if (newState?.spotlightText && lastSpotlight) {
+              setLastSpotlight(ls => ls ? { ...ls, emphasisList: update.payload.emphasisList || [] } : null);
+            }
+            return newState;
+          });
         } else if (update.type === 'page') {
-          setState(prev => prev ? { 
-            ...prev, 
-            currentPage: update.payload.currentPage ?? prev.currentPage,
-            totalPages: update.payload.totalPages ?? prev.totalPages 
-          } : null);
+          setState(prev => {
+            const newState = prev ? { 
+              ...prev, 
+              currentPage: update.payload.currentPage ?? prev.currentPage,
+              totalPages: update.payload.totalPages ?? prev.totalPages 
+            } : null;
+            if (newState?.spotlightText && lastSpotlight) {
+              setLastSpotlight(ls => ls ? { 
+                ...ls, 
+                currentPage: update.payload.currentPage ?? ls.currentPage,
+                totalPages: update.payload.totalPages ?? ls.totalPages 
+              } : null);
+            }
+            return newState;
+          });
         } else if (update.type === 'settings') {
-          setState(prev => prev ? { ...prev, spotlightSettings: update.payload.spotlightSettings! } : null);
+          setState(prev => {
+            const newState = prev ? { ...prev, spotlightSettings: update.payload.spotlightSettings! } : null;
+            if (lastSpotlight) {
+              setLastSpotlight(ls => ls ? { ...ls, settings: update.payload.spotlightSettings! } : null);
+            }
+            return newState;
+          });
         } else if (update.type === 'clear') {
+          // Don't clear lastSpotlight - keep showing the last content
           setState(prev => prev ? { ...prev, spotlightOpen: false, spotlightText: '', emphasisList: [] } : null);
         }
       })
@@ -55,13 +111,34 @@ export default function NotesLiveView() {
     };
   }, [sessionId]);
 
-  const settings = state?.spotlightSettings || DEFAULT_SPOTLIGHT_SETTINGS;
+  // Use current spotlight or fall back to last spotlight
+  const displayState = useMemo(() => {
+    if (state?.spotlightOpen && state?.spotlightText) {
+      return {
+        text: state.spotlightText,
+        settings: state.spotlightSettings || DEFAULT_SPOTLIGHT_SETTINGS,
+        emphasisList: state.emphasisList || [],
+        currentPage: state.currentPage || 0,
+        totalPages: state.totalPages || 1,
+        isLive: true,
+      };
+    }
+    if (lastSpotlight) {
+      return {
+        ...lastSpotlight,
+        isLive: false,
+      };
+    }
+    return null;
+  }, [state, lastSpotlight]);
 
-  // Parse scripture from the highlighted text
+  const settings = displayState?.settings || DEFAULT_SPOTLIGHT_SETTINGS;
+
+  // Parse scripture from the displayed text
   const parsedScripture = useMemo(() => {
-    if (!state?.spotlightText) return null;
-    return parseScriptureFromHighlight(state.spotlightText);
-  }, [state?.spotlightText]);
+    if (!displayState?.text) return null;
+    return parseScriptureFromHighlight(displayState.text);
+  }, [displayState?.text]);
 
   // Check if this is a scripture with multiple verses
   const hasMultipleVerses = parsedScripture && parsedScripture.verses.length > 1;
@@ -72,8 +149,8 @@ export default function NotesLiveView() {
   // Get current verses to display
   const currentVerses = useMemo(() => {
     if (!hasMultipleVerses) return [];
-    return getVerseGroup(parsedScripture.verses, state?.currentPage || 0, settings.versesPerPage);
-  }, [parsedScripture, state?.currentPage, settings.versesPerPage, hasMultipleVerses]);
+    return getVerseGroup(parsedScripture.verses, displayState?.currentPage || 0, settings.versesPerPage);
+  }, [parsedScripture, displayState?.currentPage, settings.versesPerPage, hasMultipleVerses]);
 
   // Get font family based on settings
   const getFontFamily = () => {
@@ -109,7 +186,7 @@ export default function NotesLiveView() {
 
   // Render text with emphasis
   const renderTextWithEmphasis = (textContent: string, isLight: boolean) => {
-    const emphasisList = state?.emphasisList || [];
+    const emphasisList = displayState?.emphasisList || [];
     if (emphasisList.length === 0) return textContent;
 
     const positions: { start: number; end: number; text: string; colorId: string }[] = [];
@@ -191,8 +268,8 @@ export default function NotesLiveView() {
   const isPresentation = settings.mode === 'presentation';
   const isLight = settings.textColor === 'light';
 
-  // Waiting screen when not connected or no spotlight
-  if (!connected || !state?.spotlightOpen || !state?.spotlightText) {
+  // Only show waiting screen when not connected (no displayState means nothing to show yet)
+  if (!connected) {
     return (
       <div 
         className="min-h-screen flex items-center justify-center p-12"
@@ -215,7 +292,39 @@ export default function NotesLiveView() {
         <div className="relative z-10 text-center">
           <div className="inline-block px-8 py-4 bg-black/30 backdrop-blur-sm rounded-2xl">
             <p className={`text-xl md:text-2xl ${isLight ? 'text-white/70' : 'text-gray-800/70'}`}>
-              {connected ? 'Waiting for presenter...' : 'Connecting...'}
+              Connecting...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show waiting screen only if we have no content at all (no current and no last)
+  if (!displayState) {
+    return (
+      <div 
+        className="min-h-screen flex items-center justify-center p-12"
+        style={{
+          backgroundImage: settings.backgroundUrl
+            ? `url(${settings.backgroundUrl})`
+            : 'linear-gradient(135deg, #1e3a5f, #0d1f33)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        {/* Overlay */}
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundColor: `rgba(0, 0, 0, ${settings.overlayDarkness / 100})`,
+          }}
+        />
+        
+        <div className="relative z-10 text-center">
+          <div className="inline-block px-8 py-4 bg-black/30 backdrop-blur-sm rounded-2xl">
+            <p className={`text-xl md:text-2xl ${isLight ? 'text-white/70' : 'text-gray-800/70'}`}>
+              Waiting for presenter...
             </p>
             {state?.noteTitle && (
               <p className={`text-sm mt-2 ${isLight ? 'text-white/50' : 'text-gray-800/50'}`}>
@@ -251,7 +360,7 @@ export default function NotesLiveView() {
       {/* Content */}
       <AnimatePresence mode="wait">
         <motion.div
-          key={state.spotlightText}
+          key={displayState.text + displayState.currentPage}
           {...getAnimationVariants()}
           transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
           className="relative z-10 max-w-5xl w-full"
@@ -294,7 +403,7 @@ export default function NotesLiveView() {
               </div>
             ) : (
               // Display regular text
-              renderTextWithEmphasis(state.spotlightText, isLight)
+              renderTextWithEmphasis(displayState.text, isLight)
             )}
           </div>
 
@@ -302,14 +411,14 @@ export default function NotesLiveView() {
           {hasMultipleVerses && totalPages > 1 && (
             <div className={`flex items-center justify-center gap-4 mt-8 ${isLight ? 'text-white/60' : 'text-gray-800/60'}`}>
               <span className="text-sm">
-                Page {(state.currentPage || 0) + 1} of {totalPages}
+                Page {(displayState.currentPage || 0) + 1} of {totalPages}
               </span>
               <div className="flex gap-2">
                 {Array.from({ length: totalPages }).map((_, idx) => (
                   <div
                     key={idx}
                     className={`w-2 h-2 rounded-full transition-all ${
-                      idx === (state.currentPage || 0)
+                      idx === (displayState.currentPage || 0)
                         ? isLight ? 'bg-white' : 'bg-gray-800'
                         : isLight ? 'bg-white/30' : 'bg-gray-800/30'
                     }`}
