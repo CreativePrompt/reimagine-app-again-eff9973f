@@ -820,6 +820,7 @@ export default function NoteEditor() {
                       totalPages={spotlightTotalPages}
                       onPageChange={handleSidePanelPageChange}
                       onEmphasisChange={setEmphasisList}
+                      onUpdateSettings={handleSaveSpotlightSettings}
                       audienceCount={presenterLiveState.audienceCount}
                       isLive={presenterLiveState.isLive}
                       audienceUrl={presenterLiveState.audienceUrl}
