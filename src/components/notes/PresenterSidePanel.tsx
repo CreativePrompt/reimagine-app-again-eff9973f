@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { 
@@ -34,6 +34,7 @@ interface PresenterSidePanelProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+  onEmphasisChange?: (emphasisList: EmphasisRange[]) => void;
   audienceCount: number;
   isLive: boolean;
   audienceUrl: string;
@@ -49,12 +50,14 @@ export function PresenterSidePanel({
   currentPage,
   totalPages,
   onPageChange,
+  onEmphasisChange,
   audienceCount,
   isLive,
   audienceUrl,
   onCopyUrl,
   onOpenAudienceView,
 }: PresenterSidePanelProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   
   // Timer state
@@ -117,6 +120,51 @@ export function PresenterSidePanel({
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, [onCopyUrl]);
+
+  // Handle text selection for emphasis in side panel
+  const handleSidePanelTextSelection = useCallback(() => {
+    if (!spotlightSettings.liveEmphasisEnabled || !onEmphasisChange) return;
+
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !selection.toString().trim()) return;
+
+    const selectedText = selection.toString().trim();
+    if (!selectedText || !contentRef.current) return;
+
+    const range = selection.getRangeAt(0);
+    if (!contentRef.current.contains(range.commonAncestorContainer)) return;
+
+    const defaultColor = EMPHASIS_COLORS.find(c => c.id === spotlightSettings.defaultEmphasisColor)
+      ? spotlightSettings.defaultEmphasisColor
+      : 'yellow';
+
+    const newEmphasis: EmphasisRange = {
+      start: range.startOffset,
+      end: range.endOffset,
+      text: selectedText,
+      colorId: defaultColor,
+    };
+
+    if (spotlightSettings.multiEmphasisEnabled) {
+      const updated = [...displayEmphasis];
+      if (!updated.some(e => e.text === selectedText)) {
+        updated.push(newEmphasis);
+      }
+      onEmphasisChange(updated);
+    } else {
+      onEmphasisChange([newEmphasis]);
+    }
+
+    selection.removeAllRanges();
+  }, [spotlightSettings, onEmphasisChange, displayEmphasis]);
+
+  // Handle click to clear emphasis in side panel
+  const handleSidePanelContentClick = useCallback(() => {
+    if (!onEmphasisChange || displayEmphasis.length === 0) return;
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) return;
+    onEmphasisChange([]);
+  }, [onEmphasisChange, displayEmphasis]);
 
   // Format timer display
   const formatTimer = (seconds: number) => {
@@ -297,8 +345,13 @@ export function PresenterSidePanel({
             }}
           />
 
-          {/* Content */}
-          <div className="relative z-10 p-4 w-full">
+          {/* Content - supports text selection for emphasis */}
+          <div
+            ref={contentRef}
+            className="relative z-10 p-4 w-full cursor-text"
+            onMouseUp={handleSidePanelTextSelection}
+            onClick={handleSidePanelContentClick}
+          >
             {displayText ? (
               <div className="text-center">
                 {/* Scripture Reference */}
