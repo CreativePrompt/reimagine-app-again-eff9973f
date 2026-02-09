@@ -102,6 +102,7 @@ export default function NoteEditor() {
   
   // Presenter side panel state
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
+  const [suppressPopup, setSuppressPopup] = useState(false);
   const [presenterLiveState, setPresenterLiveState] = useState({
     isLive: false,
     audienceCount: 0,
@@ -647,6 +648,8 @@ export default function NoteEditor() {
                       sidePanelOpen={sidePanelOpen}
                       onSidePanelToggle={() => setSidePanelOpen(!sidePanelOpen)}
                       onLiveStateChange={handleLiveStateChange}
+                      suppressPopup={suppressPopup}
+                      onSuppressPopupToggle={() => setSuppressPopup(!suppressPopup)}
                     />
                   </>
                 )}
@@ -816,6 +819,7 @@ export default function NoteEditor() {
                       currentPage={spotlightPage}
                       totalPages={spotlightTotalPages}
                       onPageChange={handleSidePanelPageChange}
+                      onEmphasisChange={setEmphasisList}
                       audienceCount={presenterLiveState.audienceCount}
                       isLive={presenterLiveState.isLive}
                       audienceUrl={presenterLiveState.audienceUrl}
@@ -838,19 +842,21 @@ export default function NoteEditor() {
         onSave={handleSaveHighlightSettings}
       />
 
-      {/* Spotlight Popup */}
-      <SpotlightPopup
-        text={spotlightText}
-        isOpen={spotlightOpen}
-        onClose={handleSpotlightClose}
-        settings={spotlightSettings}
-        onUpdateSettings={handleSaveSpotlightSettings}
-        onEmphasisChange={setEmphasisList}
-        onPageChange={(page, total) => {
-          setSpotlightPage(page);
-          setSpotlightTotalPages(total);
-        }}
-      />
+      {/* Spotlight Popup - Only render if not suppressed */}
+      {!suppressPopup && (
+        <SpotlightPopup
+          text={spotlightText}
+          isOpen={spotlightOpen}
+          onClose={handleSpotlightClose}
+          settings={spotlightSettings}
+          onUpdateSettings={handleSaveSpotlightSettings}
+          onEmphasisChange={setEmphasisList}
+          onPageChange={(page, total) => {
+            setSpotlightPage(page);
+            setSpotlightTotalPages(total);
+          }}
+        />
+      )}
 
       {/* Spotlight Settings Dialog */}
       <SpotlightSettingsDialog

@@ -2,6 +2,12 @@ import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
 import { 
   Radio, 
   Square, 
@@ -13,6 +19,8 @@ import {
   WifiOff,
   PanelRightOpen,
   PanelRightClose,
+  MonitorOff,
+  Monitor,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,6 +49,8 @@ interface PresenterModeBarProps {
   sidePanelOpen?: boolean;
   onSidePanelToggle?: () => void;
   onLiveStateChange?: (isLive: boolean, audienceCount: number, audienceUrl: string) => void;
+  suppressPopup?: boolean;
+  onSuppressPopupToggle?: () => void;
 }
 
 export function PresenterModeBar({
@@ -55,6 +65,8 @@ export function PresenterModeBar({
   sidePanelOpen = false,
   onSidePanelToggle,
   onLiveStateChange,
+  suppressPopup = false,
+  onSuppressPopupToggle,
 }: PresenterModeBarProps) {
   const { toast } = useToast();
   const [isLive, setIsLive] = useState(false);
@@ -202,6 +214,30 @@ export function PresenterModeBar({
             )}
           </Button>
         )}
+        
+        {/* Suppress Popup Toggle */}
+        {onSuppressPopupToggle && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={suppressPopup ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={onSuppressPopupToggle}
+                >
+                  {suppressPopup ? (
+                    <MonitorOff className="h-4 w-4" />
+                  ) : (
+                    <Monitor className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {suppressPopup ? "Popup hidden – using side panel only" : "Hide spotlight popup (use side panel instead)"}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
     );
   }
@@ -280,9 +316,32 @@ export function PresenterModeBar({
             )}
           </Button>
         )}
+        
+        {/* Suppress Popup Toggle */}
+        {onSuppressPopupToggle && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={suppressPopup ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={onSuppressPopupToggle}
+                  className="h-8 px-2"
+                >
+                  {suppressPopup ? (
+                    <MonitorOff className="h-4 w-4" />
+                  ) : (
+                    <Monitor className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {suppressPopup ? "Popup hidden – using side panel only" : "Hide spotlight popup (use side panel instead)"}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
-
-      {/* Stop Button */}
       <Button
         variant="destructive"
         size="sm"
