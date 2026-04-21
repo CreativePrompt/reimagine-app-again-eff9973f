@@ -97,7 +97,7 @@ export default function NoteEditor() {
   const readerContentRef = useRef<HTMLElement>(null);
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<RichTextEditorRef>(null);
-  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lastAutoSave, setLastAutoSave] = useState<Date | null>(null);
   
   // Presenter side panel state
