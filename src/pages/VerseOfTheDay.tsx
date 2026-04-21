@@ -54,6 +54,16 @@ export default function VerseOfTheDay() {
     }
   }, []);
 
+  // Pick random verse on initial load
+  useEffect(() => {
+    const pool =
+      category === "all"
+        ? ALL_VERSES
+        : VERSE_CATEGORIES.find((c) => c.id === category)?.references || ALL_VERSES;
+    const randomRef = pool[Math.floor(Math.random() * pool.length)];
+    setCurrentRef(randomRef);
+  }, []);
+
   useEffect(() => {
     fetchVerse(currentRef);
   }, [currentRef, fetchVerse]);
