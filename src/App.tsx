@@ -23,6 +23,7 @@ import PresentationView from "./pages/PresentationView";
 import PresenterView from "./pages/PresenterView";
 import Timer from "./pages/Timer";
 import NotesLiveView from "./pages/NotesLiveView";
+import VerseOfTheDay from "./pages/VerseOfTheDay";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -60,6 +61,7 @@ const App = () => {
               <Route path="/resources" element={<Dashboard />} />
               <Route path="/archive" element={<Dashboard />} />
               <Route path="/timer" element={<Timer />} />
+              <Route path="/verse-of-the-day" element={<VerseOfTheDay />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
