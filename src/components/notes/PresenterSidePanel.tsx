@@ -132,7 +132,7 @@ export function PresenterSidePanel({
 
   // Timer effect
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     if (timerRunning) {
       interval = setInterval(() => {
         if (timerMode === 'stopwatch') {

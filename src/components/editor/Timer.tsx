@@ -15,7 +15,7 @@ export function Timer() {
   const [mode, setMode] = useState<"stopwatch" | "countdown">("stopwatch");
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     
     if (isRunning) {
       interval = setInterval(() => {
