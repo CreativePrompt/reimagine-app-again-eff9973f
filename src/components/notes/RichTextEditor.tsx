@@ -15,6 +15,13 @@ interface RichTextEditorProps {
 export interface RichTextEditorRef {
   insertAtCursor: (text: string) => void;
   getContent: () => string;
+  getSelectedText: () => string;
+  /** Returns the index of the start of the current selection (in Quill text positions). */
+  getSelectionOffset: () => number;
+  /** Get text snippet around a given offset (length chars before & after). */
+  getSnippetAtOffset: (offset: number, length?: number) => string;
+  /** Scroll the editor to a given Quill text offset. */
+  scrollToOffset: (offset: number) => boolean;
 }
 
 export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
@@ -225,6 +232,50 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         if (!quillRef.current) return value;
         const quill = quillRef.current.getEditor();
         return quill ? quill.root.innerHTML : value;
+      },
+      getSelectedText: () => {
+        if (!quillRef.current) return "";
+        const quill = quillRef.current.getEditor();
+        if (!quill) return "";
+        const range = quill.getSelection();
+        if (!range || range.length === 0) return "";
+        return quill.getText(range.index, range.length).trim();
+      },
+      getSelectionOffset: () => {
+        if (!quillRef.current) return 0;
+        const quill = quillRef.current.getEditor();
+        if (!quill) return 0;
+        const range = quill.getSelection(true);
+        return range ? range.index : 0;
+      },
+      getSnippetAtOffset: (offset: number, length = 40) => {
+        if (!quillRef.current) return "";
+        const quill = quillRef.current.getEditor();
+        if (!quill) return "";
+        const total = quill.getLength();
+        const start = Math.max(0, offset - Math.floor(length / 2));
+        const end = Math.min(total, start + length);
+        return quill.getText(start, end - start).replace(/\s+/g, " ").trim();
+      },
+      scrollToOffset: (offset: number) => {
+        if (!quillRef.current) return false;
+        const quill = quillRef.current.getEditor();
+        if (!quill) return false;
+        const safe = Math.min(Math.max(0, offset), quill.getLength() - 1);
+        try {
+          quill.setSelection(safe, 0, "silent");
+          // Quill auto-scrolls on selection; also try to find the surrounding leaf
+          const [leaf] = quill.getLeaf(safe);
+          const node = leaf?.domNode as Node | undefined;
+          if (node) {
+            const el = node.nodeType === 1 ? (node as HTMLElement) : (node.parentElement as HTMLElement | null);
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+            return true;
+          }
+        } catch (e) {
+          console.warn("scrollToOffset error", e);
+        }
+        return false;
       }
     }), [onChange, value]);
 

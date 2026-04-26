@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RichTextEditor, RichTextEditorRef } from "@/components/notes/RichTextEditor";
 import { useNotesStore } from "@/lib/store/notesStore";
-import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut, Highlighter, Settings, Focus, Search, Clock, BookMarked, Loader2 } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut, Highlighter, Settings, Focus, Search, Clock, BookMarked, Loader2, Bookmark } from "lucide-react";
 import { convertNoteHtmlToEsv } from "@/lib/convertToEsv";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow, format } from "date-fns";
@@ -17,7 +17,10 @@ import { SpotlightSettingsDialog, SpotlightSettings, DEFAULT_SPOTLIGHT_SETTINGS 
 import { ScriptureSearchSidebar } from "@/components/notes/ScriptureSearchSidebar";
 import { PresenterModeBar } from "@/components/notes/PresenterModeBar";
 import { PresenterSidePanel } from "@/components/notes/PresenterSidePanel";
+import { BookmarksPanel, AddBookmarkDialog } from "@/components/notes/BookmarksPanel";
+import type { NoteBookmark } from "@/lib/store/notesStore";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { computeTextOffset, findElementByTextOffset, findTextInElement } from "@/lib/bookmarkOffsets";
 import "@/components/notes/RichTextEditor.css";
 
 type ViewMode = 'edit' | 'reader';
@@ -109,6 +112,13 @@ export default function NoteEditor() {
     audienceCount: 0,
     audienceUrl: '',
   });
+
+  // Bookmarks state
+  const [bookmarks, setBookmarks] = useState<NoteBookmark[]>([]);
+  const [bookmarksCollapsed, setBookmarksCollapsed] = useState(false);
+  const [addBookmarkOpen, setAddBookmarkOpen] = useState(false);
+  const [pendingBookmarkLabel, setPendingBookmarkLabel] = useState("");
+  const [hasSelection, setHasSelection] = useState(false);
 
   // Handle live state changes from PresenterModeBar
   const handleLiveStateChange = useCallback((isLive: boolean, audienceCount: number, audienceUrl: string) => {
@@ -343,10 +353,149 @@ export default function NoteEditor() {
         setTitle(note.title);
         setContent(note.content);
         setTags(note.tags || []);
+        setBookmarks(note.bookmarks || []);
         setHasUnsavedChanges(false);
       }
     }
   }, [id, notes, setCurrentNote]);
+
+  // Track text selection (in editor or reader) to enable "Add bookmark" button
+  useEffect(() => {
+    const handler = () => {
+      const sel = window.getSelection();
+      setHasSelection(!!sel && !sel.isCollapsed && sel.toString().trim().length > 0);
+    };
+    document.addEventListener('selectionchange', handler);
+    return () => document.removeEventListener('selectionchange', handler);
+  }, []);
+
+  // Bookmark handlers
+  const updateBookmarks = useCallback((next: NoteBookmark[]) => {
+    setBookmarks(next);
+    setHasUnsavedChanges(true);
+  }, []);
+
+  const handleRequestAddBookmark = useCallback(() => {
+    let selectedText = "";
+    if (viewMode === 'edit' && editorRef.current) {
+      selectedText = editorRef.current.getSelectedText();
+    }
+    if (!selectedText) {
+      const sel = window.getSelection();
+      selectedText = sel ? sel.toString().trim() : "";
+    }
+    if (!selectedText) {
+      toast({
+        title: "Select text first",
+        description: "Highlight text in the document to bookmark that location.",
+      });
+      return;
+    }
+    setPendingBookmarkLabel(selectedText.slice(0, 60));
+    setAddBookmarkOpen(true);
+  }, [viewMode, toast]);
+
+  const handleConfirmAddBookmark = useCallback(
+    (label: string, abbreviation: string, color: string) => {
+      const newId = `bm_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      let offset = 0;
+      let snippet = "";
+
+      if (viewMode === 'edit' && editorRef.current) {
+        offset = editorRef.current.getSelectionOffset();
+        snippet = editorRef.current.getSnippetAtOffset(offset, 60);
+      } else if (viewMode === 'reader' && readerContentRef.current) {
+        // Compute character offset relative to plain text of reader content
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          const range = sel.getRangeAt(0);
+          if (readerContentRef.current.contains(range.commonAncestorContainer)) {
+            offset = computeTextOffset(readerContentRef.current, range.startContainer, range.startOffset);
+            const allText = readerContentRef.current.innerText || "";
+            const start = Math.max(0, offset - 30);
+            const end = Math.min(allText.length, offset + 30);
+            snippet = allText.slice(start, end).replace(/\s+/g, " ").trim();
+          }
+        }
+      }
+
+      const newBookmark: NoteBookmark = {
+        id: newId,
+        label,
+        abbreviation,
+        color,
+        order: bookmarks.length,
+        offset,
+        snippet,
+      };
+
+      const next = [...bookmarks, newBookmark];
+      setBookmarks(next);
+      setHasUnsavedChanges(true);
+      setAddBookmarkOpen(false);
+      toast({ title: "Bookmark added", description: label });
+    },
+    [bookmarks, viewMode, toast]
+  );
+
+  const handleJumpToBookmark = useCallback((bookmarkId: string) => {
+    const bm = bookmarks.find((b) => b.id === bookmarkId);
+    if (!bm) return;
+
+    const flashAt = (el: HTMLElement) => {
+      const block = (el.closest('p, h1, h2, h3, h4, h5, h6, li, blockquote, pre, div') as HTMLElement) || el;
+      block.classList.remove('bookmark-flash');
+      void block.offsetWidth;
+      block.classList.add('bookmark-flash');
+      setTimeout(() => block.classList.remove('bookmark-flash'), 1700);
+    };
+
+    if (viewMode === 'edit' && editorRef.current) {
+      // Try offset first
+      if (typeof bm.offset === 'number') {
+        const ok = editorRef.current.scrollToOffset(bm.offset);
+        if (ok) {
+          const editorEl = document.querySelector('.custom-quill-editor .ql-editor') as HTMLElement | null;
+          if (editorEl) {
+            // Flash the block containing the focused leaf
+            const sel = window.getSelection();
+            const node = sel?.focusNode as Node | null;
+            const target = (node && node.nodeType === 1 ? (node as HTMLElement) : node?.parentElement) || editorEl;
+            flashAt(target);
+          }
+          return;
+        }
+      }
+      // Fallback: find by snippet
+      if (bm.snippet) {
+        const editorEl = document.querySelector('.custom-quill-editor .ql-editor') as HTMLElement | null;
+        const found = editorEl ? findTextInElement(editorEl, bm.snippet) : null;
+        if (found) {
+          found.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          flashAt(found);
+          return;
+        }
+      }
+      toast({ title: "Bookmark location missing", description: "Text near this bookmark wasn't found.", variant: "destructive" });
+    } else {
+      // Reader mode
+      if (!readerContentRef.current) return;
+      const root = readerContentRef.current;
+      let target: HTMLElement | null = null;
+      if (typeof bm.offset === 'number') {
+        target = findElementByTextOffset(root, bm.offset);
+      }
+      if (!target && bm.snippet) {
+        target = findTextInElement(root, bm.snippet);
+      }
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        flashAt(target);
+      } else {
+        toast({ title: "Bookmark location missing", description: "Text near this bookmark wasn't found.", variant: "destructive" });
+      }
+    }
+  }, [bookmarks, viewMode, toast]);
 
   // Auto-save effect
   useEffect(() => {
@@ -365,7 +514,7 @@ export default function NoteEditor() {
         currentContent = editorRef.current.getContent();
       }
 
-      await updateNote(id, { title, content: currentContent, tags });
+      await updateNote(id, { title, content: currentContent, tags, bookmarks });
       setHasUnsavedChanges(false);
       setLastAutoSave(new Date());
       toast({
@@ -380,7 +529,7 @@ export default function NoteEditor() {
         clearTimeout(autoSaveTimerRef.current);
       }
     };
-  }, [id, hasUnsavedChanges, title, content, tags, updateNote, toast]);
+  }, [id, hasUnsavedChanges, title, content, tags, bookmarks, updateNote, toast]);
 
   // Handle visibility change - save on tab blur
   useEffect(() => {
@@ -392,7 +541,7 @@ export default function NoteEditor() {
           currentContent = editorRef.current.getContent();
         }
 
-        await updateNote(id, { title, content: currentContent, tags });
+        await updateNote(id, { title, content: currentContent, tags, bookmarks });
         setHasUnsavedChanges(false);
         setLastAutoSave(new Date());
       }
@@ -402,7 +551,7 @@ export default function NoteEditor() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [id, hasUnsavedChanges, title, content, tags, updateNote]);
+  }, [id, hasUnsavedChanges, title, content, tags, bookmarks, updateNote]);
 
   // Clean up auto-save timer on unmount
   useEffect(() => {
@@ -422,7 +571,7 @@ export default function NoteEditor() {
       currentContent = editorRef.current.getContent();
     }
     
-    await updateNote(id, { title, content: currentContent, tags });
+    await updateNote(id, { title, content: currentContent, tags, bookmarks });
     setHasUnsavedChanges(false);
     setLastAutoSave(new Date());
     toast({
@@ -536,6 +685,17 @@ export default function NoteEditor() {
         )}
       </AnimatePresence>
 
+      {/* Bookmarks Panel - visible in edit + reader modes */}
+      <BookmarksPanel
+        bookmarks={bookmarks}
+        collapsed={bookmarksCollapsed}
+        onToggleCollapsed={() => setBookmarksCollapsed(!bookmarksCollapsed)}
+        onJump={handleJumpToBookmark}
+        onUpdate={updateBookmarks}
+        onRequestAdd={handleRequestAddBookmark}
+        canAdd={hasSelection}
+      />
+
       {/* Main Editor */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Editor Header */}
@@ -557,6 +717,18 @@ export default function NoteEditor() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            {/* Bookmark current selection */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRequestAddBookmark}
+              disabled={!hasSelection}
+              title={hasSelection ? "Bookmark selected text" : "Select text to bookmark"}
+            >
+              <Bookmark className="h-4 w-4 mr-1" />
+              Bookmark
+            </Button>
+
             {/* Scripture Search Button - Only in Edit mode */}
             {viewMode === 'edit' && (
               <>
@@ -929,6 +1101,14 @@ export default function NoteEditor() {
         onClose={() => setScriptureSearchOpen(false)}
         onInsertScripture={handleInsertScripture}
         insertAtCursor={handleInsertAtCursor}
+      />
+
+      {/* Add Bookmark Dialog */}
+      <AddBookmarkDialog
+        open={addBookmarkOpen}
+        defaultLabel={pendingBookmarkLabel}
+        onClose={() => setAddBookmarkOpen(false)}
+        onConfirm={handleConfirmAddBookmark}
       />
     </div>
   );

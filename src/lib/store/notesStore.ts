@@ -1,12 +1,25 @@
 import { create } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
 
+export interface NoteBookmark {
+  id: string;
+  label: string;
+  abbreviation?: string;
+  color: string; // preset id e.g. "rose" (see BOOKMARK_COLORS)
+  order: number;
+  /** Character offset into plain-text of the note (preferred). */
+  offset?: number;
+  /** Snippet of nearby text used as a fallback when offsets drift. */
+  snippet?: string;
+}
+
 export interface Note {
   id: string;
   user_id: string;
   title: string;
   content: string;
   tags: string[];
+  bookmarks?: NoteBookmark[];
   created_at: string;
   updated_at: string;
 }
@@ -21,6 +34,13 @@ interface NotesStore {
   updateNote: (id: string, updates: Partial<Note>) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   setCurrentNote: (note: Note | null) => void;
+}
+
+function normalizeNote(row: any): Note {
+  return {
+    ...row,
+    bookmarks: Array.isArray(row?.bookmarks) ? (row.bookmarks as NoteBookmark[]) : [],
+  } as Note;
 }
 
 export const useNotesStore = create<NotesStore>((set, get) => ({
@@ -41,7 +61,7 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
-      set({ notes: data || [] });
+      set({ notes: (data || []).map(normalizeNote) });
     } catch (error) {
       console.error('Error loading notes:', error);
     } finally {
@@ -67,12 +87,13 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
 
       if (error) throw error;
 
+      const note = normalizeNote(data);
       set((state) => ({
-        notes: [data, ...state.notes],
-        currentNote: data
+        notes: [note, ...state.notes],
+        currentNote: note
       }));
 
-      return data;
+      return note;
     } catch (error) {
       console.error('Error creating note:', error);
       return null;
@@ -94,17 +115,19 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
           title: `${original.title} (Copy)`,
           content: original.content,
           tags: original.tags || [],
+          bookmarks: (original.bookmarks || []) as unknown as never,
         })
         .select()
         .single();
 
       if (error) throw error;
 
+      const note = normalizeNote(data);
       set((state) => ({
-        notes: [data, ...state.notes],
+        notes: [note, ...state.notes],
       }));
 
-      return data;
+      return note;
     } catch (error) {
       console.error('Error duplicating note:', error);
       return null;
@@ -113,9 +136,13 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
 
   updateNote: async (id: string, updates: Partial<Note>) => {
     try {
+      const { bookmarks, ...rest } = updates;
+      const dbUpdates: Record<string, unknown> = { ...rest };
+      if (bookmarks !== undefined) dbUpdates.bookmarks = bookmarks;
+
       const { error } = await supabase
         .from('notes')
-        .update(updates)
+        .update(dbUpdates as never)
         .eq('id', id);
 
       if (error) throw error;

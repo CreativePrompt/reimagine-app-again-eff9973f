@@ -192,6 +192,7 @@ export type Database = {
       }
       notes: {
         Row: {
+          bookmarks: Json
           content: string | null
           created_at: string
           id: string
@@ -201,6 +202,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          bookmarks?: Json
           content?: string | null
           created_at?: string
           id?: string
@@ -210,6 +212,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          bookmarks?: Json
           content?: string | null
           created_at?: string
           id?: string
