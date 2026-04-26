@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useNotesStore } from "@/lib/store/notesStore";
-import { Plus, Search, Grid3x3, List, Calendar } from "lucide-react";
+import { Plus, Search, Grid3x3, List, Calendar, Copy } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 
