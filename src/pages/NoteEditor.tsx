@@ -352,10 +352,114 @@ export default function NoteEditor() {
         setTitle(note.title);
         setContent(note.content);
         setTags(note.tags || []);
+        setBookmarks(note.bookmarks || []);
         setHasUnsavedChanges(false);
       }
     }
   }, [id, notes, setCurrentNote]);
+
+  // Track text selection (in editor or reader) to enable "Add bookmark" button
+  useEffect(() => {
+    const handler = () => {
+      const sel = window.getSelection();
+      setHasSelection(!!sel && !sel.isCollapsed && sel.toString().trim().length > 0);
+    };
+    document.addEventListener('selectionchange', handler);
+    return () => document.removeEventListener('selectionchange', handler);
+  }, []);
+
+  // Bookmark handlers
+  const updateBookmarks = useCallback((next: NoteBookmark[]) => {
+    setBookmarks(next);
+    setHasUnsavedChanges(true);
+  }, []);
+
+  const handleRequestAddBookmark = useCallback(() => {
+    let selectedText = "";
+    if (viewMode === 'edit' && editorRef.current) {
+      selectedText = editorRef.current.getSelectedText();
+    }
+    if (!selectedText) {
+      const sel = window.getSelection();
+      selectedText = sel ? sel.toString().trim() : "";
+    }
+    if (!selectedText) {
+      toast({
+        title: "Select text first",
+        description: "Highlight text in the document to bookmark that location.",
+      });
+      return;
+    }
+    setPendingBookmarkLabel(selectedText.slice(0, 60));
+    setAddBookmarkOpen(true);
+  }, [viewMode, toast]);
+
+  const handleConfirmAddBookmark = useCallback(
+    (label: string, abbreviation: string, color: string) => {
+      const newId = `bm_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const newBookmark: NoteBookmark = {
+        id: newId,
+        label,
+        abbreviation,
+        color,
+        order: bookmarks.length,
+      };
+
+      if (viewMode === 'edit' && editorRef.current) {
+        // Insert marker into content at the current cursor/selection start
+        editorRef.current.insertBookmarkMarker(newId);
+      } else if (viewMode === 'reader' && readerContentRef.current) {
+        // In reader mode, inject a marker at the start of the current selection
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          const range = sel.getRangeAt(0);
+          if (readerContentRef.current.contains(range.commonAncestorContainer)) {
+            const span = document.createElement('span');
+            span.setAttribute('data-bookmark-id', newId);
+            span.className = 'note-bookmark-marker';
+            span.textContent = '\u200B';
+            const startRange = range.cloneRange();
+            startRange.collapse(true);
+            startRange.insertNode(span);
+            // Persist updated HTML back to content
+            const newHtml = readerContentRef.current.innerHTML;
+            setContent(newHtml);
+          }
+        }
+      }
+
+      const next = [...bookmarks, newBookmark];
+      setBookmarks(next);
+      setHasUnsavedChanges(true);
+      setAddBookmarkOpen(false);
+      toast({ title: "Bookmark added", description: label });
+    },
+    [bookmarks, viewMode, toast]
+  );
+
+  const handleJumpToBookmark = useCallback((bookmarkId: string) => {
+    // Find marker in either edit or reader DOM
+    const root = viewMode === 'edit'
+      ? document.querySelector('.custom-quill-editor .ql-editor') as HTMLElement | null
+      : readerContentRef.current;
+    if (!root) return;
+    const marker = root.querySelector(`[data-bookmark-id="${bookmarkId}"]`) as HTMLElement | null;
+    if (!marker) {
+      toast({
+        title: "Bookmark location missing",
+        description: "The text near this bookmark may have been removed.",
+        variant: "destructive",
+      });
+      return;
+    }
+    marker.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const block = (marker.closest('p, h1, h2, h3, h4, h5, h6, li, blockquote, pre, div') as HTMLElement) || marker;
+    block.classList.remove('bookmark-flash');
+    // Force reflow to restart animation
+    void block.offsetWidth;
+    block.classList.add('bookmark-flash');
+    setTimeout(() => block.classList.remove('bookmark-flash'), 1700);
+  }, [viewMode, toast]);
 
   // Auto-save effect
   useEffect(() => {
