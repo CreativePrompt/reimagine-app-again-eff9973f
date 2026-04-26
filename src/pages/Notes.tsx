@@ -7,14 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useNotesStore } from "@/lib/store/notesStore";
-import { Plus, Search, Grid3x3, List, Calendar } from "lucide-react";
+import { Plus, Search, Grid3x3, List, Calendar, Copy } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 
 export default function Notes() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { notes, isLoading, loadNotes, createNote } = useNotesStore();
+  const { notes, isLoading, loadNotes, createNote, duplicateNote } = useNotesStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
@@ -31,6 +31,11 @@ export default function Notes() {
     if (note) {
       navigate(`/notes/${note.id}`);
     }
+  };
+
+  const handleDuplicate = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    await duplicateNote(id);
   };
 
   const filteredNotes = notes.filter(
@@ -126,10 +131,23 @@ export default function Notes() {
                   onClick={() => navigate(`/notes/${note.id}`)}
                 >
                   <CardHeader>
-                    <CardTitle className="line-clamp-1 text-lg">{note.title}</CardTitle>
-                    <CardDescription className="line-clamp-3">
-                      {note.content || "No content"}
-                    </CardDescription>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <CardTitle className="line-clamp-1 text-lg">{note.title}</CardTitle>
+                        <CardDescription className="line-clamp-3 mt-1.5">
+                          {note.content || "No content"}
+                        </CardDescription>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={(e) => handleDuplicate(e, note.id)}
+                        title="Duplicate note"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center justify-between mb-3">

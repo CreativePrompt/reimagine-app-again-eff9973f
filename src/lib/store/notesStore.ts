@@ -17,6 +17,7 @@ interface NotesStore {
   isLoading: boolean;
   loadNotes: () => Promise<void>;
   createNote: () => Promise<Note | null>;
+  duplicateNote: (id: string) => Promise<Note | null>;
   updateNote: (id: string, updates: Partial<Note>) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   setCurrentNote: (note: Note | null) => void;
@@ -74,6 +75,38 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
       return data;
     } catch (error) {
       console.error('Error creating note:', error);
+      return null;
+    }
+  },
+
+  duplicateNote: async (id: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const original = get().notes.find((n) => n.id === id);
+      if (!original) return null;
+
+      const { data, error } = await supabase
+        .from('notes')
+        .insert({
+          user_id: user.id,
+          title: `${original.title} (Copy)`,
+          content: original.content,
+          tags: original.tags || [],
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      set((state) => ({
+        notes: [data, ...state.notes],
+      }));
+
+      return data;
+    } catch (error) {
+      console.error('Error duplicating note:', error);
       return null;
     }
   },
