@@ -14,7 +14,7 @@ import { formatDistanceToNow } from "date-fns";
 export default function Notes() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { notes, isLoading, loadNotes, createNote } = useNotesStore();
+  const { notes, isLoading, loadNotes, createNote, duplicateNote } = useNotesStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
