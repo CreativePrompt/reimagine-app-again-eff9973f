@@ -17,6 +17,7 @@ interface NotesStore {
   isLoading: boolean;
   loadNotes: () => Promise<void>;
   createNote: () => Promise<Note | null>;
+  duplicateNote: (id: string) => Promise<Note | null>;
   updateNote: (id: string, updates: Partial<Note>) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   setCurrentNote: (note: Note | null) => void;
