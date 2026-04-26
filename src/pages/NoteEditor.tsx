@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RichTextEditor, RichTextEditorRef } from "@/components/notes/RichTextEditor";
 import { useNotesStore } from "@/lib/store/notesStore";
-import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut, Highlighter, Settings, Focus, Search, Clock, BookMarked, Loader2 } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut, Highlighter, Settings, Focus, Search, Clock, BookMarked, Loader2, Bookmark } from "lucide-react";
 import { convertNoteHtmlToEsv } from "@/lib/convertToEsv";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow, format } from "date-fns";
@@ -17,6 +17,8 @@ import { SpotlightSettingsDialog, SpotlightSettings, DEFAULT_SPOTLIGHT_SETTINGS 
 import { ScriptureSearchSidebar } from "@/components/notes/ScriptureSearchSidebar";
 import { PresenterModeBar } from "@/components/notes/PresenterModeBar";
 import { PresenterSidePanel } from "@/components/notes/PresenterSidePanel";
+import { BookmarksPanel, AddBookmarkDialog } from "@/components/notes/BookmarksPanel";
+import type { NoteBookmark } from "@/lib/store/notesStore";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import "@/components/notes/RichTextEditor.css";
 
