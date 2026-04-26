@@ -241,56 +241,41 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         if (!range || range.length === 0) return "";
         return quill.getText(range.index, range.length).trim();
       },
-      insertBookmarkMarker: (bookmarkId: string) => {
+      getSelectionOffset: () => {
+        if (!quillRef.current) return 0;
+        const quill = quillRef.current.getEditor();
+        if (!quill) return 0;
+        const range = quill.getSelection(true);
+        return range ? range.index : 0;
+      },
+      getSnippetAtOffset: (offset: number, length = 40) => {
+        if (!quillRef.current) return "";
+        const quill = quillRef.current.getEditor();
+        if (!quill) return "";
+        const total = quill.getLength();
+        const start = Math.max(0, offset - Math.floor(length / 2));
+        const end = Math.min(total, start + length);
+        return quill.getText(start, end - start).replace(/\s+/g, " ").trim();
+      },
+      scrollToOffset: (offset: number) => {
         if (!quillRef.current) return false;
         const quill = quillRef.current.getEditor();
         if (!quill) return false;
-
-        // Use the start of the current selection (or cursor)
-        const range = quill.getSelection(true);
-        const index = range ? range.index : 0;
-
-        // Insert a zero-width text we can locate, then we'll wrap it via DOM
-        const MARKER = "\u200B"; // zero-width space
-        quill.insertText(index, MARKER, "user");
-
-        // After insertion, find the text node containing that ZWSP and wrap it
-        // with a marker span carrying data-bookmark-id.
-        requestAnimationFrame(() => {
-          const editorEl = quill.root as HTMLElement;
-          const walker = document.createTreeWalker(editorEl, NodeFilter.SHOW_TEXT);
-          let node: Node | null = walker.nextNode();
-          while (node) {
-            const t = node as Text;
-            const idx = t.nodeValue?.indexOf(MARKER) ?? -1;
-            if (idx >= 0) {
-              // Skip if already inside a bookmark marker
-              const parentEl = t.parentElement;
-              if (parentEl && parentEl.hasAttribute("data-bookmark-id")) {
-                node = walker.nextNode();
-                continue;
-              }
-              // Split text node so the marker is its own node
-              const before = t.nodeValue!.slice(0, idx);
-              const after = t.nodeValue!.slice(idx + MARKER.length);
-              const span = document.createElement("span");
-              span.setAttribute("data-bookmark-id", bookmarkId);
-              span.className = "note-bookmark-marker";
-              span.textContent = MARKER;
-              const parent = t.parentNode!;
-              if (before) parent.insertBefore(document.createTextNode(before), t);
-              parent.insertBefore(span, t);
-              if (after) parent.insertBefore(document.createTextNode(after), t);
-              parent.removeChild(t);
-              break;
-            }
-            node = walker.nextNode();
+        const safe = Math.min(Math.max(0, offset), quill.getLength() - 1);
+        try {
+          quill.setSelection(safe, 0, "silent");
+          // Quill auto-scrolls on selection; also try to find the surrounding leaf
+          const [leaf] = quill.getLeaf(safe);
+          const node = leaf?.domNode as Node | undefined;
+          if (node) {
+            const el = node.nodeType === 1 ? (node as HTMLElement) : (node.parentElement as HTMLElement | null);
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+            return true;
           }
-          const newContent = quill.root.innerHTML;
-          lastValueRef.current = newContent;
-          onChange(newContent);
-        });
-        return true;
+        } catch (e) {
+          console.warn("scrollToOffset error", e);
+        }
+        return false;
       }
     }), [onChange, value]);
 
