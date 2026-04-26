@@ -131,10 +131,23 @@ export default function Notes() {
                   onClick={() => navigate(`/notes/${note.id}`)}
                 >
                   <CardHeader>
-                    <CardTitle className="line-clamp-1 text-lg">{note.title}</CardTitle>
-                    <CardDescription className="line-clamp-3">
-                      {note.content || "No content"}
-                    </CardDescription>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <CardTitle className="line-clamp-1 text-lg">{note.title}</CardTitle>
+                        <CardDescription className="line-clamp-3 mt-1.5">
+                          {note.content || "No content"}
+                        </CardDescription>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={(e) => handleDuplicate(e, note.id)}
+                        title="Duplicate note"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center justify-between mb-3">
