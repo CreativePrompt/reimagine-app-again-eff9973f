@@ -79,6 +79,38 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
     }
   },
 
+  duplicateNote: async (id: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const original = get().notes.find((n) => n.id === id);
+      if (!original) return null;
+
+      const { data, error } = await supabase
+        .from('notes')
+        .insert({
+          user_id: user.id,
+          title: `${original.title} (Copy)`,
+          content: original.content,
+          tags: original.tags || [],
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      set((state) => ({
+        notes: [data, ...state.notes],
+      }));
+
+      return data;
+    } catch (error) {
+      console.error('Error duplicating note:', error);
+      return null;
+    }
+  },
+
   updateNote: async (id: string, updates: Partial<Note>) => {
     try {
       const { error } = await supabase
