@@ -681,6 +681,18 @@ export default function NoteEditor() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            {/* Bookmark current selection */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRequestAddBookmark}
+              disabled={!hasSelection}
+              title={hasSelection ? "Bookmark selected text" : "Select text to bookmark"}
+            >
+              <Bookmark className="h-4 w-4 mr-1" />
+              Bookmark
+            </Button>
+
             {/* Scripture Search Button - Only in Edit mode */}
             {viewMode === 'edit' && (
               <>
