@@ -15,6 +15,8 @@ interface RichTextEditorProps {
 export interface RichTextEditorRef {
   insertAtCursor: (text: string) => void;
   getContent: () => string;
+  getSelectedText: () => string;
+  insertBookmarkMarker: (bookmarkId: string) => boolean;
 }
 
 export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
@@ -225,6 +227,65 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         if (!quillRef.current) return value;
         const quill = quillRef.current.getEditor();
         return quill ? quill.root.innerHTML : value;
+      },
+      getSelectedText: () => {
+        if (!quillRef.current) return "";
+        const quill = quillRef.current.getEditor();
+        if (!quill) return "";
+        const range = quill.getSelection();
+        if (!range || range.length === 0) return "";
+        return quill.getText(range.index, range.length).trim();
+      },
+      insertBookmarkMarker: (bookmarkId: string) => {
+        if (!quillRef.current) return false;
+        const quill = quillRef.current.getEditor();
+        if (!quill) return false;
+
+        // Use the start of the current selection (or cursor)
+        const range = quill.getSelection(true);
+        const index = range ? range.index : 0;
+
+        // Insert a zero-width text we can locate, then we'll wrap it via DOM
+        const MARKER = "\u200B"; // zero-width space
+        quill.insertText(index, MARKER, "user");
+
+        // After insertion, find the text node containing that ZWSP and wrap it
+        // with a marker span carrying data-bookmark-id.
+        requestAnimationFrame(() => {
+          const editorEl = quill.root as HTMLElement;
+          const walker = document.createTreeWalker(editorEl, NodeFilter.SHOW_TEXT);
+          let node: Node | null = walker.nextNode();
+          while (node) {
+            const t = node as Text;
+            const idx = t.nodeValue?.indexOf(MARKER) ?? -1;
+            if (idx >= 0) {
+              // Skip if already inside a bookmark marker
+              const parentEl = t.parentElement;
+              if (parentEl && parentEl.hasAttribute("data-bookmark-id")) {
+                node = walker.nextNode();
+                continue;
+              }
+              // Split text node so the marker is its own node
+              const before = t.nodeValue!.slice(0, idx);
+              const after = t.nodeValue!.slice(idx + MARKER.length);
+              const span = document.createElement("span");
+              span.setAttribute("data-bookmark-id", bookmarkId);
+              span.className = "note-bookmark-marker";
+              span.textContent = MARKER;
+              const parent = t.parentNode!;
+              if (before) parent.insertBefore(document.createTextNode(before), t);
+              parent.insertBefore(span, t);
+              if (after) parent.insertBefore(document.createTextNode(after), t);
+              parent.removeChild(t);
+              break;
+            }
+            node = walker.nextNode();
+          }
+          const newContent = quill.root.innerHTML;
+          lastValueRef.current = newContent;
+          onChange(newContent);
+        });
+        return true;
       }
     }), [onChange, value]);
 
