@@ -50,7 +50,7 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
-      set({ notes: data || [] });
+      set({ notes: (data || []).map(normalizeNote) });
     } catch (error) {
       console.error('Error loading notes:', error);
     } finally {
@@ -76,12 +76,13 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
 
       if (error) throw error;
 
+      const note = normalizeNote(data);
       set((state) => ({
-        notes: [data, ...state.notes],
-        currentNote: data
+        notes: [note, ...state.notes],
+        currentNote: note
       }));
 
-      return data;
+      return note;
     } catch (error) {
       console.error('Error creating note:', error);
       return null;
@@ -103,17 +104,19 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
           title: `${original.title} (Copy)`,
           content: original.content,
           tags: original.tags || [],
+          bookmarks: (original.bookmarks || []) as unknown as never,
         })
         .select()
         .single();
 
       if (error) throw error;
 
+      const note = normalizeNote(data);
       set((state) => ({
-        notes: [data, ...state.notes],
+        notes: [note, ...state.notes],
       }));
 
-      return data;
+      return note;
     } catch (error) {
       console.error('Error duplicating note:', error);
       return null;
@@ -122,9 +125,13 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
 
   updateNote: async (id: string, updates: Partial<Note>) => {
     try {
+      const { bookmarks, ...rest } = updates;
+      const dbUpdates: Record<string, unknown> = { ...rest };
+      if (bookmarks !== undefined) dbUpdates.bookmarks = bookmarks;
+
       const { error } = await supabase
         .from('notes')
-        .update(updates)
+        .update(dbUpdates as never)
         .eq('id', id);
 
       if (error) throw error;
