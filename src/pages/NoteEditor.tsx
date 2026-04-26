@@ -20,6 +20,7 @@ import { PresenterSidePanel } from "@/components/notes/PresenterSidePanel";
 import { BookmarksPanel, AddBookmarkDialog } from "@/components/notes/BookmarksPanel";
 import type { NoteBookmark } from "@/lib/store/notesStore";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { computeTextOffset, findElementByTextOffset, findTextInElement } from "@/lib/bookmarkOffsets";
 import "@/components/notes/RichTextEditor.css";
 
 type ViewMode = 'edit' | 'reader';
