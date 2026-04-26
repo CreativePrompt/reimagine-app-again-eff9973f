@@ -112,6 +112,13 @@ export default function NoteEditor() {
     audienceUrl: '',
   });
 
+  // Bookmarks state
+  const [bookmarks, setBookmarks] = useState<NoteBookmark[]>([]);
+  const [bookmarksCollapsed, setBookmarksCollapsed] = useState(false);
+  const [addBookmarkOpen, setAddBookmarkOpen] = useState(false);
+  const [pendingBookmarkLabel, setPendingBookmarkLabel] = useState("");
+  const [hasSelection, setHasSelection] = useState(false);
+
   // Handle live state changes from PresenterModeBar
   const handleLiveStateChange = useCallback((isLive: boolean, audienceCount: number, audienceUrl: string) => {
     setPresenterLiveState({ isLive, audienceCount, audienceUrl });
