@@ -1054,6 +1054,14 @@ export default function NoteEditor() {
         onInsertScripture={handleInsertScripture}
         insertAtCursor={handleInsertAtCursor}
       />
+
+      {/* Add Bookmark Dialog */}
+      <AddBookmarkDialog
+        open={addBookmarkOpen}
+        defaultLabel={pendingBookmarkLabel}
+        onClose={() => setAddBookmarkOpen(false)}
+        onConfirm={handleConfirmAddBookmark}
+      />
     </div>
   );
 }
