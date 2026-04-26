@@ -649,6 +649,17 @@ export default function NoteEditor() {
         )}
       </AnimatePresence>
 
+      {/* Bookmarks Panel - visible in edit + reader modes */}
+      <BookmarksPanel
+        bookmarks={bookmarks}
+        collapsed={bookmarksCollapsed}
+        onToggleCollapsed={() => setBookmarksCollapsed(!bookmarksCollapsed)}
+        onJump={handleJumpToBookmark}
+        onUpdate={updateBookmarks}
+        onRequestAdd={handleRequestAddBookmark}
+        canAdd={hasSelection}
+      />
+
       {/* Main Editor */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Editor Header */}
