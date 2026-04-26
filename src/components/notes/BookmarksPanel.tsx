@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bookmark, Plus, X, ChevronLeft, ChevronRight, Pencil, Trash2, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -252,14 +252,14 @@ export function AddBookmarkDialog({ open, defaultLabel, onClose, onConfirm }: Ad
   const [abbr, setAbbr] = useState("");
   const [color, setColor] = useState(BOOKMARK_COLORS[0].id);
 
-  // Reset when opened
-  if (open && label === "" && defaultLabel) {
-    // Initialize once per open — using state init via effect-less pattern:
-    setTimeout(() => {
+  // Reset/initialize when opened
+  useEffect(() => {
+    if (open) {
       setLabel(defaultLabel);
       setAbbr(defaultLabel.split(/\s+/).slice(0, 1).join("").slice(0, 5).toUpperCase());
-    }, 0);
-  }
+      setColor(BOOKMARK_COLORS[0].id);
+    }
+  }, [open, defaultLabel]);
 
   const handleConfirm = () => {
     const finalLabel = label.trim() || defaultLabel || "Bookmark";
