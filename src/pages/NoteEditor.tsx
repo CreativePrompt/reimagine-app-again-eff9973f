@@ -188,6 +188,8 @@ export default function NoteEditor() {
       setConvertingEsv(false);
     }
   }, [content, toast]);
+
+  // Clear all highlights helper function
   const clearAllHighlights = useCallback(() => {
     readerContentRef.current?.querySelectorAll('.reader-highlight-active').forEach(el => {
       el.classList.remove('reader-highlight-active');
