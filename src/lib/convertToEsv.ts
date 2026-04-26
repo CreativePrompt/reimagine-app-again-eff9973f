@@ -97,60 +97,106 @@ export async function convertNoteHtmlToEsv(html: string): Promise<ConvertResult>
   );
 
   const VERSION_TAG_RE = /\((?:KJV|NIV|NASB|NKJV|ESV|NLT|CSB|HCSB|RSV|ASV|AMP|MSG|WEB|YLT)\)/gi;
-  // Quoted block: handles straight and curly quotes, possibly multi-line
-  const QUOTE_RE = /([""\u201C\u201D"])([\s\S]*?)([""\u201C\u201D"])/;
+  const OPEN_QUOTES = ['"', "\u201C", "\u201D", "\u2018", "\u2019", "'"];
+  const CLOSE_QUOTES = ['"', "\u201C", "\u201D", "\u2018", "\u2019", "'"];
+
+  const isOpen = (ch: string) => OPEN_QUOTES.includes(ch);
+  const isClose = (ch: string) => CLOSE_QUOTES.includes(ch);
 
   let replaced = 0;
+  const processedBlocks = new Set<HTMLElement>();
 
-  // Process refs in DOM order. Group by container element so we can replace
-  // the quote that follows the reference in that block.
   for (const { reference, node } of refMatches) {
     const esvText = esvMap.get(reference);
     if (!esvText) continue;
 
-    // Walk up to the nearest block element to scope the search
     const block =
       (node.parentElement?.closest(
         "p, li, blockquote, div, h1, h2, h3, h4, h5, h6"
       ) as HTMLElement) || node.parentElement;
     if (!block) continue;
 
-    // 1) Replace version tag in block (KJV/NIV/etc.) → (ESV)
-    const innerHtml = block.innerHTML;
-    let newHtml = innerHtml.replace(VERSION_TAG_RE, "(ESV)");
+    // 1) Always replace version tag(s) in this block
+    if (!processedBlocks.has(block)) {
+      const before = block.innerHTML;
+      const after = before.replace(VERSION_TAG_RE, "(ESV)");
+      if (after !== before) block.innerHTML = after;
+      processedBlocks.add(block);
+    }
 
-    // 2) Replace the first quoted text after the reference within this block.
-    // We work in textContent space then map back via simple string replace
-    // on innerHTML — this is approximate but works for typical note formatting.
-    const blockText = block.textContent || "";
-    const refIdx = blockText.indexOf(reference);
-    if (refIdx >= 0) {
-      const after = blockText.slice(refIdx + reference.length);
-      const qm = after.match(QUOTE_RE);
-      if (qm && qm[2]) {
-        const originalQuoted = qm[2];
-        // Escape for use in string replace (only need to escape special chars
-        // that could appear in HTML attributes — we use plain string replace).
-        if (originalQuoted.trim().length > 0) {
-          // Replace the first occurrence of the quoted text in the innerHTML
-          const idx = newHtml.indexOf(originalQuoted);
-          if (idx >= 0) {
-            newHtml =
-              newHtml.slice(0, idx) +
-              esvText +
-              newHtml.slice(idx + originalQuoted.length);
-            replaced++;
-          }
-        }
+    // 2) Find the next sibling block(s) that contain the quoted scripture text.
+    // Scripture is often: <p>Reference (KJV)</p><p>"verse text..."</p>
+    // Search the reference's block first, then following siblings, for an
+    // opening quote and a closing quote — and replace the text between them
+    // (across text nodes) with the ESV text.
+    const candidates: HTMLElement[] = [block];
+    let sib = block.nextElementSibling as HTMLElement | null;
+    let hops = 0;
+    while (sib && hops < 6) {
+      candidates.push(sib);
+      // Stop scanning once we hit another scripture reference
+      if (SCRIPTURE_REGEX.test(sib.textContent || "")) break;
+      sib = sib.nextElementSibling as HTMLElement | null;
+      hops++;
+    }
+
+    // Collect all text nodes across candidates with running offsets
+    type TN = { node: Text; start: number; end: number; el: HTMLElement };
+    const tns: TN[] = [];
+    let combined = "";
+    for (const el of candidates) {
+      const w = doc.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      let n: Node | null = w.nextNode();
+      while (n) {
+        const t = n as Text;
+        const v = t.nodeValue || "";
+        tns.push({ node: t, start: combined.length, end: combined.length + v.length, el });
+        combined += v;
+        n = w.nextNode();
+      }
+      // separator between blocks so we don't accidentally merge words
+      combined += "\n";
+    }
+
+    // Find reference position in combined
+    const refPos = combined.indexOf(reference);
+    if (refPos < 0) continue;
+    const searchFrom = refPos + reference.length;
+
+    // Find opening quote after the reference
+    let openIdx = -1;
+    for (let i = searchFrom; i < combined.length; i++) {
+      if (isOpen(combined[i])) { openIdx = i; break; }
+      // Stop if we hit another scripture reference
+    }
+    if (openIdx < 0) continue;
+
+    // Find closing quote
+    let closeIdx = -1;
+    for (let i = openIdx + 1; i < combined.length; i++) {
+      if (isClose(combined[i])) { closeIdx = i; break; }
+    }
+    if (closeIdx < 0) continue;
+
+    const innerStart = openIdx + 1;
+    const innerEnd = closeIdx;
+    if (innerEnd <= innerStart) continue;
+
+    // Replace text between innerStart and innerEnd across text nodes
+    let wrote = false;
+    for (const tn of tns) {
+      if (tn.end <= innerStart || tn.start >= innerEnd) continue;
+      const localStart = Math.max(0, innerStart - tn.start);
+      const localEnd = Math.min(tn.node.nodeValue?.length || 0, innerEnd - tn.start);
+      const v = tn.node.nodeValue || "";
+      if (!wrote) {
+        tn.node.nodeValue = v.slice(0, localStart) + esvText + v.slice(localEnd);
+        wrote = true;
       } else {
-        // No quoted text — still count the version-tag swap as a replacement
-        if (newHtml !== innerHtml) replaced++;
+        tn.node.nodeValue = v.slice(0, localStart) + v.slice(localEnd);
       }
     }
-
-    if (newHtml !== innerHtml) {
-      block.innerHTML = newHtml;
-    }
+    if (wrote) replaced++;
   }
 
   return { html: root.innerHTML, replaced, failed };
