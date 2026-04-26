@@ -5,8 +5,12 @@ export interface NoteBookmark {
   id: string;
   label: string;
   abbreviation?: string;
-  color: string; // hsl token name e.g. "--soft-blue" or hex
+  color: string; // preset id e.g. "rose" (see BOOKMARK_COLORS)
   order: number;
+  /** Character offset into plain-text of the note (preferred). */
+  offset?: number;
+  /** Snippet of nearby text used as a fallback when offsets drift. */
+  snippet?: string;
 }
 
 export interface Note {
