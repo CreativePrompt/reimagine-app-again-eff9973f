@@ -559,15 +559,31 @@ export default function NoteEditor() {
           <div className="flex items-center gap-2">
             {/* Scripture Search Button - Only in Edit mode */}
             {viewMode === 'edit' && (
-              <Button
-                variant={scriptureSearchOpen ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setScriptureSearchOpen(!scriptureSearchOpen)}
-                className={scriptureSearchOpen ? 'bg-primary' : ''}
-              >
-                <Search className="h-4 w-4 mr-1" />
-                Search Bible
-              </Button>
+              <>
+                <Button
+                  variant={scriptureSearchOpen ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setScriptureSearchOpen(!scriptureSearchOpen)}
+                  className={scriptureSearchOpen ? 'bg-primary' : ''}
+                >
+                  <Search className="h-4 w-4 mr-1" />
+                  Search Bible
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleConvertToEsv}
+                  disabled={convertingEsv}
+                  title="Replace all scripture quotes in this note with the ESV translation"
+                >
+                  {convertingEsv ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <BookMarked className="h-4 w-4 mr-1" />
+                  )}
+                  {convertingEsv ? "Converting..." : "Convert to ESV"}
+                </Button>
+              </>
             )}
 
             {viewMode === 'edit' && <div className="h-4 w-px bg-border" />}
