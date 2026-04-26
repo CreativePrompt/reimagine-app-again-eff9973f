@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RichTextEditor, RichTextEditorRef } from "@/components/notes/RichTextEditor";
 import { useNotesStore } from "@/lib/store/notesStore";
-import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut, Highlighter, Settings, Focus, Search, Clock } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut, Highlighter, Settings, Focus, Search, Clock, BookMarked, Loader2 } from "lucide-react";
+import { convertNoteHtmlToEsv } from "@/lib/convertToEsv";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow, format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -148,6 +149,45 @@ export default function NoteEditor() {
     setContent(prev => prev + formattedText);
     setHasUnsavedChanges(true);
   }, []);
+
+  // Convert all scripture references in the note to ESV
+  const [convertingEsv, setConvertingEsv] = useState(false);
+  const handleConvertToEsv = useCallback(async () => {
+    // Get the latest content from the editor
+    const currentContent = editorRef.current?.getContent() ?? content;
+    if (!currentContent || !currentContent.trim()) {
+      toast({ title: "Nothing to convert", description: "This note is empty." });
+      return;
+    }
+    setConvertingEsv(true);
+    try {
+      const result = await convertNoteHtmlToEsv(currentContent);
+      if (result.replaced === 0) {
+        toast({
+          title: "No scriptures replaced",
+          description: result.failed.length
+            ? `Could not fetch: ${result.failed.slice(0, 3).join(", ")}`
+            : "No scripture references with quoted text were found.",
+        });
+      } else {
+        setContent(result.html);
+        setHasUnsavedChanges(true);
+        toast({
+          title: "Converted to ESV",
+          description: `${result.replaced} scripture${result.replaced === 1 ? "" : "s"} replaced.${result.failed.length ? ` Failed: ${result.failed.length}` : ""}`,
+        });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({
+        title: "Conversion failed",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setConvertingEsv(false);
+    }
+  }, [content, toast]);
 
   // Clear all highlights helper function
   const clearAllHighlights = useCallback(() => {
@@ -519,15 +559,31 @@ export default function NoteEditor() {
           <div className="flex items-center gap-2">
             {/* Scripture Search Button - Only in Edit mode */}
             {viewMode === 'edit' && (
-              <Button
-                variant={scriptureSearchOpen ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setScriptureSearchOpen(!scriptureSearchOpen)}
-                className={scriptureSearchOpen ? 'bg-primary' : ''}
-              >
-                <Search className="h-4 w-4 mr-1" />
-                Search Bible
-              </Button>
+              <>
+                <Button
+                  variant={scriptureSearchOpen ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setScriptureSearchOpen(!scriptureSearchOpen)}
+                  className={scriptureSearchOpen ? 'bg-primary' : ''}
+                >
+                  <Search className="h-4 w-4 mr-1" />
+                  Search Bible
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleConvertToEsv}
+                  disabled={convertingEsv}
+                  title="Replace all scripture quotes in this note with the ESV translation"
+                >
+                  {convertingEsv ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <BookMarked className="h-4 w-4 mr-1" />
+                  )}
+                  {convertingEsv ? "Converting..." : "Convert to ESV"}
+                </Button>
+              </>
             )}
 
             {viewMode === 'edit' && <div className="h-4 w-px bg-border" />}
