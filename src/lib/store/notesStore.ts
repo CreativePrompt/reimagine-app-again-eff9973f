@@ -32,6 +32,13 @@ interface NotesStore {
   setCurrentNote: (note: Note | null) => void;
 }
 
+function normalizeNote(row: any): Note {
+  return {
+    ...row,
+    bookmarks: Array.isArray(row?.bookmarks) ? (row.bookmarks as NoteBookmark[]) : [],
+  } as Note;
+}
+
 export const useNotesStore = create<NotesStore>((set, get) => ({
   notes: [],
   currentNote: null,
