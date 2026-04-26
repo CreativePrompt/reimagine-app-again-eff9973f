@@ -480,3 +480,24 @@
   font-style: normal;
   margin-left: 0.25rem;
 }
+/* Bookmark markers — invisible but locatable */
+.note-bookmark-marker {
+  display: inline;
+  width: 0;
+  height: 0;
+  line-height: 0;
+  font-size: 0;
+  color: transparent;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Brief flash on jump-to-bookmark (applied to the closest block) */
+@keyframes bookmark-flash {
+  0%   { background-color: hsl(var(--primary) / 0.25); box-shadow: 0 0 0 4px hsl(var(--primary) / 0.15); }
+  100% { background-color: transparent; box-shadow: 0 0 0 0 transparent; }
+}
+.bookmark-flash {
+  animation: bookmark-flash 1.6s ease-out;
+  border-radius: 4px;
+}
