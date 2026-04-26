@@ -397,36 +397,36 @@ export default function NoteEditor() {
   const handleConfirmAddBookmark = useCallback(
     (label: string, abbreviation: string, color: string) => {
       const newId = `bm_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      let offset = 0;
+      let snippet = "";
+
+      if (viewMode === 'edit' && editorRef.current) {
+        offset = editorRef.current.getSelectionOffset();
+        snippet = editorRef.current.getSnippetAtOffset(offset, 60);
+      } else if (viewMode === 'reader' && readerContentRef.current) {
+        // Compute character offset relative to plain text of reader content
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          const range = sel.getRangeAt(0);
+          if (readerContentRef.current.contains(range.commonAncestorContainer)) {
+            offset = computeTextOffset(readerContentRef.current, range.startContainer, range.startOffset);
+            const allText = readerContentRef.current.innerText || "";
+            const start = Math.max(0, offset - 30);
+            const end = Math.min(allText.length, offset + 30);
+            snippet = allText.slice(start, end).replace(/\s+/g, " ").trim();
+          }
+        }
+      }
+
       const newBookmark: NoteBookmark = {
         id: newId,
         label,
         abbreviation,
         color,
         order: bookmarks.length,
+        offset,
+        snippet,
       };
-
-      if (viewMode === 'edit' && editorRef.current) {
-        // Insert marker into content at the current cursor/selection start
-        editorRef.current.insertBookmarkMarker(newId);
-      } else if (viewMode === 'reader' && readerContentRef.current) {
-        // In reader mode, inject a marker at the start of the current selection
-        const sel = window.getSelection();
-        if (sel && sel.rangeCount > 0) {
-          const range = sel.getRangeAt(0);
-          if (readerContentRef.current.contains(range.commonAncestorContainer)) {
-            const span = document.createElement('span');
-            span.setAttribute('data-bookmark-id', newId);
-            span.className = 'note-bookmark-marker';
-            span.textContent = '\u200B';
-            const startRange = range.cloneRange();
-            startRange.collapse(true);
-            startRange.insertNode(span);
-            // Persist updated HTML back to content
-            const newHtml = readerContentRef.current.innerHTML;
-            setContent(newHtml);
-          }
-        }
-      }
 
       const next = [...bookmarks, newBookmark];
       setBookmarks(next);
@@ -438,28 +438,63 @@ export default function NoteEditor() {
   );
 
   const handleJumpToBookmark = useCallback((bookmarkId: string) => {
-    // Find marker in either edit or reader DOM
-    const root = viewMode === 'edit'
-      ? document.querySelector('.custom-quill-editor .ql-editor') as HTMLElement | null
-      : readerContentRef.current;
-    if (!root) return;
-    const marker = root.querySelector(`[data-bookmark-id="${bookmarkId}"]`) as HTMLElement | null;
-    if (!marker) {
-      toast({
-        title: "Bookmark location missing",
-        description: "The text near this bookmark may have been removed.",
-        variant: "destructive",
-      });
-      return;
+    const bm = bookmarks.find((b) => b.id === bookmarkId);
+    if (!bm) return;
+
+    const flashAt = (el: HTMLElement) => {
+      const block = (el.closest('p, h1, h2, h3, h4, h5, h6, li, blockquote, pre, div') as HTMLElement) || el;
+      block.classList.remove('bookmark-flash');
+      void block.offsetWidth;
+      block.classList.add('bookmark-flash');
+      setTimeout(() => block.classList.remove('bookmark-flash'), 1700);
+    };
+
+    if (viewMode === 'edit' && editorRef.current) {
+      // Try offset first
+      if (typeof bm.offset === 'number') {
+        const ok = editorRef.current.scrollToOffset(bm.offset);
+        if (ok) {
+          const editorEl = document.querySelector('.custom-quill-editor .ql-editor') as HTMLElement | null;
+          if (editorEl) {
+            // Flash the block containing the focused leaf
+            const sel = window.getSelection();
+            const node = sel?.focusNode as Node | null;
+            const target = (node && node.nodeType === 1 ? (node as HTMLElement) : node?.parentElement) || editorEl;
+            flashAt(target);
+          }
+          return;
+        }
+      }
+      // Fallback: find by snippet
+      if (bm.snippet) {
+        const editorEl = document.querySelector('.custom-quill-editor .ql-editor') as HTMLElement | null;
+        const found = editorEl ? findTextInElement(editorEl, bm.snippet) : null;
+        if (found) {
+          found.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          flashAt(found);
+          return;
+        }
+      }
+      toast({ title: "Bookmark location missing", description: "Text near this bookmark wasn't found.", variant: "destructive" });
+    } else {
+      // Reader mode
+      if (!readerContentRef.current) return;
+      const root = readerContentRef.current;
+      let target: HTMLElement | null = null;
+      if (typeof bm.offset === 'number') {
+        target = findElementByTextOffset(root, bm.offset);
+      }
+      if (!target && bm.snippet) {
+        target = findTextInElement(root, bm.snippet);
+      }
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        flashAt(target);
+      } else {
+        toast({ title: "Bookmark location missing", description: "Text near this bookmark wasn't found.", variant: "destructive" });
+      }
     }
-    marker.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    const block = (marker.closest('p, h1, h2, h3, h4, h5, h6, li, blockquote, pre, div') as HTMLElement) || marker;
-    block.classList.remove('bookmark-flash');
-    // Force reflow to restart animation
-    void block.offsetWidth;
-    block.classList.add('bookmark-flash');
-    setTimeout(() => block.classList.remove('bookmark-flash'), 1700);
-  }, [viewMode, toast]);
+  }, [bookmarks, viewMode, toast]);
 
   // Auto-save effect
   useEffect(() => {
