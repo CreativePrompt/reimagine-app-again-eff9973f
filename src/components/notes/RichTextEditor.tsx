@@ -16,7 +16,12 @@ export interface RichTextEditorRef {
   insertAtCursor: (text: string) => void;
   getContent: () => string;
   getSelectedText: () => string;
-  insertBookmarkMarker: (bookmarkId: string) => boolean;
+  /** Returns the index of the start of the current selection (in Quill text positions). */
+  getSelectionOffset: () => number;
+  /** Get text snippet around a given offset (length chars before & after). */
+  getSnippetAtOffset: (offset: number, length?: number) => string;
+  /** Scroll the editor to a given Quill text offset. */
+  scrollToOffset: (offset: number) => boolean;
 }
 
 export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
