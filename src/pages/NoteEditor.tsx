@@ -478,7 +478,7 @@ export default function NoteEditor() {
         currentContent = editorRef.current.getContent();
       }
 
-      await updateNote(id, { title, content: currentContent, tags });
+      await updateNote(id, { title, content: currentContent, tags, bookmarks });
       setHasUnsavedChanges(false);
       setLastAutoSave(new Date());
       toast({
@@ -493,7 +493,7 @@ export default function NoteEditor() {
         clearTimeout(autoSaveTimerRef.current);
       }
     };
-  }, [id, hasUnsavedChanges, title, content, tags, updateNote, toast]);
+  }, [id, hasUnsavedChanges, title, content, tags, bookmarks, updateNote, toast]);
 
   // Handle visibility change - save on tab blur
   useEffect(() => {
@@ -505,7 +505,7 @@ export default function NoteEditor() {
           currentContent = editorRef.current.getContent();
         }
 
-        await updateNote(id, { title, content: currentContent, tags });
+        await updateNote(id, { title, content: currentContent, tags, bookmarks });
         setHasUnsavedChanges(false);
         setLastAutoSave(new Date());
       }
@@ -515,7 +515,7 @@ export default function NoteEditor() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [id, hasUnsavedChanges, title, content, tags, updateNote]);
+  }, [id, hasUnsavedChanges, title, content, tags, bookmarks, updateNote]);
 
   // Clean up auto-save timer on unmount
   useEffect(() => {
@@ -535,7 +535,7 @@ export default function NoteEditor() {
       currentContent = editorRef.current.getContent();
     }
     
-    await updateNote(id, { title, content: currentContent, tags });
+    await updateNote(id, { title, content: currentContent, tags, bookmarks });
     setHasUnsavedChanges(false);
     setLastAutoSave(new Date());
     toast({
