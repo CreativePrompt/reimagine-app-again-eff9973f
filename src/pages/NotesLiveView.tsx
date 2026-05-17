@@ -438,6 +438,8 @@ export default function NotesLiveView() {
               </div>
             </div>
           )}
+          </div>
+          )}
         </motion.div>
       </AnimatePresence>
     </div>
