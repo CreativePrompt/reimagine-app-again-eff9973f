@@ -354,9 +354,13 @@ export default function NotesLiveView() {
     >
       {/* Overlay */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 transition-all duration-500"
         style={{
-          backgroundColor: `rgba(0, 0, 0, ${settings.overlayDarkness / 100})`,
+          backgroundColor: displayState.image
+            ? 'rgba(0, 0, 0, 0.85)'
+            : `rgba(0, 0, 0, ${settings.overlayDarkness / 100})`,
+          backdropFilter: displayState.image ? 'blur(40px)' : undefined,
+          WebkitBackdropFilter: displayState.image ? 'blur(40px)' : undefined,
         }}
       />
 
