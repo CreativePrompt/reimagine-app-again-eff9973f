@@ -277,10 +277,12 @@ export default function NoteEditor() {
 
     // If auto-close is enabled, just replace the content
     if (spotlightSettings.autoClose) {
+      setSpotlightImage(null);
       setSpotlightText(selectedText);
       setSpotlightOpen(true);
     } else {
       // Stack behavior: only open if not already open, otherwise replace
+      setSpotlightImage(null);
       setSpotlightText(selectedText);
       setSpotlightOpen(true);
     }
