@@ -363,11 +363,19 @@ export default function NotesLiveView() {
       {/* Content */}
       <AnimatePresence mode="wait">
         <motion.div
-          key={displayState.text + displayState.currentPage}
+          key={(displayState.image || displayState.text) + displayState.currentPage}
           {...getAnimationVariants()}
           transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-          className="relative z-10 max-w-5xl w-full"
+          className="relative z-10 max-w-6xl w-full flex items-center justify-center"
         >
+          {displayState.image ? (
+            <img
+              src={displayState.image}
+              alt=""
+              className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl"
+            />
+          ) : (
+          <div className="w-full">
           {/* Scripture Reference (if applicable) */}
           {parsedScripture && (
             <div className={`text-center mb-6 ${isLight ? 'text-white/60' : 'text-gray-800/60'}`}>
