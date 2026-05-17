@@ -14,6 +14,7 @@ export default function NotesLiveView() {
   // Keep last spotlight content to persist between highlights
   const [lastSpotlight, setLastSpotlight] = useState<{
     text: string;
+    image?: string | null;
     settings: SpotlightSettings;
     emphasisList: Array<{ start: number; end: number; text: string; colorId: string }>;
     currentPage: number;
@@ -36,11 +37,11 @@ export default function NotesLiveView() {
         
         if (update.type === 'init') {
           setState(update.payload as NotePresentationState);
-          // Save last spotlight if there's content
           const newState = update.payload as NotePresentationState;
-          if (newState.spotlightText) {
+          if (newState.spotlightText || newState.spotlightImage) {
             setLastSpotlight({
               text: newState.spotlightText,
+              image: newState.spotlightImage,
               settings: newState.spotlightSettings,
               emphasisList: newState.emphasisList || [],
               currentPage: newState.currentPage || 0,
@@ -50,10 +51,10 @@ export default function NotesLiveView() {
         } else if (update.type === 'spotlight') {
           setState(prev => {
             const newState = prev ? { ...prev, ...update.payload } : null;
-            // Save last spotlight if there's content
-            if (newState?.spotlightText) {
+            if (newState?.spotlightText || newState?.spotlightImage) {
               setLastSpotlight({
                 text: newState.spotlightText,
+                image: newState.spotlightImage,
                 settings: newState.spotlightSettings,
                 emphasisList: newState.emphasisList || [],
                 currentPage: newState.currentPage || 0,
@@ -96,7 +97,7 @@ export default function NotesLiveView() {
           });
         } else if (update.type === 'clear') {
           // Don't clear lastSpotlight - keep showing the last content
-          setState(prev => prev ? { ...prev, spotlightOpen: false, spotlightText: '', emphasisList: [] } : null);
+          setState(prev => prev ? { ...prev, spotlightOpen: false, spotlightText: '', spotlightImage: null, emphasisList: [] } : null);
         }
       })
       .subscribe((status) => {
@@ -113,9 +114,10 @@ export default function NotesLiveView() {
 
   // Use current spotlight or fall back to last spotlight
   const displayState = useMemo(() => {
-    if (state?.spotlightOpen && state?.spotlightText) {
+    if (state?.spotlightOpen && (state?.spotlightText || state?.spotlightImage)) {
       return {
         text: state.spotlightText,
+        image: state.spotlightImage || null,
         settings: state.spotlightSettings || DEFAULT_SPOTLIGHT_SETTINGS,
         emphasisList: state.emphasisList || [],
         currentPage: state.currentPage || 0,
@@ -126,6 +128,7 @@ export default function NotesLiveView() {
     if (lastSpotlight) {
       return {
         ...lastSpotlight,
+        image: lastSpotlight.image || null,
         isLive: false,
       };
     }
@@ -360,11 +363,19 @@ export default function NotesLiveView() {
       {/* Content */}
       <AnimatePresence mode="wait">
         <motion.div
-          key={displayState.text + displayState.currentPage}
+          key={(displayState.image || displayState.text) + displayState.currentPage}
           {...getAnimationVariants()}
           transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-          className="relative z-10 max-w-5xl w-full"
+          className="relative z-10 max-w-6xl w-full flex items-center justify-center"
         >
+          {displayState.image ? (
+            <img
+              src={displayState.image}
+              alt=""
+              className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl"
+            />
+          ) : (
+          <div className="w-full">
           {/* Scripture Reference (if applicable) */}
           {parsedScripture && (
             <div className={`text-center mb-6 ${isLight ? 'text-white/60' : 'text-gray-800/60'}`}>
@@ -426,6 +437,8 @@ export default function NotesLiveView() {
                 ))}
               </div>
             </div>
+          )}
+          </div>
           )}
         </motion.div>
       </AnimatePresence>

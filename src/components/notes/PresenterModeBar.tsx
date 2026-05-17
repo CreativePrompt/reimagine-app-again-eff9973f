@@ -36,6 +36,7 @@ interface PresenterModeBarProps {
   noteId: string;
   noteTitle: string;
   spotlightText: string;
+  spotlightImage?: string | null;
   spotlightOpen: boolean;
   spotlightSettings: SpotlightSettings;
   currentPage: number;
@@ -57,6 +58,7 @@ export function PresenterModeBar({
   noteId,
   noteTitle,
   spotlightText,
+  spotlightImage = null,
   spotlightOpen,
   spotlightSettings,
   currentPage,
@@ -138,6 +140,7 @@ export function PresenterModeBar({
       noteId,
       noteTitle,
       spotlightText,
+      spotlightImage,
       spotlightOpen,
       spotlightSettings,
       currentPage,
@@ -152,6 +155,7 @@ export function PresenterModeBar({
     noteId, 
     noteTitle, 
     spotlightText, 
+    spotlightImage,
     spotlightOpen, 
     spotlightSettings, 
     currentPage, 

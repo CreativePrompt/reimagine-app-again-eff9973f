@@ -89,6 +89,7 @@ export default function NoteEditor() {
     return DEFAULT_SPOTLIGHT_SETTINGS;
   });
   const [spotlightText, setSpotlightText] = useState("");
+  const [spotlightImage, setSpotlightImage] = useState<string | null>(null);
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [spotlightPage, setSpotlightPage] = useState(0);
   const [spotlightTotalPages, setSpotlightTotalPages] = useState(1);
@@ -276,10 +277,12 @@ export default function NoteEditor() {
 
     // If auto-close is enabled, just replace the content
     if (spotlightSettings.autoClose) {
+      setSpotlightImage(null);
       setSpotlightText(selectedText);
       setSpotlightOpen(true);
     } else {
       // Stack behavior: only open if not already open, otherwise replace
+      setSpotlightImage(null);
       setSpotlightText(selectedText);
       setSpotlightOpen(true);
     }
@@ -289,10 +292,29 @@ export default function NoteEditor() {
   const handleSpotlightClose = useCallback(() => {
     setSpotlightOpen(false);
     setSpotlightText("");
+    setSpotlightImage(null);
     setEmphasisList([]);
     setSpotlightPage(0);
     setSpotlightTotalPages(1);
   }, []);
+
+  // Click on image in reader -> broadcast image to audience
+  const handleReaderImageClick = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName !== 'IMG') return;
+    const src = (target as HTMLImageElement).src;
+    if (!src) return;
+    e.stopPropagation();
+    // If clicking the same image again, close it
+    if (spotlightImage === src && spotlightOpen) {
+      handleSpotlightClose();
+      return;
+    }
+    setSpotlightText("");
+    setEmphasisList([]);
+    setSpotlightImage(src);
+    setSpotlightOpen(true);
+  }, [spotlightImage, spotlightOpen, handleSpotlightClose]);
 
   // Save highlight settings and apply CSS variables
   const handleSaveHighlightSettings = useCallback((newSettings: HighlightSettings) => {
@@ -868,6 +890,7 @@ export default function NoteEditor() {
                       noteId={id}
                       noteTitle={title}
                       spotlightText={spotlightText}
+                      spotlightImage={spotlightImage}
                       spotlightOpen={spotlightOpen}
                       spotlightSettings={spotlightSettings}
                       currentPage={spotlightPage}
@@ -1024,9 +1047,15 @@ export default function NoteEditor() {
                     {/* Reader Content */}
                     <article 
                       ref={readerContentRef}
-                      className={`reader-content ${highlightMode ? 'highlight-mode-active' : ''}`}
+                      className={`reader-content reader-content-images-clickable ${highlightMode ? 'highlight-mode-active' : ''}`}
                       style={getHighlightColorStyles()}
-                      onClick={handleReaderContentClick}
+                      onClick={(e) => {
+                        if ((e.target as HTMLElement).tagName === 'IMG') {
+                          handleReaderImageClick(e);
+                          return;
+                        }
+                        handleReaderContentClick(e);
+                      }}
                       onMouseUp={handleTextSelection}
                       dangerouslySetInnerHTML={{ __html: content || '<p class="text-muted-foreground italic">No content yet...</p>' }}
                     />
