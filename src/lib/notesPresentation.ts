@@ -8,6 +8,7 @@ export interface NotePresentationState {
   noteId: string;
   noteTitle: string;
   spotlightText: string;
+  spotlightImage?: string | null;
   spotlightOpen: boolean;
   spotlightSettings: SpotlightSettings;
   currentPage: number;
@@ -21,7 +22,7 @@ export interface NotePresentationState {
 }
 
 export interface NotePresentationUpdate {
-  type: 'spotlight' | 'emphasis' | 'page' | 'settings' | 'clear' | 'init';
+  type: 'spotlight' | 'emphasis' | 'page' | 'settings' | 'clear' | 'init' | 'image';
   payload: Partial<NotePresentationState>;
 }
 
