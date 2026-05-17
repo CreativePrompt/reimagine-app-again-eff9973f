@@ -501,3 +501,13 @@
   animation: bookmark-flash 1.6s ease-out;
   border-radius: 4px;
 }
+
+/* Clickable images in reader for live presentation */
+.reader-content-images-clickable img {
+  cursor: zoom-in;
+  transition: outline 0.15s ease, transform 0.15s ease;
+}
+.reader-content-images-clickable img:hover {
+  outline: 3px solid hsl(var(--primary) / 0.6);
+  outline-offset: 2px;
+}
