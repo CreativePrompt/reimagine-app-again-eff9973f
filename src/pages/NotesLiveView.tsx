@@ -14,6 +14,7 @@ export default function NotesLiveView() {
   // Keep last spotlight content to persist between highlights
   const [lastSpotlight, setLastSpotlight] = useState<{
     text: string;
+    image?: string | null;
     settings: SpotlightSettings;
     emphasisList: Array<{ start: number; end: number; text: string; colorId: string }>;
     currentPage: number;
@@ -36,11 +37,11 @@ export default function NotesLiveView() {
         
         if (update.type === 'init') {
           setState(update.payload as NotePresentationState);
-          // Save last spotlight if there's content
           const newState = update.payload as NotePresentationState;
-          if (newState.spotlightText) {
+          if (newState.spotlightText || newState.spotlightImage) {
             setLastSpotlight({
               text: newState.spotlightText,
+              image: newState.spotlightImage,
               settings: newState.spotlightSettings,
               emphasisList: newState.emphasisList || [],
               currentPage: newState.currentPage || 0,
@@ -50,10 +51,10 @@ export default function NotesLiveView() {
         } else if (update.type === 'spotlight') {
           setState(prev => {
             const newState = prev ? { ...prev, ...update.payload } : null;
-            // Save last spotlight if there's content
-            if (newState?.spotlightText) {
+            if (newState?.spotlightText || newState?.spotlightImage) {
               setLastSpotlight({
                 text: newState.spotlightText,
+                image: newState.spotlightImage,
                 settings: newState.spotlightSettings,
                 emphasisList: newState.emphasisList || [],
                 currentPage: newState.currentPage || 0,
