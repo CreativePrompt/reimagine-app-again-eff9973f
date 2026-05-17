@@ -89,6 +89,7 @@ export default function NoteEditor() {
     return DEFAULT_SPOTLIGHT_SETTINGS;
   });
   const [spotlightText, setSpotlightText] = useState("");
+  const [spotlightImage, setSpotlightImage] = useState<string | null>(null);
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [spotlightPage, setSpotlightPage] = useState(0);
   const [spotlightTotalPages, setSpotlightTotalPages] = useState(1);
@@ -289,10 +290,29 @@ export default function NoteEditor() {
   const handleSpotlightClose = useCallback(() => {
     setSpotlightOpen(false);
     setSpotlightText("");
+    setSpotlightImage(null);
     setEmphasisList([]);
     setSpotlightPage(0);
     setSpotlightTotalPages(1);
   }, []);
+
+  // Click on image in reader -> broadcast image to audience
+  const handleReaderImageClick = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName !== 'IMG') return;
+    const src = (target as HTMLImageElement).src;
+    if (!src) return;
+    e.stopPropagation();
+    // If clicking the same image again, close it
+    if (spotlightImage === src && spotlightOpen) {
+      handleSpotlightClose();
+      return;
+    }
+    setSpotlightText("");
+    setEmphasisList([]);
+    setSpotlightImage(src);
+    setSpotlightOpen(true);
+  }, [spotlightImage, spotlightOpen, handleSpotlightClose]);
 
   // Save highlight settings and apply CSS variables
   const handleSaveHighlightSettings = useCallback((newSettings: HighlightSettings) => {
