@@ -1047,9 +1047,9 @@ export default function NoteEditor() {
                     {/* Reader Content */}
                     <article 
                       ref={readerContentRef}
-                      className={`reader-content ${highlightMode ? 'highlight-mode-active' : ''}`}
+                      className={`reader-content reader-content-images-clickable ${highlightMode ? 'highlight-mode-active' : ''}`}
                       style={getHighlightColorStyles()}
-                      onClick={handleReaderContentClick}
+                      onClick={(e) => { handleReaderImageClick(e); handleReaderContentClick(e); }}
                       onMouseUp={handleTextSelection}
                       dangerouslySetInnerHTML={{ __html: content || '<p class="text-muted-foreground italic">No content yet...</p>' }}
                     />
