@@ -97,7 +97,7 @@ export default function NotesLiveView() {
           });
         } else if (update.type === 'clear') {
           // Don't clear lastSpotlight - keep showing the last content
-          setState(prev => prev ? { ...prev, spotlightOpen: false, spotlightText: '', emphasisList: [] } : null);
+          setState(prev => prev ? { ...prev, spotlightOpen: false, spotlightText: '', spotlightImage: null, emphasisList: [] } : null);
         }
       })
       .subscribe((status) => {
@@ -114,9 +114,10 @@ export default function NotesLiveView() {
 
   // Use current spotlight or fall back to last spotlight
   const displayState = useMemo(() => {
-    if (state?.spotlightOpen && state?.spotlightText) {
+    if (state?.spotlightOpen && (state?.spotlightText || state?.spotlightImage)) {
       return {
         text: state.spotlightText,
+        image: state.spotlightImage || null,
         settings: state.spotlightSettings || DEFAULT_SPOTLIGHT_SETTINGS,
         emphasisList: state.emphasisList || [],
         currentPage: state.currentPage || 0,
@@ -127,6 +128,7 @@ export default function NotesLiveView() {
     if (lastSpotlight) {
       return {
         ...lastSpotlight,
+        image: lastSpotlight.image || null,
         isLive: false,
       };
     }
