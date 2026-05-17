@@ -1049,7 +1049,13 @@ export default function NoteEditor() {
                       ref={readerContentRef}
                       className={`reader-content reader-content-images-clickable ${highlightMode ? 'highlight-mode-active' : ''}`}
                       style={getHighlightColorStyles()}
-                      onClick={(e) => { handleReaderImageClick(e); handleReaderContentClick(e); }}
+                      onClick={(e) => {
+                        if ((e.target as HTMLElement).tagName === 'IMG') {
+                          handleReaderImageClick(e);
+                          return;
+                        }
+                        handleReaderContentClick(e);
+                      }}
                       onMouseUp={handleTextSelection}
                       dangerouslySetInnerHTML={{ __html: content || '<p class="text-muted-foreground italic">No content yet...</p>' }}
                     />
