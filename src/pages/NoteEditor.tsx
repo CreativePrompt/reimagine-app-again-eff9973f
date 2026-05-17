@@ -890,6 +890,7 @@ export default function NoteEditor() {
                       noteId={id}
                       noteTitle={title}
                       spotlightText={spotlightText}
+                      spotlightImage={spotlightImage}
                       spotlightOpen={spotlightOpen}
                       spotlightSettings={spotlightSettings}
                       currentPage={spotlightPage}
