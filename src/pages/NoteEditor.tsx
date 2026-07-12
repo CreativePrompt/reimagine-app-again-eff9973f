@@ -17,7 +17,7 @@ import { SpotlightSettingsDialog, SpotlightSettings, DEFAULT_SPOTLIGHT_SETTINGS 
 import { ScriptureSearchSidebar } from "@/components/notes/ScriptureSearchSidebar";
 import { PresenterModeBar } from "@/components/notes/PresenterModeBar";
 import { PresenterSidePanel } from "@/components/notes/PresenterSidePanel";
-import { BookmarksPanel, AddBookmarkDialog } from "@/components/notes/BookmarksPanel";
+import { BookmarksPanel, AddBookmarkDialog, pickDefaultBookmarkColor } from "@/components/notes/BookmarksPanel";
 import type { NoteBookmark } from "@/lib/store/notesStore";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { computeTextOffset, findElementByTextOffset, findTextInElement } from "@/lib/bookmarkOffsets";
