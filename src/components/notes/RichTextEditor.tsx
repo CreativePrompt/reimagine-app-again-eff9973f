@@ -2,6 +2,9 @@ import { Suspense, lazy, useMemo, useRef, useEffect, useCallback, useState, forw
 import "react-quill/dist/quill.snow.css";
 import "./RichTextEditor.css";
 import { ScriptureToolbar } from "./ScriptureToolbar";
+import { BookOpen, Loader2 } from "lucide-react";
+import { fetchNextVerse, cleanVerseText, findLastReference } from "@/lib/scriptureNavigation";
+import { useToast } from "@/hooks/use-toast";
 
 // Lazy load ReactQuill to avoid type conflicts during build
 const ReactQuill = lazy(() => import("react-quill"));
@@ -22,6 +25,8 @@ export interface RichTextEditorRef {
   getSnippetAtOffset: (offset: number, length?: number) => string;
   /** Scroll the editor to a given Quill text offset. */
   scrollToOffset: (offset: number) => boolean;
+  /** Fetch and append the next Scripture verse after the last reference in the doc. */
+  insertNextVerse: () => Promise<void>;
 }
 
 export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
