@@ -34,6 +34,9 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     const containerRef = useRef<HTMLDivElement>(null);
     const quillRef = useRef<any>(null);
     const [editorReady, setEditorReady] = useState(false);
+    const [nextVerseLoading, setNextVerseLoading] = useState(false);
+    const lastValueRef = useRef<string>(value);
+    const { toast } = useToast();
     const lastValueRef = useRef<string>(value);
 
     const modules = useMemo(() => ({
