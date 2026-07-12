@@ -906,6 +906,23 @@ export default function NoteEditor() {
               Bookmark
             </Button>
 
+            {/* Next Verse Button - visible in all view modes (Edit / Reader / Live) */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleInsertNextVerse}
+              disabled={nextVerseLoading}
+              className="border-primary/40 text-primary hover:bg-primary/5"
+              title="Insert the next Scripture verse (ESV) after the last reference in this note"
+            >
+              {nextVerseLoading ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <BookOpen className="h-4 w-4 mr-1" />
+              )}
+              {nextVerseLoading ? "Loading next verse..." : "Next Verse"}
+            </Button>
+
             {/* Scripture Search Button - Only in Edit mode */}
             {viewMode === 'edit' && (
               <>
