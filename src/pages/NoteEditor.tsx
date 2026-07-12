@@ -21,6 +21,7 @@ import { BookmarksPanel, AddBookmarkDialog, pickDefaultBookmarkColor } from "@/c
 import type { NoteBookmark } from "@/lib/store/notesStore";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { computeTextOffset, findElementByTextOffset, findTextInElement } from "@/lib/bookmarkOffsets";
+import { fetchNextVerse, cleanVerseText } from "@/lib/scriptureNavigation";
 import "@/components/notes/RichTextEditor.css";
 
 type ViewMode = 'edit' | 'reader';
