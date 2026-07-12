@@ -5,8 +5,12 @@ export interface NoteBookmark {
   id: string;
   label: string;
   abbreviation?: string;
+  /** Short subtitle/preview shown under the heading. */
+  subtitle?: string;
   color: string; // preset id e.g. "rose" (see BOOKMARK_COLORS)
   order: number;
+  /** Heading level for indentation (1 = top-level, 2 = subheading). */
+  level?: number;
   /** Character offset into plain-text of the note (preferred). */
   offset?: number;
   /** Snippet of nearby text used as a fallback when offsets drift. */
