@@ -446,6 +446,11 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       }
     }, [onChange, toast]);
 
+    // Keep the ref in sync so useImperativeHandle can call the latest handler.
+    useEffect(() => {
+      handleInsertNextVerseRef.current = handleInsertNextVerse;
+    }, [handleInsertNextVerse]);
+
     return (
       <div ref={containerRef} className="rich-text-editor-container relative">
         {/* Next Verse button - floats over the toolbar area */}
