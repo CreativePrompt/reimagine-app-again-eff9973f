@@ -105,6 +105,7 @@ export default function NoteEditor() {
   const editorRef = useRef<RichTextEditorRef>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lastAutoSave, setLastAutoSave] = useState<Date | null>(null);
+  const [nextVerseLoading, setNextVerseLoading] = useState(false);
   
   // Presenter side panel state
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
