@@ -36,6 +36,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     const [editorReady, setEditorReady] = useState(false);
     const [nextVerseLoading, setNextVerseLoading] = useState(false);
     const lastValueRef = useRef<string>(value);
+    const handleInsertNextVerseRef = useRef<(() => Promise<void>) | null>(null);
     const { toast } = useToast();
 
     const modules = useMemo(() => ({
