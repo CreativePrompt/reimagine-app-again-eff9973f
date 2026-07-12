@@ -2,6 +2,9 @@ import { Suspense, lazy, useMemo, useRef, useEffect, useCallback, useState, forw
 import "react-quill/dist/quill.snow.css";
 import "./RichTextEditor.css";
 import { ScriptureToolbar } from "./ScriptureToolbar";
+import { BookOpen, Loader2 } from "lucide-react";
+import { fetchNextVerse, cleanVerseText, findLastReference } from "@/lib/scriptureNavigation";
+import { useToast } from "@/hooks/use-toast";
 
 // Lazy load ReactQuill to avoid type conflicts during build
 const ReactQuill = lazy(() => import("react-quill"));
@@ -22,6 +25,8 @@ export interface RichTextEditorRef {
   getSnippetAtOffset: (offset: number, length?: number) => string;
   /** Scroll the editor to a given Quill text offset. */
   scrollToOffset: (offset: number) => boolean;
+  /** Fetch and append the next Scripture verse after the last reference in the doc. */
+  insertNextVerse: () => Promise<void>;
 }
 
 export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
@@ -29,7 +34,10 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     const containerRef = useRef<HTMLDivElement>(null);
     const quillRef = useRef<any>(null);
     const [editorReady, setEditorReady] = useState(false);
+    const [nextVerseLoading, setNextVerseLoading] = useState(false);
     const lastValueRef = useRef<string>(value);
+    const handleInsertNextVerseRef = useRef<(() => Promise<void>) | null>(null);
+    const { toast } = useToast();
 
     const modules = useMemo(() => ({
       toolbar: [
@@ -276,7 +284,10 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           console.warn("scrollToOffset error", e);
         }
         return false;
-      }
+      },
+      insertNextVerse: async () => {
+        await handleInsertNextVerseRef.current?.();
+      },
     }), [onChange, value]);
 
     // Handle onChange wrapper to track content
@@ -286,7 +297,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     }, [onChange]);
 
     // Clean up ESV text - remove extra whitespace and newlines to make it a single sentence
-    const cleanVerseText = (text: string): string => {
+    const cleanVerseTextLocal = (text: string): string => {
       return text
         .replace(/\n+/g, ' ')           // Replace newlines with spaces
         .replace(/\s+/g, ' ')           // Collapse multiple spaces
@@ -313,7 +324,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       const insertPosition = refIndex + reference.length;
 
       // Clean up the verse text to be a single continuous sentence
-      const cleanedVerse = cleanVerseText(verseText);
+      const cleanedVerse = cleanVerseTextLocal(verseText);
 
       // Create the formatted verse text
       // Format: — "verse text" (ESV)
@@ -331,8 +342,118 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       onChange(newContent);
     }, [onChange]);
 
+    // Insert the next scripture verse based on the last reference in the document.
+    // Formats as: italic quoted verse text on its own line, then `— Reference, ESV` citation.
+    const handleInsertNextVerse = useCallback(async () => {
+      if (!quillRef.current) return;
+      const quill = quillRef.current.getEditor();
+      if (!quill) return;
+
+      const plain = quill.getText() as string;
+      const last = findLastReference(plain);
+      if (!last) {
+        toast({
+          title: "No Scripture reference found",
+          description: "Select or insert a Scripture reference before using Next Verse.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setNextVerseLoading(true);
+      try {
+        const result = await fetchNextVerse(plain);
+        if (!result) {
+          toast({
+            title: "End of passage",
+            description: "No further verse is available after the last reference.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Find end of the line that contains the last reference, insert there
+        const refEnd = last.matchEnd;
+        const rest = plain.slice(refEnd);
+        const nlIdx = rest.indexOf("\n");
+        // Walk forward past any adjacent verse-text / citation lines the user already has
+        // by inserting at the end of the document — simplest, most predictable behavior.
+        let insertPos = quill.getLength();
+        // Ensure trailing newline exists before our block
+        const fullLen = insertPos;
+        const trailing = quill.getText(Math.max(0, fullLen - 2), 2);
+        let prefix = "";
+        if (!trailing.endsWith("\n\n")) {
+          prefix = trailing.endsWith("\n") ? "\n" : "\n\n";
+        }
+
+        const cleaned = cleanVerseText(result.text);
+        const verseLine = `"${cleaned}"`;
+        const citationLine = `— ${result.reference}, ESV`;
+
+        // Insert prefix (plain), then verse (italic), newline, citation (italic), newline
+        let cursor = insertPos;
+        if (prefix) {
+          quill.insertText(cursor, prefix);
+          cursor += prefix.length;
+        }
+        quill.insertText(cursor, verseLine, { italic: true });
+        cursor += verseLine.length;
+        quill.insertText(cursor, "\n");
+        cursor += 1;
+        quill.insertText(cursor, citationLine, { italic: true });
+        cursor += citationLine.length;
+        quill.insertText(cursor, "\n");
+        cursor += 1;
+
+        // Move selection to the end of the inserted block
+        quill.setSelection(cursor, 0);
+
+        // Sync value
+        const newContent = quill.root.innerHTML;
+        lastValueRef.current = newContent;
+        onChange(newContent);
+
+        // Scroll new content into view
+        try {
+          const [leaf] = quill.getLeaf(Math.max(0, cursor - 1));
+          const node = leaf?.domNode as Node | undefined;
+          const el = node && node.nodeType === 1 ? (node as HTMLElement) : (node?.parentElement as HTMLElement | null);
+          el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        } catch { /* ignore */ }
+
+        toast({
+          title: "Next verse inserted",
+          description: `${result.reference} (ESV) added to your notes.`,
+        });
+      } catch (err: any) {
+        console.error("Next verse error:", err);
+        if (err?.message === "NO_REFERENCE") {
+          toast({
+            title: "No Scripture reference found",
+            description: "Select or insert a Scripture reference before using Next Verse.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Unable to retrieve the next verse",
+            description: "Please try again in a moment.",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        setNextVerseLoading(false);
+      }
+    }, [onChange, toast]);
+
+    // Keep the ref in sync so useImperativeHandle can call the latest handler.
+    useEffect(() => {
+      handleInsertNextVerseRef.current = handleInsertNextVerse;
+    }, [handleInsertNextVerse]);
+
     return (
       <div ref={containerRef} className="rich-text-editor-container">
+
         <Suspense fallback={<div className="h-[400px] animate-pulse bg-muted rounded-lg" />}>
           <ReactQuill
             ref={quillRef}
