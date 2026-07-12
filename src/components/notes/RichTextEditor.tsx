@@ -452,27 +452,8 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     }, [handleInsertNextVerse]);
 
     return (
-      <div ref={containerRef} className="rich-text-editor-container relative">
-        {/* Next Verse button - floats over the toolbar area */}
-        <button
-          type="button"
-          onClick={handleInsertNextVerse}
-          disabled={nextVerseLoading}
-          className="absolute right-2 top-1.5 z-10 inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-background px-3 py-1.5 text-xs font-medium text-primary shadow-sm transition hover:bg-primary/5 disabled:opacity-60 disabled:cursor-not-allowed"
-          title="Insert next Scripture verse (ESV) after the last reference"
-        >
-          {nextVerseLoading ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Loading next verse...
-            </>
-          ) : (
-            <>
-              <BookOpen className="h-3.5 w-3.5" />
-              Next Verse
-            </>
-          )}
-        </button>
+      <div ref={containerRef} className="rich-text-editor-container">
+
         <Suspense fallback={<div className="h-[400px] animate-pulse bg-muted rounded-lg" />}>
           <ReactQuill
             ref={quillRef}
