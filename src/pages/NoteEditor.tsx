@@ -420,7 +420,7 @@ export default function NoteEditor() {
   }, [viewMode, toast]);
 
   const handleConfirmAddBookmark = useCallback(
-    (label: string, abbreviation: string, color: string) => {
+    (label: string, abbreviation: string, color: string, subtitle: string, level: number) => {
       const newId = `bm_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       let offset = 0;
       let snippet = "";
@@ -429,7 +429,6 @@ export default function NoteEditor() {
         offset = editorRef.current.getSelectionOffset();
         snippet = editorRef.current.getSnippetAtOffset(offset, 60);
       } else if (viewMode === 'reader' && readerContentRef.current) {
-        // Compute character offset relative to plain text of reader content
         const sel = window.getSelection();
         if (sel && sel.rangeCount > 0) {
           const range = sel.getRangeAt(0);
@@ -447,6 +446,8 @@ export default function NoteEditor() {
         id: newId,
         label,
         abbreviation,
+        subtitle,
+        level,
         color,
         order: bookmarks.length,
         offset,
