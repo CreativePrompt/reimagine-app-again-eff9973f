@@ -130,6 +130,83 @@ export default function NoteEditor() {
     setPresenterLiveState({ isLive, audienceCount, audienceUrl });
   }, []);
 
+  // Shared "Next Verse" handler — works across Edit, Reader, and Live modes.
+  // In edit mode it delegates to the RichTextEditor's Quill instance for perfect formatting.
+  // In other modes it appends the next verse to the note's HTML content directly.
+  const handleInsertNextVerse = useCallback(async () => {
+    if (nextVerseLoading) return;
+    // Edit mode: use the editor directly (also updates content via onChange)
+    if (viewMode === 'edit' && editorRef.current) {
+      setNextVerseLoading(true);
+      try {
+        await editorRef.current.insertNextVerse();
+      } finally {
+        setNextVerseLoading(false);
+      }
+      return;
+    }
+
+    // Reader mode (or any non-edit mode): parse the live HTML and append.
+    setNextVerseLoading(true);
+    try {
+      // Derive plain text for reference detection
+      const tmp = document.createElement("div");
+      tmp.innerHTML = content;
+      const plain = tmp.innerText || tmp.textContent || "";
+
+      const result = await fetchNextVerse(plain);
+      if (!result) {
+        toast({
+          title: "End of passage",
+          description: "No further verse is available after the last reference.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const cleaned = cleanVerseText(result.text);
+      const appended =
+        `<p><em>"${cleaned.replace(/"/g, "&quot;")}"</em></p>` +
+        `<p><em>— ${result.reference}, ESV</em></p>`;
+
+      const newContent = (content || "") + appended;
+      setContent(newContent);
+      setHasUnsavedChanges(true);
+
+      // Scroll reader to the newly appended content shortly after render
+      requestAnimationFrame(() => {
+        const root = readerContentRef.current;
+        if (!root) return;
+        const paras = root.querySelectorAll("p");
+        const last = paras[paras.length - 1];
+        last?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+
+      toast({
+        title: "Next verse inserted",
+        description: `${result.reference} (ESV) added to your notes.`,
+      });
+    } catch (err: any) {
+      console.error("Next verse error:", err);
+      if (err?.message === "NO_REFERENCE") {
+        toast({
+          title: "No Scripture reference found",
+          description: "Select or insert a Scripture reference before using Next Verse.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Unable to retrieve the next verse",
+          description: "Please try again in a moment.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setNextVerseLoading(false);
+    }
+  }, [content, nextVerseLoading, toast, viewMode]);
+
+
   // Handle copy audience URL
   const handleCopyAudienceUrl = useCallback(() => {
     navigator.clipboard.writeText(presenterLiveState.audienceUrl);
