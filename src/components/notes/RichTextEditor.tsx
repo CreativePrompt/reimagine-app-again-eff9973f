@@ -293,7 +293,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     }, [onChange]);
 
     // Clean up ESV text - remove extra whitespace and newlines to make it a single sentence
-    const cleanVerseText = (text: string): string => {
+    const cleanVerseTextLocal = (text: string): string => {
       return text
         .replace(/\n+/g, ' ')           // Replace newlines with spaces
         .replace(/\s+/g, ' ')           // Collapse multiple spaces
