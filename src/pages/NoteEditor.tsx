@@ -522,6 +522,76 @@ export default function NoteEditor() {
     }
   }, [bookmarks, viewMode, toast]);
 
+  // Active-section tracking: sync bookmark highlight with scroll position
+  useEffect(() => {
+    if (bookmarks.length === 0) {
+      setActiveBookmarkId(null);
+      setReadProgress(0);
+      return;
+    }
+
+    // Resolve scroll container + content root for the current view
+    const getRefs = (): { scroller: HTMLElement | null; root: HTMLElement | null } => {
+      if (viewMode === 'reader') {
+        return { scroller: readerContainerRef.current, root: readerContentRef.current };
+      }
+      const editorEl = document.querySelector('.custom-quill-editor .ql-editor') as HTMLElement | null;
+      return { scroller: editorEl, root: editorEl };
+    };
+
+    let raf = 0;
+    const compute = () => {
+      raf = 0;
+      const { scroller, root } = getRefs();
+      if (!scroller || !root) return;
+
+      // progress
+      const max = Math.max(1, scroller.scrollHeight - scroller.clientHeight);
+      const pct = Math.min(100, Math.max(0, (scroller.scrollTop / max) * 100));
+      setReadProgress(pct);
+
+      // Determine active bookmark: last one whose target top is above the trigger line
+      const rootRect = root.getBoundingClientRect();
+      const triggerY = 140;
+      let bestId: string | null = null;
+      let bestTop = -Infinity;
+      for (const bm of bookmarks) {
+        let el: HTMLElement | null = null;
+        if (typeof bm.offset === 'number') el = findElementByTextOffset(root, bm.offset);
+        if (!el && bm.snippet) el = findTextInElement(root, bm.snippet);
+        if (!el) continue;
+        const top = el.getBoundingClientRect().top - rootRect.top - scroller.scrollTop;
+        // Position relative to viewport of scroller:
+        const viewportTop = el.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+        if (viewportTop <= triggerY && viewportTop > bestTop) {
+          bestTop = viewportTop;
+          bestId = bm.id;
+        }
+      }
+      if (!bestId) bestId = [...bookmarks].sort((a, b) => a.order - b.order)[0]?.id ?? null;
+      setActiveBookmarkId(bestId);
+    };
+
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(compute);
+    };
+
+    const { scroller } = getRefs();
+    if (!scroller) return;
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    // Initial compute (delayed so DOM is ready)
+    const t = setTimeout(compute, 100);
+
+    return () => {
+      scroller.removeEventListener('scroll', onScroll);
+      clearTimeout(t);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [bookmarks, viewMode, content]);
+
+
+
   // Auto-save effect
   useEffect(() => {
     if (!id || !hasUnsavedChanges) return;
