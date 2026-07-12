@@ -283,7 +283,10 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           console.warn("scrollToOffset error", e);
         }
         return false;
-      }
+      },
+      insertNextVerse: async () => {
+        await handleInsertNextVerseRef.current?.();
+      },
     }), [onChange, value]);
 
     // Handle onChange wrapper to track content
