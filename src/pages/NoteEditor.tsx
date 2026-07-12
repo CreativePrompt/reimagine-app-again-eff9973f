@@ -1172,6 +1172,28 @@ export default function NoteEditor() {
                   onChange={(value) => handleChange('content', value)}
                   placeholder="Start writing your note..."
                 />
+
+                {/* Inline Next Verse Button - clearly visible in notes area */}
+                <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border-2 border-primary/30 bg-primary/5 p-4">
+                  <Button
+                    onClick={handleInsertNextVerse}
+                    disabled={nextVerseLoading}
+                    size="lg"
+                    className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                  >
+                    {nextVerseLoading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <BookOpen className="h-5 w-5" />
+                    )}
+                    {nextVerseLoading ? "Loading next verse..." : "Next Verse"}
+                  </Button>
+                  <div className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">Adds the next Scripture</span>
+                    <span className="mx-1">→</span>
+                    Automatically inserts the following ESV verse after your last reference.
+                  </div>
+                </div>
               </motion.div>
             </div>
           ) : (
