@@ -1212,9 +1212,11 @@ export default function NoteEditor() {
       <AddBookmarkDialog
         open={addBookmarkOpen}
         defaultLabel={pendingBookmarkLabel}
+        defaultColor={pickDefaultBookmarkColor(bookmarks.length)}
         onClose={() => setAddBookmarkOpen(false)}
         onConfirm={handleConfirmAddBookmark}
       />
+
     </div>
   );
 }
