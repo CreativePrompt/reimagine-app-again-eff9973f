@@ -789,7 +789,10 @@ export default function NoteEditor() {
         onUpdate={updateBookmarks}
         onRequestAdd={handleRequestAddBookmark}
         canAdd={hasSelection}
+        activeId={activeBookmarkId}
+        progress={readProgress}
       />
+
 
       {/* Main Editor */}
       <div className="flex-1 flex flex-col overflow-hidden">
