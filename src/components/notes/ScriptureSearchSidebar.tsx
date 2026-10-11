@@ -435,8 +435,12 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture, ins
 
   // Insert verse into editor at cursor position
   const handleInsert = useCallback((reference: string, text: string) => {
-    const cleanText = text.replace(/\[\d+\]\s*/g, '').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
-    const formattedText = `\n\n${reference} — "${cleanText}" (ESV)\n\n`;
+    let cleanText = text.replace(/\[\d+\]\s*/g, '').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+    // The API text often starts with the reference itself — don't repeat it
+    if (cleanText.toLowerCase().startsWith(reference.toLowerCase())) {
+      cleanText = cleanText.slice(reference.length).trim();
+    }
+    const formattedText = `\n${reference} — "${cleanText}" (ESV)\n`;
     
     // Try to insert at cursor position first
     if (insertAtCursor) {
