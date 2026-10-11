@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { RichTextEditor, RichTextEditorRef } from "@/components/notes/RichTextEditor";
 import { useNotesStore } from "@/lib/store/notesStore";
 import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut, Highlighter, Settings, Focus, Search, Clock, BookMarked, Loader2, Bookmark } from "lucide-react";
-import { convertNoteHtmlToEsv } from "@/lib/convertToEsv";
+import { convertNoteHtmlToEsv, findUnclearReferences, replaceUnclearReference, type UnclearReference } from "@/lib/convertToEsv";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow, format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -317,6 +318,67 @@ export default function NoteEditor() {
       setConvertingEsv(false);
     }
   }, [toast, setContentExternal]);
+
+  // Review list: references marked "?" that could not be converted
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [unclearList, setUnclearList] = useState<UnclearReference[]>([]);
+  const [fixInputs, setFixInputs] = useState<Record<number, string>>({});
+  const [fixingIndex, setFixingIndex] = useState<number | null>(null);
+  const latestHtml = () => editorRef.current?.getContent() ?? contentRef.current;
+  const refreshUnclear = useCallback(() => {
+    const list = findUnclearReferences(editorRef.current?.getContent() ?? contentRef.current);
+    setUnclearList(list);
+    setFixInputs(Object.fromEntries(list.map((u) => [u.index, u.ref])));
+    return list;
+  }, []);
+  useEffect(() => { refreshUnclear(); }, [content, refreshUnclear]);
+
+  const handleJumpToUnclear = useCallback((u: UnclearReference) => {
+    const root = viewMode === 'edit'
+      ? (document.querySelector('.custom-quill-editor .ql-editor') as HTMLElement | null)
+      : readerContentRef.current;
+    const scroller = viewMode === 'edit' ? editScrollRef.current : readerContainerRef.current;
+    const target = root ? findTextInElement(root, u.marker) || findTextInElement(root, u.ref) : null;
+    if (target && scroller) {
+      scrollElementInContainer(scroller, target, { block: 'center' });
+      target.classList.remove('bookmark-flash');
+      void target.offsetWidth;
+      if (viewMode !== 'edit') {
+        target.classList.add('bookmark-flash');
+        setTimeout(() => target.classList.remove('bookmark-flash'), 1700);
+      }
+    } else {
+      toast({ title: "Couldn't find it", description: `"${u.ref}" wasn't found in the note.`, variant: "destructive" });
+    }
+  }, [viewMode, toast]);
+
+  const handleFixUnclear = useCallback(async (u: UnclearReference) => {
+    const newRef = (fixInputs[u.index] || "").trim();
+    if (!newRef) return;
+    setFixingIndex(u.index);
+    try {
+      const before = latestHtml();
+      const withRef = replaceUnclearReference(before, u.index, newRef);
+      const result = await convertNoteHtmlToEsv(withRef, { only: newRef });
+      if (latestHtml() !== before) {
+        toast({ title: "Note changed meanwhile", description: "Your edits are safe. Try Convert again." });
+        return;
+      }
+      setContentExternal(result.html);
+      setHasUnsavedChanges(true);
+      if (result.failed.length) {
+        toast({ title: "Still not found", description: `"${newRef}" couldn't be loaded. Check the spelling, e.g. "Hebrews 4:14-16".`, variant: "destructive" });
+      } else {
+        toast({ title: result.replaced ? "Converted to ESV" : "Reference updated", description: result.replaced ? `${newRef} is now ESV.` : `${newRef} saved — no verse text was next to it to replace.` });
+      }
+      setTimeout(refreshUnclear, 0);
+    } catch (e) {
+      toast({ title: "Conversion failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setFixingIndex(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixInputs, toast, setContentExternal, refreshUnclear]);
 
   // Clear all highlights helper function
   const clearAllHighlights = useCallback(() => {
@@ -962,20 +1024,27 @@ export default function NoteEditor() {
                   <Search className="h-4 w-4 mr-1" />
                   Search Bible
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleConvertToEsv}
-                  disabled={convertingEsv}
-                  title="Replace all scripture quotes in this note with the ESV translation"
-                >
-                  {convertingEsv ? (
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  ) : (
-                    <BookMarked className="h-4 w-4 mr-1" />
-                  )}
-                  {convertingEsv ? "Converting..." : "Convert to ESV"}
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" disabled={convertingEsv} title="Convert Scriptures to ESV">
+                      {convertingEsv ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <BookMarked className="h-4 w-4 mr-1" />}
+                      {convertingEsv ? "Converting..." : "Convert to ESV"}
+                      {unclearList.length > 0 && (
+                        <Badge variant="destructive" className="ml-1.5 h-5 px-1.5">{unclearList.length} ?</Badge>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-64">
+                    <DropdownMenuItem onClick={handleConvertToEsv}>
+                      <BookMarked className="h-4 w-4 mr-2" /> Convert all to ESV
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => { refreshUnclear(); setReviewOpen(true); }}>
+                      <Search className="h-4 w-4 mr-2" />
+                      Review not converted ({unclearList.length})
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
 
@@ -1353,6 +1422,45 @@ export default function NoteEditor() {
         onInsertScripture={handleInsertScripture}
         insertAtCursor={handleInsertAtCursor}
       />
+
+      {/* Not-converted review panel (non-blocking so the note stays visible) */}
+      {reviewOpen && (
+        <div className="fixed right-4 top-20 z-50 w-96 max-h-[75vh] flex flex-col rounded-xl border bg-card text-card-foreground shadow-2xl">
+          <div className="flex items-center justify-between border-b px-4 py-3">
+            <div>
+              <p className="font-semibold">Not converted to ESV</p>
+              <p className="text-xs text-muted-foreground">Click a verse to go there. Type the correct reference, then Convert.</p>
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => setReviewOpen(false)}><X className="h-4 w-4" /></Button>
+          </div>
+          <div className="overflow-y-auto p-3 space-y-2">
+            {unclearList.length === 0 && (
+              <p className="text-sm text-muted-foreground p-4 text-center">Everything is converted. Nothing marked "?".</p>
+            )}
+            {unclearList.map((u) => (
+              <div key={`${u.index}-${u.marker}`} className="rounded-lg border p-3 space-y-2">
+                <button className="w-full text-left" onClick={() => handleJumpToUnclear(u)}>
+                  <p className="font-medium text-sm text-primary hover:underline">{u.ref} ?</p>
+                  <p className="text-xs text-muted-foreground line-clamp-2">{u.context}</p>
+                </button>
+                <div className="flex gap-2">
+                  <Input
+                    value={fixInputs[u.index] ?? ""}
+                    onChange={(e) => setFixInputs((p) => ({ ...p, [u.index]: e.target.value }))}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleFixUnclear(u); }}
+                    placeholder="e.g. Hebrews 4:14-16"
+                    className="h-8 text-sm"
+                  />
+                  <Button size="sm" className="h-8" disabled={fixingIndex !== null} onClick={() => handleFixUnclear(u)}>
+                    {fixingIndex === u.index ? <Loader2 className="h-4 w-4 animate-spin" /> : "Convert"}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
 
       {/* Add Bookmark Dialog */}
       <AddBookmarkDialog
