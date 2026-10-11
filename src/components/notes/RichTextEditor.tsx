@@ -479,6 +479,37 @@ const RichTextEditorInner = forwardRef<RichTextEditorRef, RichTextEditorProps>(
       emit(quill.root.innerHTML);
     }, [getQuill, emit, scrollingContainer]);
 
+    // Insert the surrounding verses (context) right after the highlighted text.
+    const handleFillContext = useCallback((reference: string, contextText: string, contextLabel: string) => {
+      const quill = getQuill();
+      if (!quill) return;
+      const verses = cleanVerseTextLocal(contextText);
+      const sel = quill.getSelection() || quill.selection?.savedRange;
+      const scroller = scrollingContainer ? document.querySelector(scrollingContainer) as HTMLElement | null : null;
+      const top = scroller?.scrollTop ?? window.scrollY;
+      let insertPosition: number;
+      let inline: Record<string, unknown> = { color: '#4a5568', italic: true };
+      if (sel && sel.length > 0) {
+        insertPosition = sel.index + sel.length;
+        const formats = quill.getFormat(sel.index, 1);
+        const picked: Record<string, unknown> = {};
+        ["bold", "italic", "underline", "color", "background", "font", "size"].forEach((k) => {
+          if (formats[k] !== undefined) picked[k] = formats[k];
+        });
+        if (Object.keys(picked).length > 0) inline = picked;
+      } else {
+        const content = quill.getText();
+        const refIndex = content.indexOf(reference);
+        if (refIndex === -1) return;
+        insertPosition = refIndex + reference.length;
+      }
+      const insertion = `\n"${verses}"\n— ${contextLabel} ESV (context)`;
+      quill.insertText(insertPosition, insertion, inline, "user");
+      quill.setSelection(insertPosition + insertion.length, 0, "silent");
+      if (scroller) scroller.scrollTop = top; else window.scrollTo({ top });
+      emit(quill.root.innerHTML);
+    }, [getQuill, emit, scrollingContainer]);
+
     return (
       <div ref={containerRef} className="rich-text-editor-container">
         <Suspense fallback={<div className="h-[400px] animate-pulse bg-muted rounded-lg" />}>
