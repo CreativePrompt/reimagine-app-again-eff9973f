@@ -60,3 +60,44 @@ export function findTextInElement(root: HTMLElement, snippet: string): HTMLEleme
   }
   return null;
 }
+
+/** Find the nearest scrollable ancestor of `el` (excluding el itself). */
+export function getScrollParent(el: HTMLElement | null): HTMLElement | null {
+  let node = el?.parentElement || null;
+  while (node) {
+    const style = window.getComputedStyle(node);
+    if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight) return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+
+/**
+ * Scroll ONLY `scroller` so that `el` is positioned in it (no ancestor scrolling,
+ * no focus side effects). Repeated calls for the same element are no-ops.
+ */
+export function scrollElementInContainer(
+  scroller: HTMLElement,
+  el: HTMLElement,
+  opts: { block?: "center" | "nearest" | "start"; smooth?: boolean; offset?: number } = {}
+) {
+  const { block = "center", smooth = true, offset = 0 } = opts;
+  const sRect = scroller.getBoundingClientRect();
+  const eRect = el.getBoundingClientRect();
+  const relTop = eRect.top - sRect.top + scroller.scrollTop;
+  let target = scroller.scrollTop;
+  if (block === "center") {
+    target = relTop - scroller.clientHeight / 2 + Math.min(eRect.height, scroller.clientHeight) / 2;
+  } else if (block === "start") {
+    target = relTop - offset;
+  } else {
+    const visTop = scroller.scrollTop + offset;
+    const visBottom = scroller.scrollTop + scroller.clientHeight;
+    if (relTop < visTop) target = relTop - offset;
+    else if (relTop + eRect.height > visBottom) target = relTop + eRect.height - scroller.clientHeight;
+  }
+  const max = scroller.scrollHeight - scroller.clientHeight;
+  target = Math.max(0, Math.min(max, Math.round(target)));
+  if (Math.abs(target - scroller.scrollTop) < 2) return;
+  scroller.scrollTo({ top: target, behavior: smooth ? "smooth" : "auto" });
+}
