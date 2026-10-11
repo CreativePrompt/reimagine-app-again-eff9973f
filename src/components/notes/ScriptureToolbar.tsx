@@ -1,11 +1,26 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { ListPlus, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { ScriptureFillButton } from "./ScriptureFillButton";
 import { findScriptureReferences, normalizeReference } from "@/lib/scriptureUtils";
 
 interface ScriptureToolbarProps {
   editorContainer: HTMLElement | null;
   onFillScripture: (reference: string, verseText: string, canonical: string) => void;
+  onFillContext: (reference: string, contextText: string, contextLabel: string) => void;
+}
+
+// Surrounding passage (3 verses before and after), like the Search Bible panel.
+function getContextPassage(ref: string): string | null {
+  const m = ref.match(/^(.+?)\s+(\d+):(\d+)(?:[-–](\d+))?$/);
+  if (!m) return null;
+  const verse = parseInt(m[3]);
+  const start = Math.max(1, verse - 3);
+  const end = (m[4] ? parseInt(m[4]) : verse) + 3;
+  return `${m[1]} ${m[2]}:${start}-${end}`;
 }
 
 interface ToolbarPosition {
@@ -14,10 +29,12 @@ interface ToolbarPosition {
   reference: string;
 }
 
-export function ScriptureToolbar({ editorContainer, onFillScripture }: ScriptureToolbarProps) {
+export function ScriptureToolbar({ editorContainer, onFillScripture, onFillContext }: ScriptureToolbarProps) {
   const [toolbarPosition, setToolbarPosition] = useState<ToolbarPosition | null>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const [contextLoading, setContextLoading] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   const handleSelectionChange = useCallback(() => {
     if (!editorContainer) return;
@@ -116,6 +133,48 @@ export function ScriptureToolbar({ editorContainer, onFillScripture }: Scripture
     }
   };
 
+  const handleContext = async () => {
+    const reference = toolbarPosition?.reference ?? pinnedRef.current;
+    if (!reference || contextLoading) return;
+    const contextPassage = getContextPassage(normalizeReference(reference));
+    if (!contextPassage) {
+      toast({
+        title: "No context available",
+        description: "Could not determine the surrounding verses for this reference.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setContextLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('esv-bible', {
+        body: { passage: contextPassage, includeVerseNumbers: true, includeHeadings: false }
+      });
+      if (error) throw error;
+      if (data.passages && data.passages.length > 0) {
+        onFillContext(reference, data.passages[0].trim(), data.canonical || contextPassage);
+        setIsVisible(false);
+        setToolbarPosition(null);
+        window.getSelection()?.removeAllRanges();
+      } else {
+        toast({
+          title: "No passage found",
+          description: `Could not find "${contextPassage}" in the ESV Bible.`,
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching context passage:', err);
+      toast({
+        title: "Error fetching context",
+        description: "Failed to fetch the surrounding verses from ESV. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setContextLoading(false);
+    }
+  };
+
   if (!isVisible || !toolbarPosition) return null;
 
   return createPortal(
@@ -138,6 +197,21 @@ export function ScriptureToolbar({ editorContainer, onFillScripture }: Scripture
           reference={normalizeReference(toolbarPosition.reference)}
           onFill={handleFill}
         />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleContext}
+          disabled={contextLoading}
+          className="h-6 px-2 text-xs gap-1"
+          title="Insert the surrounding verses (3 before and after)"
+        >
+          {contextLoading ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <ListPlus className="h-3 w-3" />
+          )}
+          {contextLoading ? "Loading..." : "Context"}
+        </Button>
       </div>
     </div>,
     document.body
