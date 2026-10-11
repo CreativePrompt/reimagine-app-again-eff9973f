@@ -1,18 +1,26 @@
-import { Suspense, lazy, useMemo, useRef, useEffect, useCallback, useState, forwardRef, useImperativeHandle } from "react";
+import { Suspense, lazy, useMemo, useRef, useEffect, useCallback, useState, forwardRef, useImperativeHandle, memo } from "react";
 import "react-quill/dist/quill.snow.css";
 import "./RichTextEditor.css";
 import { ScriptureToolbar } from "./ScriptureToolbar";
-import { BookOpen, Loader2 } from "lucide-react";
 import { fetchNextVerse, cleanVerseText, findLastReference } from "@/lib/scriptureNavigation";
+import { getScrollParent } from "@/lib/bookmarkOffsets";
 import { useToast } from "@/hooks/use-toast";
 
 // Lazy load ReactQuill to avoid type conflicts during build
 const ReactQuill = lazy(() => import("react-quill"));
 
 interface RichTextEditorProps {
+  /**
+   * Content to load into the editor. The editor is UNCONTROLLED while typing:
+   * this value is only applied when it changes from the outside (note load,
+   * Convert to ESV, etc.). This prevents re-render feedback loops that reset
+   * the cursor/scroll and keeps typing fast in long documents.
+   */
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  /** CSS selector of the element that scrolls the document (page-style scrolling). */
+  scrollingContainer?: string;
 }
 
 export interface RichTextEditorRef {
@@ -23,21 +31,58 @@ export interface RichTextEditorRef {
   getSelectionOffset: () => number;
   /** Get text snippet around a given offset (length chars before & after). */
   getSnippetAtOffset: (offset: number, length?: number) => string;
-  /** Scroll the editor to a given Quill text offset. */
+  /** Scroll the editor to a given Quill text offset (stable, no jump to top). */
   scrollToOffset: (offset: number) => boolean;
   /** Fetch and append the next Scripture verse after the last reference in the doc. */
   insertNextVerse: () => Promise<void>;
 }
 
-export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
-  function RichTextEditor({ value, onChange, placeholder }, ref) {
+/** Strip junk that Word / browsers put in clipboard HTML. */
+function sanitizeClipboardHtml(html: string): string {
+  try {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    doc.querySelectorAll("style, script, meta, link, title, xml, o\\:p").forEach((n) => n.remove());
+    return doc.body ? doc.body.innerHTML : html;
+  } catch {
+    return html;
+  }
+}
+
+const RichTextEditorInner = forwardRef<RichTextEditorRef, RichTextEditorProps>(
+  function RichTextEditor({ value, onChange, placeholder, scrollingContainer }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const quillRef = useRef<any>(null);
     const [editorReady, setEditorReady] = useState(false);
-    const [nextVerseLoading, setNextVerseLoading] = useState(false);
+    /** Latest HTML the editor holds (what we emitted last). */
     const lastValueRef = useRef<string>(value);
-    const handleInsertNextVerseRef = useRef<(() => Promise<void>) | null>(null);
+    /** Last external `value` prop applied to the editor. */
+    const appliedValueRef = useRef<string>(value);
+    const [initialValue] = useState(value);
+    const onChangeRef = useRef(onChange);
+    onChangeRef.current = onChange;
     const { toast } = useToast();
+
+    const getQuill = useCallback(() => {
+      try {
+        return quillRef.current?.getEditor?.() ?? null;
+      } catch {
+        return null;
+      }
+    }, []);
+
+    const getScroller = useCallback((): HTMLElement | null => {
+      if (scrollingContainer) {
+        const el = document.querySelector(scrollingContainer) as HTMLElement | null;
+        if (el) return el;
+      }
+      return getScrollParent(containerRef.current);
+    }, [scrollingContainer]);
+
+    const emit = useCallback((html: string) => {
+      if (html === lastValueRef.current) return;
+      lastValueRef.current = html;
+      onChangeRef.current(html);
+    }, []);
 
     const modules = useMemo(() => ({
       toolbar: [
@@ -55,11 +100,11 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         ['clean']
       ],
       clipboard: {
-        matchVisual: false, // Prevents scroll issues on paste
+        matchVisual: false,
       },
     }), []);
 
-    const formats = [
+    const formats = useMemo(() => [
       'header', 'font', 'size',
       'bold', 'italic', 'underline', 'strike',
       'color', 'background',
@@ -69,284 +114,156 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       'align',
       'blockquote', 'code-block',
       'link', 'image'
-    ];
+    ], []);
 
-    // Set editor ready after mount
+    // Wait for the lazy Quill instance to exist
     useEffect(() => {
-      const timer = setTimeout(() => setEditorReady(true), 500);
-      return () => clearTimeout(timer);
-    }, []);
+      if (editorReady) return;
+      const id = window.setInterval(() => {
+        if (getQuill()) {
+          setEditorReady(true);
+          window.clearInterval(id);
+        }
+      }, 50);
+      return () => window.clearInterval(id);
+    }, [editorReady, getQuill]);
 
-    // The REAL scroll container in NoteEditor is: div.flex-1.overflow-y-auto (parent of the p-8 div)
-    // We need to capture scroll position BEFORE paste and restore AFTER Quill finishes
+    // Apply external value changes (note load, Convert to ESV, etc.) without
+    // touching the scroll position.
     useEffect(() => {
-      if (!editorReady || !quillRef.current) return;
-
-      const quill = quillRef.current.getEditor();
+      if (!editorReady) return;
+      if (value === appliedValueRef.current) return;
+      appliedValueRef.current = value;
+      if (value === lastValueRef.current) return;
+      const quill = getQuill();
       if (!quill) return;
+      const scroller = getScroller();
+      const top = scroller?.scrollTop ?? 0;
+      const sel = quill.getSelection();
+      quill.setContents(quill.clipboard.convert(value || ""), "silent");
+      lastValueRef.current = quill.root.innerHTML;
+      if (sel) {
+        const len = quill.getLength();
+        quill.setSelection(Math.min(sel.index, len - 1), 0, "silent");
+      }
+      if (scroller) {
+        scroller.scrollTop = top;
+        requestAnimationFrame(() => { scroller.scrollTop = top; });
+      }
+    }, [value, editorReady, getQuill, getScroller]);
 
-      // Get the actual scroll container - the parent with overflow-y-auto
-      const getScrollContainer = () => {
-        // Walk up from the editor to find the scrollable parent
-        let element = containerRef.current?.parentElement;
-        while (element) {
-          const style = window.getComputedStyle(element);
-          if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-            return element;
-          }
-          element = element.parentElement;
-        }
-        return null;
-      };
-
-      let savedScrollTop = 0;
-      let isPasting = false;
-
-      // Capture scroll BEFORE anything happens
-      const handleBeforePaste = () => {
-        const scrollContainer = getScrollContainer();
-        if (scrollContainer) {
-          savedScrollTop = scrollContainer.scrollTop;
-          isPasting = true;
-        }
-      };
-
-      // Restore scroll after Quill processes the paste
-      const handleTextChange = (delta: any, oldDelta: any, source: string) => {
-        if (isPasting && source === 'user') {
-          const scrollContainer = getScrollContainer();
-          if (scrollContainer) {
-            // Force scroll restoration synchronously
-            scrollContainer.scrollTop = savedScrollTop;
-            
-            // Also restore after any microtasks
-            queueMicrotask(() => {
-              scrollContainer.scrollTop = savedScrollTop;
-            });
-            
-            // And after any frames
-            requestAnimationFrame(() => {
-              scrollContainer.scrollTop = savedScrollTop;
-              requestAnimationFrame(() => {
-                scrollContainer.scrollTop = savedScrollTop;
-                isPasting = false;
-              });
-            });
-          }
-        }
-      };
-
-      // Use 'beforeinput' which fires before paste is processed
-      const handleBeforeInput = (e: InputEvent) => {
-        if (e.inputType === 'insertFromPaste' || e.inputType === 'insertFromPasteAsQuotation') {
-          handleBeforePaste();
-        }
-      };
-
-      // Also capture on regular paste event as fallback
-      const handlePaste = () => {
-        handleBeforePaste();
-      };
-
-      quill.root.addEventListener('beforeinput', handleBeforeInput as EventListener);
-      quill.root.addEventListener('paste', handlePaste, { capture: true });
-      quill.on('text-change', handleTextChange);
-
-      return () => {
-        quill.root.removeEventListener('beforeinput', handleBeforeInput as EventListener);
-        quill.root.removeEventListener('paste', handlePaste);
-        quill.off('text-change', handleTextChange);
-      };
-    }, [editorReady]);
-
-    // Handle blur to ensure content is saved when tab loses focus
+    // Word-like paste: insert exactly at the cursor, never jump the page.
+    // Quill 1.x's default paste focuses a hidden clipboard element which makes
+    // the browser scroll the page — we bypass it entirely.
     useEffect(() => {
-      if (!editorReady || !quillRef.current) return;
-
-      const quill = quillRef.current.getEditor();
+      if (!editorReady) return;
+      const quill = getQuill();
       if (!quill) return;
+      const QuillClass = (quill.constructor as any);
+      const Delta = QuillClass.import("delta");
 
-      const handleBlur = () => {
-        const currentContent = quill.root.innerHTML;
-        if (currentContent !== lastValueRef.current) {
-          lastValueRef.current = currentContent;
-          onChange(currentContent);
-        }
-      };
+      let lastRange: { index: number; length: number } | null = null;
+      const onSelection = (range: any) => { if (range) lastRange = range; };
+      quill.on("selection-change", onSelection);
 
-      // Also sync on visibility change (tab switching)
-      const handleVisibilityChange = () => {
-        if (document.hidden && quillRef.current) {
-          const quillInstance = quillRef.current.getEditor();
-          if (quillInstance) {
-            const currentContent = quillInstance.root.innerHTML;
-            if (currentContent !== lastValueRef.current) {
-              lastValueRef.current = currentContent;
-              onChange(currentContent);
-            }
-          }
-        }
-      };
-
-      quill.root.addEventListener('blur', handleBlur);
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-
-      return () => {
-        quill.root.removeEventListener('blur', handleBlur);
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-      };
-    }, [editorReady, onChange]);
-
-    // Track value changes from parent
-    useEffect(() => {
-      lastValueRef.current = value;
-    }, [value]);
-
-    // Expose methods via ref
-    useImperativeHandle(ref, () => ({
-      insertAtCursor: (text: string) => {
-        if (!quillRef.current) return;
-        
-        const quill = quillRef.current.getEditor();
-        if (!quill) return;
-
-        // Store scroll position
-        const scrollContainer = containerRef.current?.querySelector('.ql-editor');
-        const scrollTop = scrollContainer?.scrollTop || 0;
-
-        // Get current selection/cursor position
-        const range = quill.getSelection();
-        const cursorPosition = range ? range.index : quill.getLength();
-        
-        // Insert text at cursor position
-        quill.insertText(cursorPosition, text);
-        
-        // Move cursor to end of inserted text
-        quill.setSelection(cursorPosition + text.length);
-        
-        // Update the onChange with new content
-        const newContent = quill.root.innerHTML;
-        lastValueRef.current = newContent;
-        onChange(newContent);
-
-        // Restore scroll position
-        requestAnimationFrame(() => {
-          if (scrollContainer) {
-            scrollContainer.scrollTop = scrollTop;
-          }
-        });
-      },
-      getContent: () => {
-        if (!quillRef.current) return value;
-        const quill = quillRef.current.getEditor();
-        return quill ? quill.root.innerHTML : value;
-      },
-      getSelectedText: () => {
-        if (!quillRef.current) return "";
-        const quill = quillRef.current.getEditor();
-        if (!quill) return "";
-        const range = quill.getSelection();
-        if (!range || range.length === 0) return "";
-        return quill.getText(range.index, range.length).trim();
-      },
-      getSelectionOffset: () => {
-        if (!quillRef.current) return 0;
-        const quill = quillRef.current.getEditor();
-        if (!quill) return 0;
-        const range = quill.getSelection(true);
-        return range ? range.index : 0;
-      },
-      getSnippetAtOffset: (offset: number, length = 40) => {
-        if (!quillRef.current) return "";
-        const quill = quillRef.current.getEditor();
-        if (!quill) return "";
-        const total = quill.getLength();
-        const start = Math.max(0, offset - Math.floor(length / 2));
-        const end = Math.min(total, start + length);
-        return quill.getText(start, end - start).replace(/\s+/g, " ").trim();
-      },
-      scrollToOffset: (offset: number) => {
-        if (!quillRef.current) return false;
-        const quill = quillRef.current.getEditor();
-        if (!quill) return false;
-        const safe = Math.min(Math.max(0, offset), quill.getLength() - 1);
+      const ensureCaretVisible = (scroller: HTMLElement, index: number) => {
         try {
-          quill.setSelection(safe, 0, "silent");
-          // Quill auto-scrolls on selection; also try to find the surrounding leaf
-          const [leaf] = quill.getLeaf(safe);
-          const node = leaf?.domNode as Node | undefined;
-          if (node) {
-            const el = node.nodeType === 1 ? (node as HTMLElement) : (node.parentElement as HTMLElement | null);
-            if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-            return true;
+          const b = quill.getBounds(index);
+          const cRect = quill.container.getBoundingClientRect();
+          const sRect = scroller.getBoundingClientRect();
+          const caretTop = cRect.top + b.top;
+          const caretBottom = caretTop + b.height;
+          const margin = 60;
+          if (caretBottom > sRect.bottom - margin) {
+            scroller.scrollTop += caretBottom - (sRect.bottom - margin);
+          } else if (caretTop < sRect.top + margin + 60) {
+            // account for sticky toolbar
+            scroller.scrollTop -= (sRect.top + margin + 60) - caretTop;
           }
-        } catch (e) {
-          console.warn("scrollToOffset error", e);
+        } catch { /* ignore */ }
+      };
+
+      const handlePaste = (e: ClipboardEvent) => {
+        const cd = e.clipboardData;
+        if (!cd) return;
+        const html = cd.getData("text/html");
+        const text = cd.getData("text/plain");
+        if (!html && !text) return; // e.g. pasted image files — let Quill handle it
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const scroller = getScroller();
+        const top = scroller?.scrollTop ?? 0;
+        const range = quill.getSelection() || lastRange || { index: Math.max(0, quill.getLength() - 1), length: 0 };
+
+        let pasted: any;
+        if (html) {
+          pasted = quill.clipboard.convert(sanitizeClipboardHtml(html));
+        } else {
+          pasted = new Delta().insert(text.replace(/\r\n?/g, "\n"));
         }
-        return false;
-      },
-      insertNextVerse: async () => {
-        await handleInsertNextVerseRef.current?.();
-      },
-    }), [onChange, value]);
 
-    // Handle onChange wrapper to track content
-    const handleChange = useCallback((newValue: string) => {
-      lastValueRef.current = newValue;
-      onChange(newValue);
-    }, [onChange]);
+        const delta = new Delta().retain(range.index).delete(range.length).concat(pasted);
+        quill.updateContents(delta, "user");
+        const newIndex = range.index + pasted.length();
+        quill.setSelection(newIndex, 0, "silent");
 
-    // Clean up ESV text - remove extra whitespace and newlines to make it a single sentence
-    const cleanVerseTextLocal = (text: string): string => {
-      return text
-        .replace(/\n+/g, ' ')           // Replace newlines with spaces
-        .replace(/\s+/g, ' ')           // Collapse multiple spaces
-        .replace(/\[\d+\]\s*/g, '')     // Remove verse number brackets like [22]
-        .replace(/^\s+|\s+$/g, '')      // Trim whitespace
-        .trim();
-    };
+        if (scroller) {
+          scroller.scrollTop = top;
+          requestAnimationFrame(() => {
+            scroller.scrollTop = top;
+            ensureCaretVisible(scroller, newIndex);
+          });
+        }
+        emit(quill.root.innerHTML);
+      };
 
-    // Handle filling scripture - insert formatted verse after the reference
-    const handleFillScripture = useCallback((reference: string, verseText: string, canonical: string) => {
-      if (!quillRef.current) return;
-      
-      const quill = quillRef.current.getEditor();
+      // Capture phase on the root runs before Quill's own (bubble) paste handler
+      quill.root.addEventListener("paste", handlePaste, { capture: true });
+      return () => {
+        quill.root.removeEventListener("paste", handlePaste, { capture: true } as any);
+        quill.off("selection-change", onSelection);
+      };
+    }, [editorReady, getQuill, getScroller, emit]);
+
+    // Save on blur / tab hide
+    useEffect(() => {
+      if (!editorReady) return;
+      const quill = getQuill();
       if (!quill) return;
+      const sync = () => emit(quill.root.innerHTML);
+      const onVis = () => { if (document.hidden) sync(); };
+      quill.root.addEventListener("blur", sync);
+      document.addEventListener("visibilitychange", onVis);
+      return () => {
+        quill.root.removeEventListener("blur", sync);
+        document.removeEventListener("visibilitychange", onVis);
+      };
+    }, [editorReady, getQuill, emit]);
 
-      // Get the current content
-      const content = quill.getText();
-      
-      // Find the reference in the text
-      const refIndex = content.indexOf(reference);
-      if (refIndex === -1) return;
-
-      // Calculate position after the reference
-      const insertPosition = refIndex + reference.length;
-
-      // Clean up the verse text to be a single continuous sentence
-      const cleanedVerse = cleanVerseTextLocal(verseText);
-
-      // Create the formatted verse text
-      // Format: — "verse text" (ESV)
-      const formattedVerse = ` — "${cleanedVerse}" (ESV)`;
-
-      // Insert the verse text after the reference
-      quill.insertText(insertPosition, formattedVerse, {
-        'color': '#4a5568',
-        'italic': true,
-      });
-
-      // Update the onChange with new content
-      const newContent = quill.root.innerHTML;
-      lastValueRef.current = newContent;
-      onChange(newContent);
-    }, [onChange]);
+    const flashLine = useCallback((index: number) => {
+      const quill = getQuill();
+      const container = containerRef.current;
+      if (!quill || !container) return;
+      try {
+        const [line] = quill.getLine(index);
+        const node = line?.domNode as HTMLElement | undefined;
+        if (!node) return;
+        const nRect = node.getBoundingClientRect();
+        const cRect = container.getBoundingClientRect();
+        const overlay = document.createElement("div");
+        overlay.className = "bookmark-flash-overlay";
+        overlay.style.top = `${nRect.top - cRect.top - 4}px`;
+        overlay.style.height = `${nRect.height + 8}px`;
+        container.appendChild(overlay);
+        window.setTimeout(() => overlay.remove(), 1700);
+      } catch { /* ignore */ }
+    }, [getQuill]);
 
     // Insert the next scripture verse based on the last reference in the document.
-    // Formats as: italic quoted verse text on its own line, then `— Reference, ESV` citation.
     const handleInsertNextVerse = useCallback(async () => {
-      if (!quillRef.current) return;
-      const quill = quillRef.current.getEditor();
+      const quill = getQuill();
       if (!quill) return;
 
       const plain = quill.getText() as string;
@@ -360,7 +277,6 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         return;
       }
 
-      setNextVerseLoading(true);
       try {
         const result = await fetchNextVerse(plain);
         if (!result) {
@@ -372,16 +288,8 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           return;
         }
 
-        // Find end of the line that contains the last reference, insert there
-        const refEnd = last.matchEnd;
-        const rest = plain.slice(refEnd);
-        const nlIdx = rest.indexOf("\n");
-        // Walk forward past any adjacent verse-text / citation lines the user already has
-        // by inserting at the end of the document — simplest, most predictable behavior.
-        let insertPos = quill.getLength();
-        // Ensure trailing newline exists before our block
-        const fullLen = insertPos;
-        const trailing = quill.getText(Math.max(0, fullLen - 2), 2);
+        const insertPos = quill.getLength();
+        const trailing = quill.getText(Math.max(0, insertPos - 2), 2);
         let prefix = "";
         if (!trailing.endsWith("\n\n")) {
           prefix = trailing.endsWith("\n") ? "\n" : "\n\n";
@@ -391,7 +299,6 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         const verseLine = `"${cleaned}"`;
         const citationLine = `— ${result.reference}, ESV`;
 
-        // Insert prefix (plain), then verse (italic), newline, citation (italic), newline
         let cursor = insertPos;
         if (prefix) {
           quill.insertText(cursor, prefix);
@@ -406,21 +313,21 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         quill.insertText(cursor, "\n");
         cursor += 1;
 
-        // Move selection to the end of the inserted block
-        quill.setSelection(cursor, 0);
+        quill.setSelection(cursor, 0, "silent");
+        emit(quill.root.innerHTML);
 
-        // Sync value
-        const newContent = quill.root.innerHTML;
-        lastValueRef.current = newContent;
-        onChange(newContent);
-
-        // Scroll new content into view
-        try {
-          const [leaf] = quill.getLeaf(Math.max(0, cursor - 1));
-          const node = leaf?.domNode as Node | undefined;
-          const el = node && node.nodeType === 1 ? (node as HTMLElement) : (node?.parentElement as HTMLElement | null);
-          el?.scrollIntoView({ behavior: "smooth", block: "center" });
-        } catch { /* ignore */ }
+        const scroller = getScroller();
+        if (scroller) {
+          requestAnimationFrame(() => {
+            try {
+              const b = quill.getBounds(Math.max(0, cursor - 1));
+              const cRect = quill.container.getBoundingClientRect();
+              const sRect = scroller.getBoundingClientRect();
+              const y = cRect.top - sRect.top + scroller.scrollTop + b.top;
+              scroller.scrollTo({ top: Math.max(0, y - scroller.clientHeight / 2), behavior: "smooth" });
+            } catch { /* ignore */ }
+          });
+        }
 
         toast({
           title: "Next verse inserted",
@@ -428,46 +335,129 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         });
       } catch (err: any) {
         console.error("Next verse error:", err);
-        if (err?.message === "NO_REFERENCE") {
-          toast({
-            title: "No Scripture reference found",
-            description: "Select or insert a Scripture reference before using Next Verse.",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Unable to retrieve the next verse",
-            description: "Please try again in a moment.",
-            variant: "destructive",
-          });
-        }
-      } finally {
-        setNextVerseLoading(false);
+        toast({
+          title: err?.message === "NO_REFERENCE" ? "No Scripture reference found" : "Unable to retrieve the next verse",
+          description: err?.message === "NO_REFERENCE"
+            ? "Select or insert a Scripture reference before using Next Verse."
+            : "Please try again in a moment.",
+          variant: "destructive",
+        });
       }
-    }, [onChange, toast]);
+    }, [getQuill, getScroller, emit, toast]);
 
-    // Keep the ref in sync so useImperativeHandle can call the latest handler.
-    useEffect(() => {
-      handleInsertNextVerseRef.current = handleInsertNextVerse;
-    }, [handleInsertNextVerse]);
+    useImperativeHandle(ref, () => ({
+      insertAtCursor: (text: string) => {
+        const quill = getQuill();
+        if (!quill) return;
+        const scroller = getScroller();
+        const top = scroller?.scrollTop ?? 0;
+        const range = quill.getSelection();
+        const cursorPosition = range ? range.index : quill.getLength() - 1;
+        quill.insertText(cursorPosition, text, "user");
+        quill.setSelection(cursorPosition + text.length, 0, "silent");
+        emit(quill.root.innerHTML);
+        if (scroller) requestAnimationFrame(() => { scroller.scrollTop = top; });
+      },
+      getContent: () => {
+        const quill = getQuill();
+        return quill ? quill.root.innerHTML : lastValueRef.current;
+      },
+      getSelectedText: () => {
+        const quill = getQuill();
+        if (!quill) return "";
+        const range = quill.getSelection();
+        if (!range || range.length === 0) return "";
+        return quill.getText(range.index, range.length).trim();
+      },
+      getSelectionOffset: () => {
+        const quill = getQuill();
+        if (!quill) return 0;
+        const range = quill.getSelection() || null;
+        return range ? range.index : 0;
+      },
+      getSnippetAtOffset: (offset: number, length = 40) => {
+        const quill = getQuill();
+        if (!quill) return "";
+        const total = quill.getLength();
+        const start = Math.max(0, offset - Math.floor(length / 2));
+        const end = Math.min(total, start + length);
+        return quill.getText(start, end - start).replace(/\s+/g, " ").trim();
+      },
+      scrollToOffset: (offset: number) => {
+        const quill = getQuill();
+        if (!quill) return false;
+        const safe = Math.min(Math.max(0, offset), Math.max(0, quill.getLength() - 1));
+        try {
+          const scroller = getScroller();
+          if (scroller) {
+            const b = quill.getBounds(safe);
+            const cRect = quill.container.getBoundingClientRect();
+            const sRect = scroller.getBoundingClientRect();
+            const y = cRect.top - sRect.top + scroller.scrollTop + b.top;
+            const max = scroller.scrollHeight - scroller.clientHeight;
+            const target = Math.max(0, Math.min(max, Math.round(y - scroller.clientHeight / 3)));
+            // Scroll directly from the current position; clicking the same bookmark again is a no-op.
+            if (Math.abs(target - scroller.scrollTop) > 2) {
+              scroller.scrollTo({ top: target, behavior: "smooth" });
+            }
+          }
+          // Place the caret there without letting the browser scroll anything.
+          try {
+            (quill.root as HTMLElement).focus({ preventScroll: true });
+            quill.setSelection(safe, 0, "silent");
+          } catch { /* ignore */ }
+          flashLine(safe);
+          return true;
+        } catch (e) {
+          console.warn("scrollToOffset error", e);
+        }
+        return false;
+      },
+      insertNextVerse: handleInsertNextVerse,
+    }), [getQuill, getScroller, emit, flashLine, handleInsertNextVerse]);
+
+    const handleChange = useCallback((newValue: string) => {
+      emit(newValue);
+    }, [emit]);
+
+    // Clean up ESV text - remove extra whitespace and newlines to make it a single sentence
+    const cleanVerseTextLocal = (text: string): string => {
+      return text
+        .replace(/\n+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .replace(/\[\d+\]\s*/g, '')
+        .trim();
+    };
+
+    // Handle filling scripture - insert formatted verse after the reference
+    const handleFillScripture = useCallback((reference: string, verseText: string) => {
+      const quill = getQuill();
+      if (!quill) return;
+      const content = quill.getText();
+      const refIndex = content.indexOf(reference);
+      if (refIndex === -1) return;
+      const insertPosition = refIndex + reference.length;
+      const formattedVerse = ` — "${cleanVerseTextLocal(verseText)}" (ESV)`;
+      quill.insertText(insertPosition, formattedVerse, { color: '#4a5568', italic: true });
+      emit(quill.root.innerHTML);
+    }, [getQuill, emit]);
 
     return (
       <div ref={containerRef} className="rich-text-editor-container">
-
         <Suspense fallback={<div className="h-[400px] animate-pulse bg-muted rounded-lg" />}>
           <ReactQuill
             ref={quillRef}
             theme="snow"
-            value={value}
+            defaultValue={initialValue}
             onChange={handleChange}
             modules={modules}
             formats={formats}
             placeholder={placeholder}
+            scrollingContainer={scrollingContainer}
             className="custom-quill-editor"
           />
         </Suspense>
-        
-        {/* Scripture hover toolbar */}
+
         {editorReady && containerRef.current && (
           <ScriptureToolbar
             editorContainer={containerRef.current}
@@ -478,3 +468,5 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     );
   }
 );
+
+export const RichTextEditor = memo(RichTextEditorInner);
