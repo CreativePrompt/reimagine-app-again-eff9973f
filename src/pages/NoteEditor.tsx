@@ -63,7 +63,11 @@ export default function NoteEditor() {
     contentRef.current = html;
     setHasUnsavedChanges(true);
     if (contentDebounceRef.current) clearTimeout(contentDebounceRef.current);
-    contentDebounceRef.current = setTimeout(() => setContent(contentRef.current), 700);
+    contentDebounceRef.current = setTimeout(() => {
+      setContent(contentRef.current);
+      // keep editorValue current so a remounted editor never shows stale text
+      setEditorValue(contentRef.current);
+    }, 700);
   }, []);
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
