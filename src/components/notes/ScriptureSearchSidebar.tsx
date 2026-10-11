@@ -970,6 +970,35 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture, ins
                       <p className="text-sm leading-relaxed text-muted-foreground">
                         {cleanVerseText(results.contextVerses[0].text)}
                       </p>
+                      <div className="flex gap-2 mt-3 flex-wrap">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleCopy(
+                            results.contextVerses[0].canonical || results.contextVerses[0].reference,
+                            results.contextVerses[0].text
+                          )}
+                        >
+                          {copiedRef === (results.contextVerses[0].canonical || results.contextVerses[0].reference) ? (
+                            <Check className="h-3 w-3 mr-1" />
+                          ) : (
+                            <Copy className="h-3 w-3 mr-1" />
+                          )}
+                          Copy
+                        </Button>
+                        {(onInsertScripture || insertAtCursor) && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleInsert(
+                              results.contextVerses[0].canonical || results.contextVerses[0].reference,
+                              results.contextVerses[0].text
+                            )}
+                          >
+                            <ChevronRight className="h-3 w-3 mr-1" />
+                            Insert
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
