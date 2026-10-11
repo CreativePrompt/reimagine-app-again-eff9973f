@@ -331,7 +331,17 @@ export default function NoteEditor() {
     setFixInputs(Object.fromEntries(list.map((u) => [u.index, u.ref])));
     return list;
   }, []);
-  useEffect(() => { refreshUnclear(); }, [content, refreshUnclear]);
+  // Scan in idle time (and not mid-conversion) so typing and converting stay smooth.
+  useEffect(() => {
+    if (convertingEsv) return;
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(() => refreshUnclear(), { timeout: 2000 });
+      return () => w.cancelIdleCallback?.(id);
+    }
+    const t = setTimeout(refreshUnclear, 500);
+    return () => clearTimeout(t);
+  }, [content, convertingEsv, refreshUnclear]);
 
   const handleJumpToUnclear = useCallback((u: UnclearReference) => {
     const root = viewMode === 'edit'

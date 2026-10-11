@@ -295,9 +295,12 @@ export async function convertNoteHtmlToEsv(html: string, opts: { only?: string }
     return true;
   };
 
+  let work = 0;
   for (const [idx, refs] of refsByBlock) {
     const block = blocks[idx];
     for (const ref of refs) {
+      // Yield to the browser regularly so long notes don't freeze the page.
+      if (++work % 8 === 0) await sleep(0);
       const raw = cache.get(ref);
       if (!raw) {
         failed.add(ref);
