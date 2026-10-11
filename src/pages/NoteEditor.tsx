@@ -20,7 +20,7 @@ import { PresenterSidePanel } from "@/components/notes/PresenterSidePanel";
 import { BookmarksPanel, AddBookmarkDialog, pickDefaultBookmarkColor } from "@/components/notes/BookmarksPanel";
 import type { NoteBookmark } from "@/lib/store/notesStore";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { computeTextOffset, findElementByTextOffset, findTextInElement } from "@/lib/bookmarkOffsets";
+import { computeTextOffset, findElementByTextOffset, findTextInElement, scrollElementInContainer } from "@/lib/bookmarkOffsets";
 import { fetchNextVerse, cleanVerseText } from "@/lib/scriptureNavigation";
 import "@/components/notes/RichTextEditor.css";
 
@@ -40,6 +40,31 @@ export default function NoteEditor() {
   
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  // Editor is uncontrolled while typing: `contentRef` always holds the latest HTML,
+  // `content` is a debounced copy for reader/bookmark logic, and `editorValue`
+  // only changes for external updates (note load, Convert to ESV, ...).
+  const contentRef = useRef("");
+  const [editorValue, setEditorValue] = useState("");
+  const contentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadedNoteIdRef = useRef<string | null>(null);
+  const editScrollRef = useRef<HTMLDivElement>(null);
+  const setContentExternal = useCallback((html: string) => {
+    if (contentDebounceRef.current) clearTimeout(contentDebounceRef.current);
+    contentRef.current = html;
+    setContent(html);
+    setEditorValue(html);
+  }, []);
+  const switchViewMode = useCallback((mode: ViewMode) => {
+    const latest = editorRef.current?.getContent() ?? contentRef.current;
+    setContentExternal(latest);
+    setViewMode(mode);
+  }, [setContentExternal]);
+  const handleEditorChange = useCallback((html: string) => {
+    contentRef.current = html;
+    setHasUnsavedChanges(true);
+    if (contentDebounceRef.current) clearTimeout(contentDebounceRef.current);
+    contentDebounceRef.current = setTimeout(() => setContent(contentRef.current), 700);
+  }, []);
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -151,7 +176,7 @@ export default function NoteEditor() {
     try {
       // Derive plain text for reference detection
       const tmp = document.createElement("div");
-      tmp.innerHTML = content;
+      tmp.innerHTML = contentRef.current;
       const plain = tmp.innerText || tmp.textContent || "";
 
       const result = await fetchNextVerse(plain);
@@ -169,8 +194,8 @@ export default function NoteEditor() {
         `<p><em>"${cleaned.replace(/"/g, "&quot;")}"</em></p>` +
         `<p><em>— ${result.reference}, ESV</em></p>`;
 
-      const newContent = (content || "") + appended;
-      setContent(newContent);
+      const newContent = (contentRef.current || "") + appended;
+      setContentExternal(newContent);
       setHasUnsavedChanges(true);
 
       // Scroll reader to the newly appended content shortly after render
@@ -179,7 +204,8 @@ export default function NoteEditor() {
         if (!root) return;
         const paras = root.querySelectorAll("p");
         const last = paras[paras.length - 1];
-        last?.scrollIntoView({ behavior: "smooth", block: "center" });
+        const scroller = readerContainerRef.current;
+        if (last && scroller) scrollElementInContainer(scroller, last as HTMLElement, { block: "center" });
       });
 
       toast({
@@ -204,7 +230,7 @@ export default function NoteEditor() {
     } finally {
       setNextVerseLoading(false);
     }
-  }, [content, nextVerseLoading, toast, viewMode]);
+  }, [nextVerseLoading, toast, viewMode, setContentExternal]);
 
 
   // Handle copy audience URL
@@ -238,15 +264,15 @@ export default function NoteEditor() {
   const handleInsertScripture = useCallback((reference: string, text: string) => {
     const formattedText = `\n\n${reference} — "${text}" (ESV)\n\n`;
     // Append to content
-    setContent(prev => prev + formattedText);
+    setContentExternal(contentRef.current + formattedText);
     setHasUnsavedChanges(true);
-  }, []);
+  }, [setContentExternal]);
 
   // Convert all scripture references in the note to ESV
   const [convertingEsv, setConvertingEsv] = useState(false);
   const handleConvertToEsv = useCallback(async () => {
     // Get the latest content from the editor
-    const currentContent = editorRef.current?.getContent() ?? content;
+    const currentContent = editorRef.current?.getContent() ?? contentRef.current;
     if (!currentContent || !currentContent.trim()) {
       toast({ title: "Nothing to convert", description: "This note is empty." });
       return;
@@ -262,7 +288,7 @@ export default function NoteEditor() {
             : "No scripture references with quoted text were found.",
         });
       } else {
-        setContent(result.html);
+        setContentExternal(result.html);
         setHasUnsavedChanges(true);
         toast({
           title: "Converted to ESV",
@@ -279,7 +305,7 @@ export default function NoteEditor() {
     } finally {
       setConvertingEsv(false);
     }
-  }, [content, toast]);
+  }, [toast, setContentExternal]);
 
   // Clear all highlights helper function
   const clearAllHighlights = useCallback(() => {
@@ -451,16 +477,19 @@ export default function NoteEditor() {
   useEffect(() => {
     if (id && notes.length > 0) {
       const note = notes.find(n => n.id === id);
-      if (note) {
+      // Only hydrate once per note — later store updates (e.g. after auto-save)
+      // must not overwrite what the user is typing or reset scroll.
+      if (note && loadedNoteIdRef.current !== id) {
+        loadedNoteIdRef.current = id;
         setCurrentNote(note);
         setTitle(note.title);
-        setContent(note.content);
+        setContentExternal(note.content);
         setTags(note.tags || []);
         setBookmarks(note.bookmarks || []);
         setHasUnsavedChanges(false);
       }
     }
-  }, [id, notes, setCurrentNote]);
+  }, [id, notes, setCurrentNote, setContentExternal]);
 
   // Track text selection (in editor or reader) to enable "Add bookmark" button
   useEffect(() => {
@@ -555,45 +584,28 @@ export default function NoteEditor() {
     };
 
     if (viewMode === 'edit' && editorRef.current) {
-      // Try offset first
-      if (typeof bm.offset === 'number') {
-        const ok = editorRef.current.scrollToOffset(bm.offset);
-        if (ok) {
-          const editorEl = document.querySelector('.custom-quill-editor .ql-editor') as HTMLElement | null;
-          if (editorEl) {
-            // Flash the block containing the focused leaf
-            const sel = window.getSelection();
-            const node = sel?.focusNode as Node | null;
-            const target = (node && node.nodeType === 1 ? (node as HTMLElement) : node?.parentElement) || editorEl;
-            flashAt(target);
-          }
-          return;
-        }
-      }
-      // Fallback: find by snippet
+      // Stable jump: scrolls the page directly from where you are (no jump to top).
+      if (typeof bm.offset === 'number' && editorRef.current.scrollToOffset(bm.offset)) return;
       if (bm.snippet) {
         const editorEl = document.querySelector('.custom-quill-editor .ql-editor') as HTMLElement | null;
         const found = editorEl ? findTextInElement(editorEl, bm.snippet) : null;
-        if (found) {
-          found.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          flashAt(found);
+        const scroller = editScrollRef.current;
+        if (found && scroller) {
+          scrollElementInContainer(scroller, found, { block: 'center' });
           return;
         }
       }
       toast({ title: "Bookmark location missing", description: "Text near this bookmark wasn't found.", variant: "destructive" });
     } else {
       // Reader mode
-      if (!readerContentRef.current) return;
       const root = readerContentRef.current;
+      const scroller = readerContainerRef.current;
+      if (!root || !scroller) return;
       let target: HTMLElement | null = null;
-      if (typeof bm.offset === 'number') {
-        target = findElementByTextOffset(root, bm.offset);
-      }
-      if (!target && bm.snippet) {
-        target = findTextInElement(root, bm.snippet);
-      }
+      if (typeof bm.offset === 'number') target = findElementByTextOffset(root, bm.offset);
+      if (!target && bm.snippet) target = findTextInElement(root, bm.snippet);
       if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        scrollElementInContainer(scroller, target, { block: 'center' });
         flashAt(target);
       } else {
         toast({ title: "Bookmark location missing", description: "Text near this bookmark wasn't found.", variant: "destructive" });
@@ -601,7 +613,8 @@ export default function NoteEditor() {
     }
   }, [bookmarks, viewMode, toast]);
 
-  // Active-section tracking: sync bookmark highlight with scroll position
+  // Active-section tracking: sync bookmark highlight with scroll position.
+  // Bookmark targets are resolved once per content change (not on every scroll frame).
   useEffect(() => {
     if (bookmarks.length === 0) {
       setActiveBookmarkId(null);
@@ -609,13 +622,24 @@ export default function NoteEditor() {
       return;
     }
 
-    // Resolve scroll container + content root for the current view
     const getRefs = (): { scroller: HTMLElement | null; root: HTMLElement | null } => {
       if (viewMode === 'reader') {
         return { scroller: readerContainerRef.current, root: readerContentRef.current };
       }
       const editorEl = document.querySelector('.custom-quill-editor .ql-editor') as HTMLElement | null;
-      return { scroller: editorEl, root: editorEl };
+      return { scroller: editScrollRef.current, root: editorEl };
+    };
+
+    const sorted = [...bookmarks].sort((a, b) => a.order - b.order);
+    let targets: Array<{ id: string; el: HTMLElement }> = [];
+    const resolveTargets = (root: HTMLElement) => {
+      targets = [];
+      for (const bm of sorted) {
+        let el: HTMLElement | null = null;
+        if (typeof bm.offset === 'number') el = findElementByTextOffset(root, bm.offset);
+        if (!el && bm.snippet) el = findTextInElement(root, bm.snippet);
+        if (el) targets.push({ id: bm.id, el });
+      }
     };
 
     let raf = 0;
@@ -623,31 +647,24 @@ export default function NoteEditor() {
       raf = 0;
       const { scroller, root } = getRefs();
       if (!scroller || !root) return;
+      if (targets.length === 0 || targets.some((t) => !t.el.isConnected)) resolveTargets(root);
 
-      // progress
       const max = Math.max(1, scroller.scrollHeight - scroller.clientHeight);
-      const pct = Math.min(100, Math.max(0, (scroller.scrollTop / max) * 100));
+      const pct = Math.round(Math.min(100, Math.max(0, (scroller.scrollTop / max) * 100)));
       setReadProgress(pct);
 
-      // Determine active bookmark: last one whose target top is above the trigger line
-      const rootRect = root.getBoundingClientRect();
-      const triggerY = 140;
+      const sTop = scroller.getBoundingClientRect().top;
+      const triggerY = Math.max(140, scroller.clientHeight / 3 + 24);
       let bestId: string | null = null;
       let bestTop = -Infinity;
-      for (const bm of bookmarks) {
-        let el: HTMLElement | null = null;
-        if (typeof bm.offset === 'number') el = findElementByTextOffset(root, bm.offset);
-        if (!el && bm.snippet) el = findTextInElement(root, bm.snippet);
-        if (!el) continue;
-        const top = el.getBoundingClientRect().top - rootRect.top - scroller.scrollTop;
-        // Position relative to viewport of scroller:
-        const viewportTop = el.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+      for (const t of targets) {
+        const viewportTop = t.el.getBoundingClientRect().top - sTop;
         if (viewportTop <= triggerY && viewportTop > bestTop) {
           bestTop = viewportTop;
-          bestId = bm.id;
+          bestId = t.id;
         }
       }
-      if (!bestId) bestId = [...bookmarks].sort((a, b) => a.order - b.order)[0]?.id ?? null;
+      if (!bestId) bestId = sorted[0]?.id ?? null;
       setActiveBookmarkId(bestId);
     };
 
@@ -659,8 +676,7 @@ export default function NoteEditor() {
     const { scroller } = getRefs();
     if (!scroller) return;
     scroller.addEventListener('scroll', onScroll, { passive: true });
-    // Initial compute (delayed so DOM is ready)
-    const t = setTimeout(compute, 100);
+    const t = setTimeout(compute, 150);
 
     return () => {
       scroller.removeEventListener('scroll', onScroll);
@@ -683,7 +699,7 @@ export default function NoteEditor() {
     // Set up new auto-save timer
     autoSaveTimerRef.current = setTimeout(async () => {
       // Get latest content from editor if available
-      let currentContent = content;
+      let currentContent = contentRef.current;
       if (editorRef.current) {
         currentContent = editorRef.current.getContent();
       }
@@ -703,14 +719,14 @@ export default function NoteEditor() {
         clearTimeout(autoSaveTimerRef.current);
       }
     };
-  }, [id, hasUnsavedChanges, title, content, tags, bookmarks, updateNote, toast]);
+  }, [id, hasUnsavedChanges, title, tags, bookmarks, updateNote, toast]);
 
   // Handle visibility change - save on tab blur
   useEffect(() => {
     const handleVisibilityChange = async () => {
       if (document.hidden && id && hasUnsavedChanges) {
         // Get latest content from editor
-        let currentContent = content;
+        let currentContent = contentRef.current;
         if (editorRef.current) {
           currentContent = editorRef.current.getContent();
         }
@@ -725,7 +741,7 @@ export default function NoteEditor() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [id, hasUnsavedChanges, title, content, tags, bookmarks, updateNote]);
+  }, [id, hasUnsavedChanges, title, tags, bookmarks, updateNote]);
 
   // Clean up auto-save timer on unmount
   useEffect(() => {
@@ -740,7 +756,7 @@ export default function NoteEditor() {
     if (!id) return;
     
     // Get latest content from editor
-    let currentContent = content;
+    let currentContent = contentRef.current;
     if (editorRef.current) {
       currentContent = editorRef.current.getContent();
     }
@@ -783,7 +799,7 @@ export default function NoteEditor() {
 
   const handleChange = (field: 'title' | 'content', value: string) => {
     if (field === 'title') setTitle(value);
-    else setContent(value);
+    else handleEditorChange(value);
     setHasUnsavedChanges(true);
   };
 
@@ -959,7 +975,7 @@ export default function NoteEditor() {
               <Button
                 variant={viewMode === 'edit' ? 'secondary' : 'ghost'}
                 size="sm"
-                onClick={() => setViewMode('edit')}
+                onClick={() => switchViewMode('edit')}
                 className="rounded-none"
               >
                 <Edit className="h-4 w-4 mr-1" />
@@ -968,7 +984,7 @@ export default function NoteEditor() {
               <Button
                 variant={viewMode === 'reader' ? 'secondary' : 'ghost'}
                 size="sm"
-                onClick={() => setViewMode('reader')}
+                onClick={() => switchViewMode('reader')}
                 className="rounded-none"
               >
                 <BookOpen className="h-4 w-4 mr-1" />
@@ -1112,7 +1128,7 @@ export default function NoteEditor() {
         </div>
 
         {/* Editor Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div ref={editScrollRef} className="flex-1 overflow-y-auto note-editor-scroll">
           {viewMode === 'edit' ? (
             <div className="p-8">
               <motion.div
@@ -1168,9 +1184,10 @@ export default function NoteEditor() {
                 {/* Content - Rich Text Editor */}
                 <RichTextEditor
                   ref={editorRef}
-                  value={content}
-                  onChange={(value) => handleChange('content', value)}
+                  value={editorValue}
+                  onChange={handleEditorChange}
                   placeholder="Start writing your note..."
+                  scrollingContainer=".note-editor-scroll"
                 />
 
                 {/* Inline Next Verse Button - clearly visible in notes area */}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { getScrollParent, scrollElementInContainer } from "@/lib/bookmarkOffsets";
 import {
   Bookmark,
   Plus,
@@ -148,7 +149,8 @@ export function BookmarksPanel({
   // Auto-scroll active into view
   useEffect(() => {
     if (activeRef.current) {
-      activeRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      const scroller = getScrollParent(activeRef.current);
+      if (scroller) scrollElementInContainer(scroller, activeRef.current, { block: "nearest", smooth: true, offset: 8 });
     }
   }, [activeId]);
 
