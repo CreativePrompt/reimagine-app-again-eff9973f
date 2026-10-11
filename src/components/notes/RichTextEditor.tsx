@@ -78,9 +78,13 @@ const RichTextEditorInner = forwardRef<RichTextEditorRef, RichTextEditorProps>(
       return getScrollParent(containerRef.current);
     }, [scrollingContainer]);
 
+    /** Recent HTML the editor itself produced — echoes of these from the parent are ignored. */
+    const emittedRef = useRef<string[]>([]);
     const emit = useCallback((html: string) => {
       if (html === lastValueRef.current) return;
       lastValueRef.current = html;
+      emittedRef.current.push(html);
+      if (emittedRef.current.length > 40) emittedRef.current.shift();
       onChangeRef.current(html);
     }, []);
 
@@ -135,6 +139,8 @@ const RichTextEditorInner = forwardRef<RichTextEditorRef, RichTextEditorProps>(
       if (value === appliedValueRef.current) return;
       appliedValueRef.current = value;
       if (value === lastValueRef.current) return;
+      // Parent echoing back something we typed earlier — never revert the editor.
+      if (emittedRef.current.includes(value)) return;
       const quill = getQuill();
       if (!quill) return;
       const scroller = getScroller();
@@ -351,8 +357,10 @@ const RichTextEditorInner = forwardRef<RichTextEditorRef, RichTextEditorProps>(
         if (!quill) return;
         const scroller = getScroller();
         const top = scroller?.scrollTop ?? 0;
-        const range = quill.getSelection();
-        const cursorPosition = range ? range.index : quill.getLength() - 1;
+        // Sidebar clicks blur the editor; fall back to the last cursor position.
+        const range = quill.getSelection() || quill.selection?.savedRange;
+        const cursorPosition = range ? Math.min(range.index, quill.getLength() - 1) : quill.getLength() - 1;
+        if (range?.length) quill.deleteText(cursorPosition, range.length, "user");
         quill.insertText(cursorPosition, text, "user");
         quill.setSelection(cursorPosition + text.length, 0, "silent");
         emit(quill.root.innerHTML);
