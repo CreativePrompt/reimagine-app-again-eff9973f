@@ -141,7 +141,8 @@ function markReference(doc: Document, block: HTMLElement, ref: string, converted
   const replacement = converted
     ? ref + (version ? version.replace(new RegExp(`\\b(?:${VERSIONS}|ESV)(?:\\s+version)?\\b`, "i"), "ESV") : " (ESV)")
     : ref + version + " ?";
-  const trailingSpace = question && /^\s/.test(suffix.slice(version.length + question.length)) ? "" : (!converted && suffix.slice(version.length + question.length) ? " " : "");
+  const remaining = suffix.slice(version.length + question.length);
+  const trailingSpace = !converted && remaining && !/^\s/.test(remaining) ? " " : "";
   replaceRange(tns, start, end + version.length + question.length, replacement + trailingSpace);
 }
 
