@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { RichTextEditor, RichTextEditorRef } from "@/components/notes/RichTextEditor";
 import { useNotesStore } from "@/lib/store/notesStore";
 import { ArrowLeft, Trash2, Plus, X, Save, PanelLeftClose, PanelLeft, BookOpen, Edit, ZoomIn, ZoomOut, Highlighter, Settings, Focus, Search, Clock, BookMarked, Loader2, Bookmark } from "lucide-react";
-import { convertNoteHtmlToEsv } from "@/lib/convertToEsv";
+import { convertNoteHtmlToEsv, findUnclearReferences, replaceUnclearReference, type UnclearReference } from "@/lib/convertToEsv";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow, format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -317,6 +318,67 @@ export default function NoteEditor() {
       setConvertingEsv(false);
     }
   }, [toast, setContentExternal]);
+
+  // Review list: references marked "?" that could not be converted
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [unclearList, setUnclearList] = useState<UnclearReference[]>([]);
+  const [fixInputs, setFixInputs] = useState<Record<number, string>>({});
+  const [fixingIndex, setFixingIndex] = useState<number | null>(null);
+  const latestHtml = () => editorRef.current?.getContent() ?? contentRef.current;
+  const refreshUnclear = useCallback(() => {
+    const list = findUnclearReferences(editorRef.current?.getContent() ?? contentRef.current);
+    setUnclearList(list);
+    setFixInputs(Object.fromEntries(list.map((u) => [u.index, u.ref])));
+    return list;
+  }, []);
+  useEffect(() => { refreshUnclear(); }, [content, refreshUnclear]);
+
+  const handleJumpToUnclear = useCallback((u: UnclearReference) => {
+    const root = viewMode === 'edit'
+      ? (document.querySelector('.custom-quill-editor .ql-editor') as HTMLElement | null)
+      : readerContentRef.current;
+    const scroller = viewMode === 'edit' ? editScrollRef.current : readerContainerRef.current;
+    const target = root ? findTextInElement(root, u.marker) || findTextInElement(root, u.ref) : null;
+    if (target && scroller) {
+      scrollElementInContainer(scroller, target, { block: 'center' });
+      target.classList.remove('bookmark-flash');
+      void target.offsetWidth;
+      if (viewMode !== 'edit') {
+        target.classList.add('bookmark-flash');
+        setTimeout(() => target.classList.remove('bookmark-flash'), 1700);
+      }
+    } else {
+      toast({ title: "Couldn't find it", description: `"${u.ref}" wasn't found in the note.`, variant: "destructive" });
+    }
+  }, [viewMode, toast]);
+
+  const handleFixUnclear = useCallback(async (u: UnclearReference) => {
+    const newRef = (fixInputs[u.index] || "").trim();
+    if (!newRef) return;
+    setFixingIndex(u.index);
+    try {
+      const before = latestHtml();
+      const withRef = replaceUnclearReference(before, u.index, newRef);
+      const result = await convertNoteHtmlToEsv(withRef, { only: newRef });
+      if (latestHtml() !== before) {
+        toast({ title: "Note changed meanwhile", description: "Your edits are safe. Try Convert again." });
+        return;
+      }
+      setContentExternal(result.html);
+      setHasUnsavedChanges(true);
+      if (result.failed.length) {
+        toast({ title: "Still not found", description: `"${newRef}" couldn't be loaded. Check the spelling, e.g. "Hebrews 4:14-16".`, variant: "destructive" });
+      } else {
+        toast({ title: result.replaced ? "Converted to ESV" : "Reference updated", description: result.replaced ? `${newRef} is now ESV.` : `${newRef} saved — no verse text was next to it to replace.` });
+      }
+      setTimeout(refreshUnclear, 0);
+    } catch (e) {
+      toast({ title: "Conversion failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setFixingIndex(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixInputs, toast, setContentExternal, refreshUnclear]);
 
   // Clear all highlights helper function
   const clearAllHighlights = useCallback(() => {
