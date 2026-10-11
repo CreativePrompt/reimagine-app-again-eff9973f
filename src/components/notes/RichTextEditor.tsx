@@ -530,6 +530,7 @@ const RichTextEditorInner = forwardRef<RichTextEditorRef, RichTextEditorProps>(
           <ScriptureToolbar
             editorContainer={containerRef.current}
             onFillScripture={handleFillScripture}
+            onFillContext={handleFillContext}
           />
         )}
       </div>
