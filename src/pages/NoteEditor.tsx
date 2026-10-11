@@ -284,19 +284,26 @@ export default function NoteEditor() {
     setConvertingEsv(true);
     try {
       const result = await convertNoteHtmlToEsv(currentContent);
+      const latestContent = editorRef.current?.getContent() ?? contentRef.current;
+      if (latestContent !== currentContent) {
+        toast({ title: "Note changed during conversion", description: "Your edits are safe. Click Convert to ESV again to convert the updated note." });
+        return;
+      }
+      if (result.html !== currentContent) {
+        setContentExternal(result.html);
+        setHasUnsavedChanges(true);
+      }
       if (result.replaced === 0) {
         toast({
           title: "No scriptures replaced",
           description: result.failed.length
-            ? `Could not fetch: ${result.failed.slice(0, 3).join(", ")}`
+            ? `Marked with ?: ${result.failed.slice(0, 3).join(", ")}. Check these references or passage layouts and try again.`
             : "No scripture references with quoted text were found.",
         });
       } else {
-        setContentExternal(result.html);
-        setHasUnsavedChanges(true);
         toast({
           title: "Converted to ESV",
-          description: `${result.replaced} scripture${result.replaced === 1 ? "" : "s"} replaced.${result.failed.length ? ` Failed: ${result.failed.length}` : ""}`,
+          description: `${result.replaced} scripture${result.replaced === 1 ? "" : "s"} replaced and labeled ESV.${result.failed.length ? ` Needs review (?): ${result.failed.length}` : ""}`,
         });
       }
     } catch (e) {
