@@ -41,7 +41,7 @@ function stripHeader(p: string): string {
  */
 async function fetchAll(refs: string[], out: Map<string, string | null>): Promise<void> {
   if (!refs.length) return;
-  const passages = await requestPassages(refs.map((r) => r.replace(/[–—]/g, "-")));
+  const passages = await requestPassages(refs.map((r) => r.replace(/^\d+\.\s+/, "").replace(/[–—]/g, "-")));
   if (passages && passages.length === refs.length) {
     refs.forEach((r, i) => out.set(r, stripHeader(passages[i]) || null));
     return;
