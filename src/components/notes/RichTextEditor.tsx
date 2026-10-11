@@ -432,6 +432,8 @@ const RichTextEditorInner = forwardRef<RichTextEditorRef, RichTextEditorProps>(
     // Clean up ESV text - remove extra whitespace and newlines to make it a single sentence
     const cleanVerseTextLocal = (text: string): string => {
       return text
+        .replace(/^\s*[^\n]*\d+:\d+[^\n]*\n+/, '') // leading "1 John 2:3" header line
+        .replace(/\(ESV\)/gi, '')
         .replace(/\n+/g, ' ')
         .replace(/\s+/g, ' ')
         .replace(/\[\d+\]\s*/g, '')
@@ -439,17 +441,43 @@ const RichTextEditorInner = forwardRef<RichTextEditorRef, RichTextEditorProps>(
     };
 
     // Handle filling scripture - insert formatted verse after the reference
-    const handleFillScripture = useCallback((reference: string, verseText: string) => {
+    const handleFillScripture = useCallback((reference: string, verseText: string, canonical?: string) => {
       const quill = getQuill();
       if (!quill) return;
+      const verse = cleanVerseTextLocal(verseText);
+      const sel = quill.getSelection() || quill.selection?.savedRange;
+      const selected = sel && sel.length > 0 ? (quill.getText(sel.index, sel.length) as string) : "";
+      // Replace the highlighted text with the ESV version, in place.
+      if (sel && selected.trim()) {
+        const formats = quill.getFormat(sel.index, 1);
+        const inline: Record<string, unknown> = {};
+        ["bold", "italic", "underline", "color", "background", "font", "size"].forEach((k) => {
+          if (formats[k] !== undefined) inline[k] = formats[k];
+        });
+        const label = (canonical || reference).trim();
+        const hasQuote = /["\u201C\u201D]/.test(selected);
+        const multiLine = selected.replace(/\n+$/, "").includes("\n");
+        const trailingNl = /\n$/.test(selected) ? "\n" : "";
+        const replacement = hasQuote || multiLine
+          ? `"${verse}"\n— ${label} ESV${trailingNl}`
+          : `${label} — "${verse}" (ESV)${trailingNl}`;
+        const scroller = scrollingContainer ? document.querySelector(scrollingContainer) as HTMLElement | null : null;
+        const top = scroller?.scrollTop ?? window.scrollY;
+        quill.deleteText(sel.index, sel.length, "user");
+        quill.insertText(sel.index, replacement, inline, "user");
+        quill.setSelection(sel.index + replacement.length, 0, "silent");
+        if (scroller) scroller.scrollTop = top; else window.scrollTo({ top });
+        emit(quill.root.innerHTML);
+        return;
+      }
       const content = quill.getText();
       const refIndex = content.indexOf(reference);
       if (refIndex === -1) return;
       const insertPosition = refIndex + reference.length;
-      const formattedVerse = ` — "${cleanVerseTextLocal(verseText)}" (ESV)`;
+      const formattedVerse = ` — "${verse}" (ESV)`;
       quill.insertText(insertPosition, formattedVerse, { color: '#4a5568', italic: true });
       emit(quill.root.innerHTML);
-    }, [getQuill, emit]);
+    }, [getQuill, emit, scrollingContainer]);
 
     return (
       <div ref={containerRef} className="rich-text-editor-container">

@@ -103,9 +103,12 @@ export function ScriptureToolbar({ editorContainer, onFillScripture }: Scripture
     };
   }, [editorContainer, handleMouseUp, handleSelectionChange, handleClickOutside]);
 
+  const pinnedRef = useRef<string | null>(null);
+  if (toolbarPosition) pinnedRef.current = toolbarPosition.reference;
   const handleFill = (verseText: string, canonical: string) => {
-    if (toolbarPosition) {
-      onFillScripture(toolbarPosition.reference, verseText, canonical);
+    const reference = toolbarPosition?.reference ?? pinnedRef.current;
+    if (reference) {
+      onFillScripture(reference, verseText, canonical);
       setIsVisible(false);
       setToolbarPosition(null);
       // Clear the selection
@@ -118,6 +121,8 @@ export function ScriptureToolbar({ editorContainer, onFillScripture }: Scripture
   return createPortal(
     <div
       ref={toolbarRef}
+      // Keep the highlighted text selected while clicking Fill ESV
+      onMouseDown={(e) => e.preventDefault()}
       className="fixed z-50 animate-in fade-in-0 zoom-in-95 duration-150"
       style={{
         top: `${toolbarPosition.top}px`,
