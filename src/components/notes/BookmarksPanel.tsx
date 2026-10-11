@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { getScrollParent, scrollElementInContainer } from "@/lib/bookmarkOffsets";
 import {
   Bookmark,
   Plus,
