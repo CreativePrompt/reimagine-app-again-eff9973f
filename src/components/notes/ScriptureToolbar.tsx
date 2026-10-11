@@ -133,6 +133,48 @@ export function ScriptureToolbar({ editorContainer, onFillScripture, onFillConte
     }
   };
 
+  const handleContext = async () => {
+    const reference = toolbarPosition?.reference ?? pinnedRef.current;
+    if (!reference || contextLoading) return;
+    const contextPassage = getContextPassage(normalizeReference(reference));
+    if (!contextPassage) {
+      toast({
+        title: "No context available",
+        description: "Could not determine the surrounding verses for this reference.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setContextLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('esv-bible', {
+        body: { passage: contextPassage, includeVerseNumbers: true, includeHeadings: false }
+      });
+      if (error) throw error;
+      if (data.passages && data.passages.length > 0) {
+        onFillContext(reference, data.passages[0].trim(), data.canonical || contextPassage);
+        setIsVisible(false);
+        setToolbarPosition(null);
+        window.getSelection()?.removeAllRanges();
+      } else {
+        toast({
+          title: "No passage found",
+          description: `Could not find "${contextPassage}" in the ESV Bible.`,
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching context passage:', err);
+      toast({
+        title: "Error fetching context",
+        description: "Failed to fetch the surrounding verses from ESV. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setContextLoading(false);
+    }
+  };
+
   if (!isVisible || !toolbarPosition) return null;
 
   return createPortal(
