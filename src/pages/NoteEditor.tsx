@@ -20,7 +20,7 @@ import { PresenterSidePanel } from "@/components/notes/PresenterSidePanel";
 import { BookmarksPanel, AddBookmarkDialog, pickDefaultBookmarkColor } from "@/components/notes/BookmarksPanel";
 import type { NoteBookmark } from "@/lib/store/notesStore";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { computeTextOffset, findElementByTextOffset, findTextInElement } from "@/lib/bookmarkOffsets";
+import { computeTextOffset, findElementByTextOffset, findTextInElement, scrollElementInContainer } from "@/lib/bookmarkOffsets";
 import { fetchNextVerse, cleanVerseText } from "@/lib/scriptureNavigation";
 import "@/components/notes/RichTextEditor.css";
 
@@ -40,6 +40,26 @@ export default function NoteEditor() {
   
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  // Editor is uncontrolled while typing: `contentRef` always holds the latest HTML,
+  // `content` is a debounced copy for reader/bookmark logic, and `editorValue`
+  // only changes for external updates (note load, Convert to ESV, ...).
+  const contentRef = useRef("");
+  const [editorValue, setEditorValue] = useState("");
+  const contentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadedNoteIdRef = useRef<string | null>(null);
+  const editScrollRef = useRef<HTMLDivElement>(null);
+  const setContentExternal = useCallback((html: string) => {
+    if (contentDebounceRef.current) clearTimeout(contentDebounceRef.current);
+    contentRef.current = html;
+    setContent(html);
+    setEditorValue(html);
+  }, []);
+  const handleEditorChange = useCallback((html: string) => {
+    contentRef.current = html;
+    setHasUnsavedChanges(true);
+    if (contentDebounceRef.current) clearTimeout(contentDebounceRef.current);
+    contentDebounceRef.current = setTimeout(() => setContent(contentRef.current), 700);
+  }, []);
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -151,7 +171,7 @@ export default function NoteEditor() {
     try {
       // Derive plain text for reference detection
       const tmp = document.createElement("div");
-      tmp.innerHTML = content;
+      tmp.innerHTML = contentRef.current;
       const plain = tmp.innerText || tmp.textContent || "";
 
       const result = await fetchNextVerse(plain);
@@ -169,8 +189,8 @@ export default function NoteEditor() {
         `<p><em>"${cleaned.replace(/"/g, "&quot;")}"</em></p>` +
         `<p><em>— ${result.reference}, ESV</em></p>`;
 
-      const newContent = (content || "") + appended;
-      setContent(newContent);
+      const newContent = (contentRef.current || "") + appended;
+      setContentExternal(newContent);
       setHasUnsavedChanges(true);
 
       // Scroll reader to the newly appended content shortly after render
@@ -179,7 +199,8 @@ export default function NoteEditor() {
         if (!root) return;
         const paras = root.querySelectorAll("p");
         const last = paras[paras.length - 1];
-        last?.scrollIntoView({ behavior: "smooth", block: "center" });
+        const scroller = readerContainerRef.current;
+        if (last && scroller) scrollElementInContainer(scroller, last as HTMLElement, { block: "center" });
       });
 
       toast({
@@ -204,7 +225,7 @@ export default function NoteEditor() {
     } finally {
       setNextVerseLoading(false);
     }
-  }, [content, nextVerseLoading, toast, viewMode]);
+  }, [nextVerseLoading, toast, viewMode, setContentExternal]);
 
 
   // Handle copy audience URL
@@ -238,15 +259,15 @@ export default function NoteEditor() {
   const handleInsertScripture = useCallback((reference: string, text: string) => {
     const formattedText = `\n\n${reference} — "${text}" (ESV)\n\n`;
     // Append to content
-    setContent(prev => prev + formattedText);
+    setContentExternal(contentRef.current + formattedText);
     setHasUnsavedChanges(true);
-  }, []);
+  }, [setContentExternal]);
 
   // Convert all scripture references in the note to ESV
   const [convertingEsv, setConvertingEsv] = useState(false);
   const handleConvertToEsv = useCallback(async () => {
     // Get the latest content from the editor
-    const currentContent = editorRef.current?.getContent() ?? content;
+    const currentContent = editorRef.current?.getContent() ?? contentRef.current;
     if (!currentContent || !currentContent.trim()) {
       toast({ title: "Nothing to convert", description: "This note is empty." });
       return;
@@ -262,7 +283,7 @@ export default function NoteEditor() {
             : "No scripture references with quoted text were found.",
         });
       } else {
-        setContent(result.html);
+        setContentExternal(result.html);
         setHasUnsavedChanges(true);
         toast({
           title: "Converted to ESV",
@@ -279,7 +300,7 @@ export default function NoteEditor() {
     } finally {
       setConvertingEsv(false);
     }
-  }, [content, toast]);
+  }, [toast, setContentExternal]);
 
   // Clear all highlights helper function
   const clearAllHighlights = useCallback(() => {
@@ -451,16 +472,19 @@ export default function NoteEditor() {
   useEffect(() => {
     if (id && notes.length > 0) {
       const note = notes.find(n => n.id === id);
-      if (note) {
+      // Only hydrate once per note — later store updates (e.g. after auto-save)
+      // must not overwrite what the user is typing or reset scroll.
+      if (note && loadedNoteIdRef.current !== id) {
+        loadedNoteIdRef.current = id;
         setCurrentNote(note);
         setTitle(note.title);
-        setContent(note.content);
+        setContentExternal(note.content);
         setTags(note.tags || []);
         setBookmarks(note.bookmarks || []);
         setHasUnsavedChanges(false);
       }
     }
-  }, [id, notes, setCurrentNote]);
+  }, [id, notes, setCurrentNote, setContentExternal]);
 
   // Track text selection (in editor or reader) to enable "Add bookmark" button
   useEffect(() => {
@@ -683,7 +707,7 @@ export default function NoteEditor() {
     // Set up new auto-save timer
     autoSaveTimerRef.current = setTimeout(async () => {
       // Get latest content from editor if available
-      let currentContent = content;
+      let currentContent = contentRef.current;
       if (editorRef.current) {
         currentContent = editorRef.current.getContent();
       }
@@ -703,14 +727,14 @@ export default function NoteEditor() {
         clearTimeout(autoSaveTimerRef.current);
       }
     };
-  }, [id, hasUnsavedChanges, title, content, tags, bookmarks, updateNote, toast]);
+  }, [id, hasUnsavedChanges, title, tags, bookmarks, updateNote, toast]);
 
   // Handle visibility change - save on tab blur
   useEffect(() => {
     const handleVisibilityChange = async () => {
       if (document.hidden && id && hasUnsavedChanges) {
         // Get latest content from editor
-        let currentContent = content;
+        let currentContent = contentRef.current;
         if (editorRef.current) {
           currentContent = editorRef.current.getContent();
         }
@@ -725,7 +749,7 @@ export default function NoteEditor() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [id, hasUnsavedChanges, title, content, tags, bookmarks, updateNote]);
+  }, [id, hasUnsavedChanges, title, tags, bookmarks, updateNote]);
 
   // Clean up auto-save timer on unmount
   useEffect(() => {
@@ -740,7 +764,7 @@ export default function NoteEditor() {
     if (!id) return;
     
     // Get latest content from editor
-    let currentContent = content;
+    let currentContent = contentRef.current;
     if (editorRef.current) {
       currentContent = editorRef.current.getContent();
     }
@@ -783,7 +807,7 @@ export default function NoteEditor() {
 
   const handleChange = (field: 'title' | 'content', value: string) => {
     if (field === 'title') setTitle(value);
-    else setContent(value);
+    else handleEditorChange(value);
     setHasUnsavedChanges(true);
   };
 
@@ -1112,7 +1136,7 @@ export default function NoteEditor() {
         </div>
 
         {/* Editor Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div ref={editScrollRef} className="flex-1 overflow-y-auto note-editor-scroll">
           {viewMode === 'edit' ? (
             <div className="p-8">
               <motion.div
@@ -1168,9 +1192,10 @@ export default function NoteEditor() {
                 {/* Content - Rich Text Editor */}
                 <RichTextEditor
                   ref={editorRef}
-                  value={content}
-                  onChange={(value) => handleChange('content', value)}
+                  value={editorValue}
+                  onChange={handleEditorChange}
                   placeholder="Start writing your note..."
+                  scrollingContainer=".note-editor-scroll"
                 />
 
                 {/* Inline Next Verse Button - clearly visible in notes area */}
