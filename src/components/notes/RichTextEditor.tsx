@@ -432,6 +432,8 @@ const RichTextEditorInner = forwardRef<RichTextEditorRef, RichTextEditorProps>(
     // Clean up ESV text - remove extra whitespace and newlines to make it a single sentence
     const cleanVerseTextLocal = (text: string): string => {
       return text
+        .replace(/^\s*[^\n]*\d+:\d+[^\n]*\n+/, '') // leading "1 John 2:3" header line
+        .replace(/\(ESV\)/gi, '')
         .replace(/\n+/g, ' ')
         .replace(/\s+/g, ' ')
         .replace(/\[\d+\]\s*/g, '')
