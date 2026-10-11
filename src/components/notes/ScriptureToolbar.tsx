@@ -197,6 +197,21 @@ export function ScriptureToolbar({ editorContainer, onFillScripture, onFillConte
           reference={normalizeReference(toolbarPosition.reference)}
           onFill={handleFill}
         />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleContext}
+          disabled={contextLoading}
+          className="h-6 px-2 text-xs gap-1"
+          title="Insert the surrounding verses (3 before and after)"
+        >
+          {contextLoading ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <ListPlus className="h-3 w-3" />
+          )}
+          {contextLoading ? "Loading..." : "Context"}
+        </Button>
       </div>
     </div>,
     document.body
