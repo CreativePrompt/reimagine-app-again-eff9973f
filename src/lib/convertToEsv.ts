@@ -11,26 +11,49 @@ function cleanEsvText(raw: string): string {
   return t;
 }
 
-async function fetchPassage(reference: string, withNumbers: boolean): Promise<string | null> {
-  for (let attempt = 0; attempt < 2; attempt++) {
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** One ESV call for many references ("A; B; C"), retrying when throttled. */
+async function requestPassages(refs: string[]): Promise<string[] | null> {
+  for (let attempt = 0; attempt < 4; attempt++) {
     try {
       const { data, error } = await supabase.functions.invoke("esv-bible", {
-        body: { passage: reference, includeVerseNumbers: withNumbers, includeHeadings: false },
+        body: { passage: refs.join("; "), includeVerseNumbers: true, includeHeadings: false },
       });
       if (error) throw error;
-      const passages: string[] = data?.passages || [];
-      if (!passages.length) return null;
-      // Drop the leading "Book 1:2" reference line the API includes
-      const canonical: string = data?.canonical || "";
-      let p = passages.join(" ");
-      if (canonical && p.startsWith(canonical)) p = p.slice(canonical.length);
-      return p;
+      return (data?.passages as string[]) || [];
     } catch (e) {
-      console.error("ESV fetch error", reference, e);
-      await new Promise((r) => setTimeout(r, 400));
+      console.warn("ESV request failed, retrying", e);
+      await sleep(3000 + attempt * 3000); // ESV throttles bursts — back off
     }
   }
   return null;
+}
+
+/** Strip the leading "Book 1:2–3" line the API includes in each passage. */
+function stripHeader(p: string): string {
+  return p.replace(/^[^\n]*\n+/, "");
+}
+
+/**
+ * Fetch many references with as few API calls as possible (the ESV API throttles
+ * bursts, which previously made some verses silently fail).
+ */
+async function fetchAll(refs: string[], out: Map<string, string | null>): Promise<void> {
+  if (!refs.length) return;
+  const passages = await requestPassages(refs.map((r) => r.replace(/[–—]/g, "-")));
+  if (passages && passages.length === refs.length) {
+    refs.forEach((r, i) => out.set(r, stripHeader(passages[i]) || null));
+    return;
+  }
+  if (refs.length === 1) {
+    out.set(refs[0], passages && passages[0] ? stripHeader(passages[0]) : null);
+    return;
+  }
+  // Counts didn't line up (an unparseable reference) — split and retry
+  const mid = Math.ceil(refs.length / 2);
+  await fetchAll(refs.slice(0, mid), out);
+  await fetchAll(refs.slice(mid), out);
 }
 
 /** Parse "[17] text [18] text" into verse-number → text. */
@@ -140,18 +163,10 @@ export async function convertNoteHtmlToEsv(html: string): Promise<ConvertResult>
   // Fetch all unique references (numbered form, so we can use per-verse text)
   const unique = Array.from(new Set(Array.from(refsByBlock.values()).flat()));
   const cache = new Map<string, string | null>();
-  const failed: string[] = [];
-  const queue = [...unique];
-  await Promise.all(
-    Array.from({ length: Math.min(6, queue.length) }, async () => {
-      while (queue.length) {
-        const ref = queue.shift()!;
-        const raw = await fetchPassage(ref.replace(/[–—]/g, "-"), true);
-        cache.set(ref, raw);
-        if (!raw) failed.push(ref);
-      }
-    })
-  );
+  for (let i = 0; i < unique.length; i += 20) {
+    await fetchAll(unique.slice(i, i + 20), cache);
+  }
+  const failed = unique.filter((r) => !cache.get(r));
 
   const used = new Set<HTMLElement>(); // blocks whose quote was already replaced
   let replaced = 0;
