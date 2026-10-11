@@ -1,11 +1,26 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { ListPlus, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { ScriptureFillButton } from "./ScriptureFillButton";
 import { findScriptureReferences, normalizeReference } from "@/lib/scriptureUtils";
 
 interface ScriptureToolbarProps {
   editorContainer: HTMLElement | null;
   onFillScripture: (reference: string, verseText: string, canonical: string) => void;
+  onFillContext: (reference: string, contextText: string, contextLabel: string) => void;
+}
+
+// Surrounding passage (3 verses before and after), like the Search Bible panel.
+function getContextPassage(ref: string): string | null {
+  const m = ref.match(/^(.+?)\s+(\d+):(\d+)(?:[-–](\d+))?$/);
+  if (!m) return null;
+  const verse = parseInt(m[3]);
+  const start = Math.max(1, verse - 3);
+  const end = (m[4] ? parseInt(m[4]) : verse) + 3;
+  return `${m[1]} ${m[2]}:${start}-${end}`;
 }
 
 interface ToolbarPosition {
