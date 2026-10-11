@@ -129,8 +129,11 @@ function replaceRange(tns: TN[], s: number, e: number, replacement: string) {
   return wrote;
 }
 
-/** Plain text markers survive Quill, saving, and switching between reading/editing. */
-function markReference(doc: Document, block: HTMLElement, ref: string, converted: boolean) {
+/**
+ * Plain text markers survive Quill, saving, and switching between reading/editing.
+ * mode: "converted" → label ESV; "failed" → add " ?"; "clear" → just remove a stale " ?".
+ */
+function markReference(doc: Document, block: HTMLElement, ref: string, mode: "converted" | "failed" | "clear") {
   const { tns, text } = textNodesOf(doc, block);
   const start = text.indexOf(ref);
   if (start < 0) return;
@@ -138,12 +141,70 @@ function markReference(doc: Document, block: HTMLElement, ref: string, converted
   const suffix = text.slice(end);
   const version = suffix.match(VERSION_RE)?.[0] || "";
   const question = suffix.slice(version.length).match(/^\s*\?/u)?.[0] || "";
-  const replacement = converted
-    ? ref + (version ? version.replace(new RegExp(`\\b(?:${VERSIONS}|ESV)(?:\\s+version)?\\b`, "i"), "ESV") : " (ESV)")
-    : ref + version + " ?";
+  if (mode === "clear" && !question) return;
+  const replacement =
+    mode === "converted"
+      ? ref + (version ? version.replace(new RegExp(`\\b(?:${VERSIONS}|ESV)(?:\\s+version)?\\b`, "i"), "ESV") : " (ESV)")
+      : mode === "failed"
+        ? ref + version + " ?"
+        : ref + version;
   const remaining = suffix.slice(version.length + question.length);
-  const trailingSpace = !converted && remaining && !/^\s/.test(remaining) ? " " : "";
+  const trailingSpace = mode === "failed" && remaining && !/^\s/.test(remaining) ? " " : "";
   replaceRange(tns, start, end + version.length + question.length, replacement + trailingSpace);
+}
+
+const REFISH = String.raw`(?:[1-3]\.?\s*)?[A-Za-z][A-Za-z.]*(?:\s+of\s+[A-Za-z]+)?\s+\d{1,3}:\d{1,3}(?:\s*[-–—]\s*\d{1,3}(?::\d{1,3})?)?`;
+const MARKER_RE = () =>
+  new RegExp(`(${REFISH})((?:\\s*[,;]?\\s*(?:\\((?:${VERSIONS}|ESV)\\)|\\[(?:${VERSIONS}|ESV)\\]|(?:${VERSIONS}|ESV)\\b))?)\\s?\\?`, "g");
+
+function leafBlocks(root: HTMLElement): HTMLElement[] {
+  const blocks = (Array.from(root.querySelectorAll(BLOCK_SEL)) as HTMLElement[]).filter((b) => !b.querySelector(BLOCK_SEL));
+  return blocks.length ? blocks : [root];
+}
+
+export interface UnclearReference {
+  /** Position among all "?" markers in document order. */
+  index: number;
+  ref: string;
+  /** Exact marker text in the note (e.g. "Heb 4:14 KJV ?"), used to locate it. */
+  marker: string;
+  /** Surrounding line for context. */
+  context: string;
+}
+
+/** List every reference marked "?" (not converted) in document order. */
+export function findUnclearReferences(html: string): UnclearReference[] {
+  if (!html || typeof window === "undefined") return [];
+  const doc = new DOMParser().parseFromString(`<div id="__root">${html}</div>`, "text/html");
+  const root = doc.getElementById("__root");
+  if (!root) return [];
+  const out: UnclearReference[] = [];
+  for (const b of leafBlocks(root)) {
+    const t = b.textContent || "";
+    for (const m of t.matchAll(MARKER_RE())) {
+      out.push({ index: out.length, ref: m[1].trim(), marker: m[0], context: t.replace(/\s+/g, " ").trim().slice(0, 140) });
+    }
+  }
+  return out;
+}
+
+/** Replace the nth "?" marker's reference with a user-provided one (marker removed). */
+export function replaceUnclearReference(html: string, index: number, newRef: string): string {
+  const doc = new DOMParser().parseFromString(`<div id="__root">${html}</div>`, "text/html");
+  const root = doc.getElementById("__root");
+  if (!root) return html;
+  let n = 0;
+  for (const b of leafBlocks(root)) {
+    const { tns, text } = textNodesOf(doc, b);
+    for (const m of text.matchAll(MARKER_RE())) {
+      if (n++ === index) {
+        const s = m.index ?? 0;
+        replaceRange(tns, s, s + m[0].length, newRef.trim() + m[2]);
+        return root.innerHTML;
+      }
+    }
+  }
+  return html;
 }
 
 /** Find a quoted span "..." in `text` within [from, to). Returns inner range. */
