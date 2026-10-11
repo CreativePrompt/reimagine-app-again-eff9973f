@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { SCRIPTURE_REGEX } from "./scriptureUtils";
+import { parseReference } from "./scriptureNavigation";
+import { getAllBooks } from "./bibleBooks";
 
 /** Clean ESV API response into a single readable verse string. */
 function cleanEsvText(raw: string): string {
@@ -35,6 +37,14 @@ function stripHeader(p: string): string {
   return p.replace(/^\s*[^\n]*\d[^\n]*\n+/, "");
 }
 
+function validatedPassage(ref: string, passage: string | undefined): string | null {
+  if (!passage) return null;
+  const expected = parseReference(ref.replace(/^(\d)\.\s*/, "$1 "));
+  const actual = parseReference(passage.split("\n")[0]);
+  if (!expected || !actual || expected.book !== actual.book || expected.chapter !== actual.chapter || expected.verse !== actual.verse) return null;
+  return stripHeader(passage) || null;
+}
+
 /**
  * Fetch many references with as few API calls as possible (the ESV API throttles
  * bursts, which previously made some verses silently fail).
@@ -47,11 +57,11 @@ async function fetchAll(refs: string[], out: Map<string, string | null>): Promis
     return;
   }
   if (passages && passages.length === refs.length) {
-    refs.forEach((r, i) => out.set(r, stripHeader(passages[i]) || null));
+    refs.forEach((r, i) => out.set(r, validatedPassage(r, passages[i])));
     return;
   }
   if (refs.length === 1) {
-    out.set(refs[0], passages && passages[0] ? stripHeader(passages[0]) : null);
+    out.set(refs[0], validatedPassage(refs[0], passages?.[0]));
     return;
   }
   // Counts didn't line up (an unparseable reference) — split and retry
@@ -78,7 +88,7 @@ export interface ConvertResult {
 }
 
 const VERSIONS = "KJV|NKJV|NIV|NASB|NLT|CSB|HCSB|RSV|NRSV|ASV|AMP|MSG|WEB|YLT|NET";
-const VERSION_RE = new RegExp(`^\\s*[,;]?\\s*[([]?\\s*(?:${VERSIONS}|ESV)(?:\\s+version)?\\s*[)\\]]?`, "i");
+const VERSION_RE = new RegExp(`^\\s*[,;]?\\s*(?:\\((?:${VERSIONS}|ESV)(?:\\s+version)?\\)|\\[(?:${VERSIONS}|ESV)(?:\\s+version)?\\]|(?:${VERSIONS}|ESV)(?:\\s+version)?\\b)`, "i");
 const BLOCK_SEL = "p, li, blockquote, h1, h2, h3, h4, h5, h6, pre";
 const isOpenQ = (c: string) => c === '"' || c === "\u201C";
 const isCloseQ = (c: string) => c === '"' || c === "\u201D";
@@ -128,11 +138,11 @@ function markReference(doc: Document, block: HTMLElement, ref: string, converted
   const suffix = text.slice(end);
   const version = suffix.match(VERSION_RE)?.[0] || "";
   const question = suffix.slice(version.length).match(/^\s*\?/u)?.[0] || "";
-  const old = ref + version + question;
   const replacement = converted
     ? ref + (version ? version.replace(new RegExp(`\\b(?:${VERSIONS}|ESV)(?:\\s+version)?\\b`, "i"), "ESV") : " (ESV)")
     : ref + version + " ?";
-  replaceRange(tns, start, end + version.length + question.length, replacement);
+  const trailingSpace = question && /^\s/.test(suffix.slice(version.length + question.length)) ? "" : (!converted && suffix.slice(version.length + question.length) ? " " : "");
+  replaceRange(tns, start, end + version.length + question.length, replacement + trailingSpace);
 }
 
 /** Find a quoted span "..." in `text` within [from, to). Returns inner range. */
@@ -192,12 +202,18 @@ export async function convertNoteHtmlToEsv(html: string): Promise<ConvertResult>
   // Fetch all unique references (numbered form, so we can use per-verse text)
   const unique = Array.from(new Set(Array.from(refsByBlock.values()).flat()));
   const cache = new Map<string, string | null>();
-  for (let i = 0; i < unique.length; i += 20) {
-    await fetchAll(unique.slice(i, i + 20), cache);
+  const valid = unique.filter((ref) => {
+    const parsed = parseReference(ref);
+    const book = parsed && getAllBooks().find((b) => b.name === parsed.book);
+    return parsed && book && parsed.chapter > 0 && parsed.chapter <= book.chapters && parsed.verse > 0;
+  });
+  for (let i = 0; i < valid.length; i += 20) {
+    await fetchAll(valid.slice(i, i + 20), cache);
   }
   const failed = new Set<string>();
 
   const used = new Set<HTMLElement>(); // blocks whose quote was already replaced
+  const usedQuotes = new WeakMap<HTMLElement, Set<number>>();
   let replaced = 0;
 
   const tryQuoteIn = (b: HTMLElement, esv: string, opts: { after?: number; before?: number; fromEnd?: boolean } = {}) => {
@@ -205,8 +221,11 @@ export async function convertNoteHtmlToEsv(html: string): Promise<ConvertResult>
     const { tns, text } = textNodesOf(doc, b);
     const span = findQuote(text, opts.after ?? 0, opts.before ?? text.length, opts.fromEnd);
     if (!span) return false;
+    const taken = usedQuotes.get(b) || new Set<number>();
+    if (taken.has(span[0])) return false;
     replaceRange(tns, span[0], span[1], esv);
-    used.add(b);
+    taken.add(span[0]);
+    usedQuotes.set(b, taken);
     return true;
   };
 
@@ -254,7 +273,10 @@ export async function convertNoteHtmlToEsv(html: string): Promise<ConvertResult>
       }
 
       // 2a) Quote after the reference in the same block
-      if (!done && refPos >= 0) done = tryQuoteIn(block, esv, { after: refPos + ref.length });
+      SCRIPTURE_REGEX.lastIndex = 0;
+      const nextRef = Array.from(text.matchAll(SCRIPTURE_REGEX)).find((m) => (m.index ?? 0) > refPos);
+      SCRIPTURE_REGEX.lastIndex = 0;
+      if (!done && refPos >= 0) done = tryQuoteIn(block, esv, { after: refPos + ref.length, before: nextRef?.index ?? text.length });
       // 2b) Quote in following blocks (until another reference)
       for (let j = idx + 1; !done && j < Math.min(blocks.length, idx + 4); j++) {
         if (hasRef(blocks[j].textContent || "")) break;
