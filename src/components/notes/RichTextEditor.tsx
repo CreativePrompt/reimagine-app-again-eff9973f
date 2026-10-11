@@ -365,14 +365,15 @@ const RichTextEditorInner = forwardRef<RichTextEditorRef, RichTextEditorProps>(
       getSelectedText: () => {
         const quill = getQuill();
         if (!quill) return "";
-        const range = quill.getSelection();
+        const range = quill.getSelection() || quill.selection?.savedRange;
         if (!range || range.length === 0) return "";
         return quill.getText(range.index, range.length).trim();
       },
       getSelectionOffset: () => {
         const quill = getQuill();
         if (!quill) return 0;
-        const range = quill.getSelection() || null;
+        // Use the last known selection without focusing (focusing would scroll the page)
+        const range = quill.getSelection() || quill.selection?.savedRange || null;
         return range ? range.index : 0;
       },
       getSnippetAtOffset: (offset: number, length = 40) => {
