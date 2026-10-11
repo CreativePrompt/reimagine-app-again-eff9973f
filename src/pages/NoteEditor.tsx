@@ -654,7 +654,7 @@ export default function NoteEditor() {
       setReadProgress(pct);
 
       const sTop = scroller.getBoundingClientRect().top;
-      const triggerY = 140;
+      const triggerY = Math.max(140, scroller.clientHeight / 3 + 24);
       let bestId: string | null = null;
       let bestTop = -Infinity;
       for (const t of targets) {
