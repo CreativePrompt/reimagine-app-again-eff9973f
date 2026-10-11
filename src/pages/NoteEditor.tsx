@@ -54,6 +54,11 @@ export default function NoteEditor() {
     setContent(html);
     setEditorValue(html);
   }, []);
+  const switchViewMode = useCallback((mode: ViewMode) => {
+    const latest = editorRef.current?.getContent() ?? contentRef.current;
+    setContentExternal(latest);
+    setViewMode(mode);
+  }, [setContentExternal]);
   const handleEditorChange = useCallback((html: string) => {
     contentRef.current = html;
     setHasUnsavedChanges(true);
@@ -579,45 +584,28 @@ export default function NoteEditor() {
     };
 
     if (viewMode === 'edit' && editorRef.current) {
-      // Try offset first
-      if (typeof bm.offset === 'number') {
-        const ok = editorRef.current.scrollToOffset(bm.offset);
-        if (ok) {
-          const editorEl = document.querySelector('.custom-quill-editor .ql-editor') as HTMLElement | null;
-          if (editorEl) {
-            // Flash the block containing the focused leaf
-            const sel = window.getSelection();
-            const node = sel?.focusNode as Node | null;
-            const target = (node && node.nodeType === 1 ? (node as HTMLElement) : node?.parentElement) || editorEl;
-            flashAt(target);
-          }
-          return;
-        }
-      }
-      // Fallback: find by snippet
+      // Stable jump: scrolls the page directly from where you are (no jump to top).
+      if (typeof bm.offset === 'number' && editorRef.current.scrollToOffset(bm.offset)) return;
       if (bm.snippet) {
         const editorEl = document.querySelector('.custom-quill-editor .ql-editor') as HTMLElement | null;
         const found = editorEl ? findTextInElement(editorEl, bm.snippet) : null;
-        if (found) {
-          found.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          flashAt(found);
+        const scroller = editScrollRef.current;
+        if (found && scroller) {
+          scrollElementInContainer(scroller, found, { block: 'center' });
           return;
         }
       }
       toast({ title: "Bookmark location missing", description: "Text near this bookmark wasn't found.", variant: "destructive" });
     } else {
       // Reader mode
-      if (!readerContentRef.current) return;
       const root = readerContentRef.current;
+      const scroller = readerContainerRef.current;
+      if (!root || !scroller) return;
       let target: HTMLElement | null = null;
-      if (typeof bm.offset === 'number') {
-        target = findElementByTextOffset(root, bm.offset);
-      }
-      if (!target && bm.snippet) {
-        target = findTextInElement(root, bm.snippet);
-      }
+      if (typeof bm.offset === 'number') target = findElementByTextOffset(root, bm.offset);
+      if (!target && bm.snippet) target = findTextInElement(root, bm.snippet);
       if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        scrollElementInContainer(scroller, target, { block: 'center' });
         flashAt(target);
       } else {
         toast({ title: "Bookmark location missing", description: "Text near this bookmark wasn't found.", variant: "destructive" });
@@ -625,7 +613,8 @@ export default function NoteEditor() {
     }
   }, [bookmarks, viewMode, toast]);
 
-  // Active-section tracking: sync bookmark highlight with scroll position
+  // Active-section tracking: sync bookmark highlight with scroll position.
+  // Bookmark targets are resolved once per content change (not on every scroll frame).
   useEffect(() => {
     if (bookmarks.length === 0) {
       setActiveBookmarkId(null);
@@ -633,13 +622,24 @@ export default function NoteEditor() {
       return;
     }
 
-    // Resolve scroll container + content root for the current view
     const getRefs = (): { scroller: HTMLElement | null; root: HTMLElement | null } => {
       if (viewMode === 'reader') {
         return { scroller: readerContainerRef.current, root: readerContentRef.current };
       }
       const editorEl = document.querySelector('.custom-quill-editor .ql-editor') as HTMLElement | null;
-      return { scroller: editorEl, root: editorEl };
+      return { scroller: editScrollRef.current, root: editorEl };
+    };
+
+    const sorted = [...bookmarks].sort((a, b) => a.order - b.order);
+    let targets: Array<{ id: string; el: HTMLElement }> = [];
+    const resolveTargets = (root: HTMLElement) => {
+      targets = [];
+      for (const bm of sorted) {
+        let el: HTMLElement | null = null;
+        if (typeof bm.offset === 'number') el = findElementByTextOffset(root, bm.offset);
+        if (!el && bm.snippet) el = findTextInElement(root, bm.snippet);
+        if (el) targets.push({ id: bm.id, el });
+      }
     };
 
     let raf = 0;
@@ -647,31 +647,24 @@ export default function NoteEditor() {
       raf = 0;
       const { scroller, root } = getRefs();
       if (!scroller || !root) return;
+      if (targets.length === 0 || targets.some((t) => !t.el.isConnected)) resolveTargets(root);
 
-      // progress
       const max = Math.max(1, scroller.scrollHeight - scroller.clientHeight);
-      const pct = Math.min(100, Math.max(0, (scroller.scrollTop / max) * 100));
+      const pct = Math.round(Math.min(100, Math.max(0, (scroller.scrollTop / max) * 100)));
       setReadProgress(pct);
 
-      // Determine active bookmark: last one whose target top is above the trigger line
-      const rootRect = root.getBoundingClientRect();
+      const sTop = scroller.getBoundingClientRect().top;
       const triggerY = 140;
       let bestId: string | null = null;
       let bestTop = -Infinity;
-      for (const bm of bookmarks) {
-        let el: HTMLElement | null = null;
-        if (typeof bm.offset === 'number') el = findElementByTextOffset(root, bm.offset);
-        if (!el && bm.snippet) el = findTextInElement(root, bm.snippet);
-        if (!el) continue;
-        const top = el.getBoundingClientRect().top - rootRect.top - scroller.scrollTop;
-        // Position relative to viewport of scroller:
-        const viewportTop = el.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+      for (const t of targets) {
+        const viewportTop = t.el.getBoundingClientRect().top - sTop;
         if (viewportTop <= triggerY && viewportTop > bestTop) {
           bestTop = viewportTop;
-          bestId = bm.id;
+          bestId = t.id;
         }
       }
-      if (!bestId) bestId = [...bookmarks].sort((a, b) => a.order - b.order)[0]?.id ?? null;
+      if (!bestId) bestId = sorted[0]?.id ?? null;
       setActiveBookmarkId(bestId);
     };
 
@@ -683,8 +676,7 @@ export default function NoteEditor() {
     const { scroller } = getRefs();
     if (!scroller) return;
     scroller.addEventListener('scroll', onScroll, { passive: true });
-    // Initial compute (delayed so DOM is ready)
-    const t = setTimeout(compute, 100);
+    const t = setTimeout(compute, 150);
 
     return () => {
       scroller.removeEventListener('scroll', onScroll);
@@ -983,7 +975,7 @@ export default function NoteEditor() {
               <Button
                 variant={viewMode === 'edit' ? 'secondary' : 'ghost'}
                 size="sm"
-                onClick={() => setViewMode('edit')}
+                onClick={() => switchViewMode('edit')}
                 className="rounded-none"
               >
                 <Edit className="h-4 w-4 mr-1" />
@@ -992,7 +984,7 @@ export default function NoteEditor() {
               <Button
                 variant={viewMode === 'reader' ? 'secondary' : 'ghost'}
                 size="sm"
-                onClick={() => setViewMode('reader')}
+                onClick={() => switchViewMode('reader')}
                 className="rounded-none"
               >
                 <BookOpen className="h-4 w-4 mr-1" />
