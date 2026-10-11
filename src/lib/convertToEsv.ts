@@ -229,7 +229,9 @@ function findQuote(text: string, from: number, to: number, fromEnd = false): [nu
  *  - `"verse"` then `— Ref KJV` in the following block (quote before reference)
  *  - `Ref KJV` heading followed by numbered verse lines (`17 text`, `18 text`)
  */
-export async function convertNoteHtmlToEsv(html: string): Promise<ConvertResult> {
+export async function convertNoteHtmlToEsv(html: string, opts: { only?: string } = {}): Promise<ConvertResult> {
+  const norm = (r: string) => r.replace(/[–—]/g, "-").replace(/\s+/g, " ").trim().toLowerCase();
+  const only = opts.only ? norm(opts.only) : null;
   if (!html || typeof window === "undefined") return { html, replaced: 0, failed: [] };
 
   const doc = new DOMParser().parseFromString(`<div id="__root">${html}</div>`, "text/html");
@@ -250,7 +252,9 @@ export async function convertNoteHtmlToEsv(html: string): Promise<ConvertResult>
     let m: RegExpExecArray | null;
     while ((m = SCRIPTURE_REGEX.exec(t)) !== null) found.push(m[0]);
     SCRIPTURE_REGEX.lastIndex = 0;
-    if (found.length) refsByBlock.set(i, found);
+    const kept = only ? found.filter((r) => norm(r) === only) : found;
+    if (kept.length) refsByBlock.set(i, kept);
+    if (only) return;
     // Unknown book abbreviations with an explicit chapter:verse are not guessed.
     const unclear: string[] = [];
     const candidate = /\b(?:[1-3]\. ?\s*)?[A-Za-z]{2,}\.?\s+\d{1,3}:\d{1,3}(?:\s*[-–—]\s*\d{1,3}(?::\d{1,3})?)?/g;
@@ -297,14 +301,14 @@ export async function convertNoteHtmlToEsv(html: string): Promise<ConvertResult>
       const raw = cache.get(ref);
       if (!raw) {
         failed.add(ref);
-        markReference(doc, block, ref, false);
+        markReference(doc, block, ref, "failed");
         continue;
       }
       const verses = parseNumbered(raw);
       const esv = verses.size ? Array.from(verses.values()).join(" ") : cleanEsvText(raw);
       if (!esv) {
         failed.add(ref);
-        markReference(doc, block, ref, false);
+        markReference(doc, block, ref, "failed");
         continue;
       }
 
@@ -351,18 +355,16 @@ export async function convertNoteHtmlToEsv(html: string): Promise<ConvertResult>
         if (hasRef(blocks[j].textContent || "")) break;
         done = tryQuoteIn(blocks[j], esv, { fromEnd: true });
       }
-      markReference(doc, block, ref, done);
-      if (done) {
-        replaced++;
-      } else {
-        failed.add(ref);
-      }
+      // A reference with no verse text nearby (e.g. a heading) isn't a failure:
+      // the verse was found, there was just nothing to replace — never mark it "?".
+      markReference(doc, block, ref, done ? "converted" : "clear");
+      if (done) replaced++;
     }
   }
 
   for (const [idx, refs] of unclearByBlock) {
     for (const ref of refs) {
-      markReference(doc, blocks[idx], ref, false);
+      markReference(doc, blocks[idx], ref, "failed");
       failed.add(ref);
     }
   }
