@@ -29,10 +29,12 @@ interface ToolbarPosition {
   reference: string;
 }
 
-export function ScriptureToolbar({ editorContainer, onFillScripture }: ScriptureToolbarProps) {
+export function ScriptureToolbar({ editorContainer, onFillScripture, onFillContext }: ScriptureToolbarProps) {
   const [toolbarPosition, setToolbarPosition] = useState<ToolbarPosition | null>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const [contextLoading, setContextLoading] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   const handleSelectionChange = useCallback(() => {
     if (!editorContainer) return;
