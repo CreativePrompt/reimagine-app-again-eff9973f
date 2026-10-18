@@ -41,7 +41,10 @@ export function screenKey(screen: PresentationScreen) {
 export async function connectAudienceScreens(): Promise<ScreenDetails> {
   const host = window as ScreenWindow;
   if (!host.getScreenDetails) throw new Error('This browser cannot choose a display automatically. Use Chrome or Edge on your desktop.');
-  cachedDetails = await host.getScreenDetails();
+  try { cachedDetails = await host.getScreenDetails(); }
+  catch {
+    throw new Error('Screen access was not allowed. Open the published app directly in Chrome or Edge, allow screen access, then choose Connect displays again.');
+  }
   return cachedDetails;
 }
 
