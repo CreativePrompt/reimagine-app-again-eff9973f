@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Radio, Square, ExternalLink, Copy, Users, PanelRightOpen, MonitorOff, Monitor, MoreHorizontal, Loader2 } from "lucide-react";
+import { Radio, Square, ExternalLink, Copy, Users, PanelRightOpen, MonitorOff, Monitor, Settings2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { generateSessionId, createPresentationChannel, broadcastInitialState, NotePresentationState } from "@/lib/notesPresentation";
-import { openAudienceWindow } from "@/lib/audienceWindow";
+import { openAudienceWindow, readQuickLiveSettings, restoreAudienceScreens, saveQuickLiveSettings } from "@/lib/audienceWindow";
+import { QuickLiveSettingsDialog } from "@/components/notes/QuickLiveSettingsDialog";
 import { SpotlightSettings } from "@/components/notes/SpotlightSettingsDialog";
 
 interface PresenterModeBarProps {
@@ -37,6 +38,8 @@ export function PresenterModeBar({
   const [starting, setStarting] = useState(false);
   const [audienceUrl, setAudienceUrl] = useState('');
   const [audienceCount, setAudienceCount] = useState(0);
+  const [quickLiveSettings, setQuickLiveSettings] = useState(readQuickLiveSettings);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const windowRef = useRef<Window | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -44,6 +47,8 @@ export function PresenterModeBar({
     spotlightOpen, spotlightSettings, currentPage, totalPages, emphasisList });
   stateRef.current = { noteId, noteTitle, spotlightText, spotlightImage, spotlightOpen,
     spotlightSettings, currentPage, totalPages, emphasisList };
+
+  useEffect(() => { void restoreAudienceScreens(); }, []);
 
   useEffect(() => {
     onLiveStateChange?.(isLive, audienceCount, audienceUrl);
@@ -63,13 +68,13 @@ export function PresenterModeBar({
   }, []);
 
   const openAudience = useCallback((url: string) => {
-    windowRef.current = openAudienceWindow(url);
+    windowRef.current = openAudienceWindow(url, quickLiveSettings, description => toast({ title: 'Audience display setup', description }));
     if (!windowRef.current) toast({ title: "Audience window blocked", description: "Allow popups for this site, then choose Open audience screen from the live menu.", variant: "destructive" });
-  }, [toast]);
+  }, [toast, quickLiveSettings]);
 
   const start = () => {
     if (channelRef.current) return;
-    const url = `${window.location.origin}/notes/live/${generateSessionId()}?fullscreen=1`;
+    const url = `${window.location.origin}/notes/live/${generateSessionId()}${quickLiveSettings.fullscreen ? '?fullscreen=1' : ''}`;
     const sessionId = new URL(url).pathname.split('/').pop();
     if (!sessionId) return;
     // Preserve popup permission: open before switching modes or awaiting realtime.
@@ -130,21 +135,24 @@ export function PresenterModeBar({
         {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : isLive ? <Square className="h-4 w-4" /> : <Radio className="h-4 w-4" />}
         {starting ? 'Starting…' : isLive ? 'Stop Live' : 'Go Live'}
       </Button>
-      {isLive && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Live presentation options" title="Live presentation options"><MoreHorizontal className="h-4 w-4" /></Button>
+            <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Live presentation options" title="Quick Live settings"><Settings2 className="h-4 w-4" /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
+            <DropdownMenuItem onClick={() => setSettingsOpen(true)}><Settings2 className="h-4 w-4 mr-2" />Quick Live settings</DropdownMenuItem>
+            {isLive && <>
             <div className="px-2 py-1.5 text-xs text-muted-foreground flex items-center gap-2"><Users className="h-3.5 w-3.5" />{audienceCount} audience connected</div>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => openAudience(audienceUrl)}><ExternalLink className="h-4 w-4 mr-2" />Open audience screen</DropdownMenuItem>
             <DropdownMenuItem onClick={() => { void navigator.clipboard.writeText(audienceUrl).then(() => toast({ title: 'Audience link copied' })).catch(() => toast({ title: "Couldn't copy the link", variant: 'destructive' })); }}><Copy className="h-4 w-4 mr-2" />Copy audience link</DropdownMenuItem>
             {onSidePanelToggle && <DropdownMenuItem onClick={onSidePanelToggle}><PanelRightOpen className="h-4 w-4 mr-2" />{sidePanelOpen ? 'Hide' : 'Show'} presenter panel</DropdownMenuItem>}
             {onSuppressPopupToggle && <DropdownMenuItem onClick={onSuppressPopupToggle}>{suppressPopup ? <Monitor className="h-4 w-4 mr-2" /> : <MonitorOff className="h-4 w-4 mr-2" />}{suppressPopup ? 'Show' : 'Hide'} spotlight popup</DropdownMenuItem>}
+            </>}
           </DropdownMenuContent>
         </DropdownMenu>
-      )}
+      <QuickLiveSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} settings={quickLiveSettings}
+        onChange={settings => { setQuickLiveSettings(settings); saveQuickLiveSettings(settings); }} />
     </div>
   );
 }

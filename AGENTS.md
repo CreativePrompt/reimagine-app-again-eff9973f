@@ -7,3 +7,4 @@
 - Convert to ESV fetches references in batched ESV requests ("A; B; C", ≤20 per call, retry with backoff) — the ESV API throttles bursts, which made verses silently fail.
 - Conversion status is saved as plain citation text only after passage replacement; async results must not overwrite newer note edits — labels must survive Quill and never imply an unchanged verse was converted.
 - Keep the notes presentation controller mounted across view switches; open audience windows synchronously from user clicks and gracefully fall back when screen-placement or fullscreen permission is unavailable, so one-click startup does not lose its session or get popup-blocked.
+- Quick Live display preferences live in a shared audience-window service and local browser storage; cache permission-authorized display details before launch and pass placement/fullscreen window features synchronously so startup does not depend on a mount-time fullscreen gesture.
