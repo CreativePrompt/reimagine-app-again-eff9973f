@@ -20,7 +20,7 @@ export function AudienceFullscreen() {
     document.addEventListener('fullscreenchange', update);
     window.addEventListener('pointermove', show);
     const timer = setTimeout(hide, 4000);
-    if (new URLSearchParams(window.location.search).has('fullscreen')) void enterFullscreen();
+    if (new URLSearchParams(window.location.search).get('fullscreen') === '1') void enterFullscreen();
     return () => {
       clearTimeout(timer);
       document.removeEventListener('fullscreenchange', update);

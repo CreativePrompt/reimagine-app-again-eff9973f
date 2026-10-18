@@ -4,3 +4,5 @@
 - [x] Verify abbreviated references and repeated conversion remain safe.
 - [x] Add one-click header Go Live with Reader preparation and audience window.
 - [x] Verify live startup, late audience joins, and fullscreen fallback.
+- [x] Add saved Quick Live settings with secondary-screen and fullscreen defaults.
+- [x] Verify screen selection rules, saved settings, permission fallback, and authenticated live startup. Physical second-screen placement and automatic fullscreen require a supported browser with screen access; unavailable in the single-screen test environment.

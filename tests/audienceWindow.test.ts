@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test';
-import { openAudienceWindow } from '../src/lib/audienceWindow';
+import { openAudienceWindow, connectAudienceScreens, DEFAULT_QUICK_LIVE_SETTINGS, selectAudienceScreen, readQuickLiveSettings, saveQuickLiveSettings } from '../src/lib/audienceWindow';
 
 const originalWindow = globalThis.window;
 afterEach(() => { globalThis.window = originalWindow; });
@@ -10,12 +10,14 @@ test('opens audience synchronously before requesting second-screen permission', 
   const secondary = { left: 1280, top: 0, width: 1920, height: 1080 };
   const audience = { closed: false, moveTo: (x: number, y: number) => calls.push(`move:${x},${y}`), resizeTo: (w: number, h: number) => calls.push(`size:${w},${h}`) };
   globalThis.window = {
+    location: { origin: 'https://preachery.example' },
     screen: { availWidth: 1280, availHeight: 800 },
     open: (url: string) => { calls.push(`open:${url}`); return audience; },
     getScreenDetails: async () => { calls.push('permission'); return { screens: [primary, secondary], currentScreen: primary }; },
   } as unknown as Window & typeof globalThis;
   expect(openAudienceWindow('/notes/live/test?fullscreen=1')).toBe(audience);
-  expect(calls.slice(0, 2)).toEqual(['open:/notes/live/test?fullscreen=1', 'permission']);
+  expect(calls.slice(0, 2)).toEqual(['open:https://preachery.example/notes/live/test?fullscreen=1', 'permission']);
+  await Promise.resolve();
   await Promise.resolve();
   expect(calls.slice(2)).toEqual(['move:1280,0', 'size:1920,1080']);
 });
@@ -23,9 +25,51 @@ test('opens audience synchronously before requesting second-screen permission', 
 test('a blocked popup returns null without requesting screen permission', () => {
   let permissionRequested = false;
   globalThis.window = {
+    location: { origin: 'https://preachery.example' },
     screen: { availWidth: 1280, availHeight: 800 }, open: () => null,
     getScreenDetails: async () => { permissionRequested = true; throw new Error('blocked'); },
   } as unknown as Window & typeof globalThis;
   expect(openAudienceWindow('/notes/live/test')).toBeNull();
   expect(permissionRequested).toBe(false);
+});
+
+test('Quick Live defaults to secondary display and fullscreen', () => {
+  expect(DEFAULT_QUICK_LIVE_SETTINGS).toEqual({ screen: 'secondary', fullscreen: true });
+});
+
+test('matches current display by geometry, not object identity', () => {
+  const primary = { left: 0, top: 0, width: 1280, height: 800, isPrimary: true };
+  const secondary = { left: -1920, top: 0, width: 1920, height: 1080 };
+  expect(selectAudienceScreen({ screens: [primary, secondary], currentScreen: { ...primary } }, 'secondary')).toBe(secondary);
+  expect(selectAudienceScreen({ screens: [primary], currentScreen: { ...primary } }, 'secondary')).toBeUndefined();
+});
+
+test('authorized secondary geometry and fullscreen are passed in the initial popup call', async () => {
+  const primary = { left: 0, top: 0, width: 1280, height: 800, isPrimary: true };
+  const secondary = { left: -1920, top: 0, width: 1920, height: 1080, availLeft: -1920, availTop: 24, availWidth: 1920, availHeight: 1056 };
+  const opened: Array<{ url: string; features: string }> = [];
+  globalThis.window = {
+    location: { origin: 'https://preachery.example' },
+    screen: { availWidth: 1280, availHeight: 800 },
+    getScreenDetails: async () => ({ screens: [primary, secondary], currentScreen: primary }),
+    open: (url: string, _name: string, features: string) => { opened.push({ url, features }); return { closed: false, moveTo() {}, resizeTo() {} }; },
+  } as unknown as Window & typeof globalThis;
+  await connectAudienceScreens();
+  openAudienceWindow('/notes/live/test', DEFAULT_QUICK_LIVE_SETTINGS);
+  expect(opened[0].features).toBe('popup=yes,width=1920,height=1056,left=-1920,top=24,fullscreen=yes');
+  expect(opened[0].url).toBe('https://preachery.example/notes/live/test?fullscreen=1');
+  openAudienceWindow('/notes/live/test?fullscreen=1', { screen: 'current', fullscreen: false });
+  expect(opened[1].features).toBe('popup=yes,width=1280,height=800,left=0,top=0');
+  expect(opened[1].url).toBe('https://preachery.example/notes/live/test');
+});
+
+test('saves and restores the audience settings', () => {
+  const originalStorage = globalThis.localStorage;
+  const values = new Map<string, string>();
+  globalThis.localStorage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) } as unknown as Storage;
+  try {
+    expect(readQuickLiveSettings()).toEqual({ screen: 'secondary', fullscreen: true });
+    saveQuickLiveSettings({ screen: 'current', fullscreen: false });
+    expect(readQuickLiveSettings()).toEqual({ screen: 'current', fullscreen: false });
+  } finally { globalThis.localStorage = originalStorage; }
 });
