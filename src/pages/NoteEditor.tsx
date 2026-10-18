@@ -199,10 +199,11 @@ export default function NoteEditor() {
     }
     nextVerseBusyRef.current = true;
     setNextVerseLoading(true);
+    const noteId = loadedNoteIdRef.current;
     try {
       if (viewMode === 'edit' && editorRef.current) {
         const next = await editorRef.current.insertNextVerse(target);
-        if (next) verseTargetRef.current = next;
+        if (next && verseTargetRef.current === target && loadedNoteIdRef.current === noteId) verseTargetRef.current = next;
         return;
       }
       const original = contentRef.current;
@@ -212,7 +213,7 @@ export default function NoteEditor() {
       if (!anchor) throw new Error('PASSAGE_CHANGED');
       const result = await fetchNextVerse(target.reference);
       if (!result) throw new Error('End of passage');
-      if (contentRef.current !== original) throw new Error('PASSAGE_CHANGED');
+      if (contentRef.current !== original || loadedNoteIdRef.current !== noteId) throw new Error('PASSAGE_CHANGED');
       const blocks = makeNextVerseBlocks(anchor, result);
       let last = anchor;
       for (const block of blocks) { last.after(block); last = block; }

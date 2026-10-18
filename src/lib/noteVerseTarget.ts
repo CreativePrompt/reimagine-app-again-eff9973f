@@ -32,7 +32,7 @@ const hasQuote = (element: Element) => element.matches('blockquote') || Boolean(
 
 /** A click on a citation or its adjacent quote targets only that local passage. */
 export function findClickedVerse(root: HTMLElement, clicked: Element): NoteVerseTarget | null {
-  const block = clicked.closest(BLOCKS);
+  const block = clicked.closest('blockquote') ?? clicked.closest(BLOCKS);
   if (!block || !root.contains(block)) return null;
   let citation = block;
   let parsed = findLastReference(citation.textContent ?? '');
