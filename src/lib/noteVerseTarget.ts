@@ -34,7 +34,7 @@ const hasQuote = (element: Element) => element.matches('blockquote') || Boolean(
 export function findClickedVerse(root: HTMLElement, clicked: Element): NoteVerseTarget | null {
   const block = clicked.closest('blockquote') ?? clicked.closest(BLOCKS);
   if (!block || !root.contains(block)) return null;
-  let citation = block;
+  let citation: Element = block;
   let parsed = findLastReference(citation.textContent ?? '');
   if (!parsed && hasQuote(block)) {
     const before = block.previousElementSibling;
@@ -46,7 +46,7 @@ export function findClickedVerse(root: HTMLElement, clicked: Element): NoteVerse
     }
   }
   if (!parsed) return null;
-  let anchor = citation;
+  let anchor: Element = citation;
   const following = citation.nextElementSibling;
   // Heading/reference followed by a quote: insert after the quote, not between them.
   if (following && !findLastReference(following.textContent ?? '') && hasQuote(following)) anchor = following;
