@@ -308,7 +308,7 @@ export async function convertNoteHtmlToEsv(html: string, opts: { only?: string }
         continue;
       }
       const verses = parseNumbered(raw);
-      const esv = verses.size ? Array.from(verses.values()).join(" ") : cleanEsvText(raw);
+      const esv = verses.size ? Array.from(verses, ([number, text]) => `[${number}] ${text}`).join(" ") : cleanEsvText(raw);
       if (!esv) {
         failed.add(ref);
         markReference(doc, block, ref, "failed");

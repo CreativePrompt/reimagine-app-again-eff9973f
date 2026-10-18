@@ -21,6 +21,7 @@ import {
   Maximize2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { formatScripturePassage } from "@/lib/scripturePassageText";
 import { BIBLE_BOOKS, getAllBooks } from "@/lib/bibleBooks";
 import { useToast } from "@/hooks/use-toast";
 import { useCommentaryStore, Commentary } from "@/lib/store/commentaryStore";
@@ -464,14 +465,7 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture, ins
     return book?.chapters || 0;
   };
 
-  // Clean verse text for display (remove verse numbers, collapse whitespace)
-  const cleanVerseText = (text: string) => {
-    return text
-      .replace(/\[\d+\]\s*/g, '')
-      .replace(/\n+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  };
+  const cleanVerseText = formatScripturePassage;
 
   // Highlight search phrase in text
   const highlightPhrase = (text: string, phrase: string) => {

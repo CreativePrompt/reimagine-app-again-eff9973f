@@ -21,6 +21,6 @@ test('ranges advance from their final verse', () => {
   if (!parsed) throw new Error('Missing reference');
   expect(getNextVerseCandidates(parsed).primary).toBe('Matthew 7:15');
 });
-test('ESV header and bracket verse numbers do not become repeated quote text', () => {
-  expect(cleanVerseText('Matthew 7:13\n\n[13] Enter by the narrow gate.')).toBe('Enter by the narrow gate.');
+test('Next Verse preserves verse 13 while removing the reference header', () => {
+  expect(cleanVerseText('Matthew 7:13\n\n[13] Enter by the narrow gate.')).toBe('[13] Enter by the narrow gate.');
 });

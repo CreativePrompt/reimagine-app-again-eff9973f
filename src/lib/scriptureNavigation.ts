@@ -131,7 +131,7 @@ export interface FetchedVerse {
 
 async function fetchEsvPassage(passage: string): Promise<FetchedVerse | null> {
   const { data, error } = await supabase.functions.invoke("esv-bible", {
-    body: { passage, includeVerseNumbers: false, includeHeadings: false },
+    body: { passage, includeVerseNumbers: true, includeHeadings: false },
   });
   if (error) throw error;
   if (!data?.passages || data.passages.length === 0) return null;
@@ -174,7 +174,6 @@ export function cleanVerseText(text: string): string {
   return withoutHeader
     .replace(/\n+/g, " ")
     .replace(/\s+/g, " ")
-    .replace(/\[\d+\]\s*/g, "")
     .replace(/^\s+|\s+$/g, "")
     .trim();
 }
