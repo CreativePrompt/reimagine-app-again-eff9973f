@@ -2,7 +2,8 @@ import { Suspense, lazy, useMemo, useRef, useEffect, useCallback, useState, forw
 import "react-quill/dist/quill.snow.css";
 import "./RichTextEditor.css";
 import { ScriptureToolbar } from "./ScriptureToolbar";
-import { fetchNextVerse, cleanVerseText, findLastReference } from "@/lib/scriptureNavigation";
+import { fetchNextVerse } from "@/lib/scriptureNavigation";
+import { findClickedVerse, resolveVerseElement, makeNextVerseBlocks, elementPath, type NoteVerseTarget } from "@/lib/noteVerseTarget";
 import { getScrollParent } from "@/lib/bookmarkOffsets";
 import { useToast } from "@/hooks/use-toast";
 
@@ -21,6 +22,7 @@ interface RichTextEditorProps {
   placeholder?: string;
   /** CSS selector of the element that scrolls the document (page-style scrolling). */
   scrollingContainer?: string;
+  onVerseTarget?: (target: NoteVerseTarget, anchor: HTMLElement) => void;
 }
 
 export interface RichTextEditorRef {
@@ -34,7 +36,7 @@ export interface RichTextEditorRef {
   /** Scroll the editor to a given Quill text offset (stable, no jump to top). */
   scrollToOffset: (offset: number) => boolean;
   /** Fetch and append the next Scripture verse after the last reference in the doc. */
-  insertNextVerse: () => Promise<void>;
+  insertNextVerse: (target: NoteVerseTarget) => Promise<NoteVerseTarget | null>;
 }
 
 /** Strip junk that Word / browsers put in clipboard HTML. */
@@ -49,7 +51,7 @@ function sanitizeClipboardHtml(html: string): string {
 }
 
 const RichTextEditorInner = forwardRef<RichTextEditorRef, RichTextEditorProps>(
-  function RichTextEditor({ value, onChange, placeholder, scrollingContainer }, ref) {
+  function RichTextEditor({ value, onChange, placeholder, scrollingContainer, onVerseTarget }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const quillRef = useRef<any>(null);
     const [editorReady, setEditorReady] = useState(false);
@@ -61,6 +63,8 @@ const RichTextEditorInner = forwardRef<RichTextEditorRef, RichTextEditorProps>(
     const onChangeRef = useRef(onChange);
     onChangeRef.current = onChange;
     const { toast } = useToast();
+    const verseTargetCallback = useRef(onVerseTarget);
+    verseTargetCallback.current = onVerseTarget;
 
     const getQuill = useCallback(() => {
       try {
@@ -130,6 +134,19 @@ const RichTextEditorInner = forwardRef<RichTextEditorRef, RichTextEditorProps>(
         }
       }, 50);
       return () => window.clearInterval(id);
+    }, [editorReady, getQuill]);
+
+    useEffect(() => {
+      const quill = getQuill();
+      if (!editorReady || !quill) return;
+      const clicked = (event: MouseEvent) => {
+        if (!(event.target instanceof Element)) return;
+        const target = findClickedVerse(quill.root, event.target);
+        const anchor = target && resolveVerseElement(quill.root, target);
+        if (target && anchor) verseTargetCallback.current?.(target, anchor);
+      };
+      quill.root.addEventListener('click', clicked);
+      return () => quill.root.removeEventListener('click', clicked);
     }, [editorReady, getQuill]);
 
     // Apply external value changes (note load, Convert to ESV, etc.) without
