@@ -1,13 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Maximize } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { connectAudienceScreens, screenKey, type PresentationScreen } from '@/lib/audienceWindow';
 
 export function AudienceFullscreen() {
   const [fullscreen, setFullscreen] = useState(Boolean(document.fullscreenElement));
   const [visible, setVisible] = useState(true);
   const enterFullscreen = useCallback(async () => {
     try {
-      if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+      if (document.fullscreenElement) return;
+      const display = new URLSearchParams(window.location.search).get('display');
+      let target: PresentationScreen | undefined;
+      if (display) {
+        const details = await connectAudienceScreens();
+        target = details.screens.find(screen => screenKey(screen) === display);
+        if (!target) { setVisible(true); return; }
+      }
+      const options = { navigationUI: 'hide', ...(target ? { screen: target } : {}) } as FullscreenOptions;
+      await document.documentElement.requestFullscreen(options);
     } catch {
       // Fullscreen often requires a fresh click in this window.
       setVisible(true);

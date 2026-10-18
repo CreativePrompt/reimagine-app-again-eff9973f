@@ -22,6 +22,7 @@ type ScreenWindow = Window & {
   getScreenDetails?: () => Promise<ScreenDetails>;
 };
 let cachedDetails: ScreenDetails | undefined;
+let detailsOwner: Window | undefined;
 
 export function readQuickLiveSettings(): QuickLiveSettings {
   try {
@@ -41,7 +42,7 @@ export function screenKey(screen: PresentationScreen) {
 export async function connectAudienceScreens(): Promise<ScreenDetails> {
   const host = window as ScreenWindow;
   if (!host.getScreenDetails) throw new Error('This browser cannot choose a display automatically. Use Chrome or Edge on your desktop.');
-  try { cachedDetails = await host.getScreenDetails(); }
+  try { cachedDetails = await host.getScreenDetails(); detailsOwner = window; }
   catch {
     throw new Error('Screen access was not allowed. Open the published app directly in Chrome or Edge, allow screen access, then choose Connect displays again.');
   }
@@ -60,25 +61,35 @@ export async function restoreAudienceScreens(): Promise<ScreenDetails | undefine
 export function selectAudienceScreen(details: ScreenDetails, preference: string): PresentationScreen | undefined {
   if (preference === 'current') return details.currentScreen;
   if (preference !== 'secondary') {
-    const chosen = details.screens.find(screen => screenKey(screen) === preference);
-    if (chosen) return chosen;
+    return details.screens.find(screen => screenKey(screen) === preference);
   }
   return details.screens.find(screen => !screen.isPrimary && screenKey(screen) !== screenKey(details.currentScreen))
     ?? details.screens.find(screen => screenKey(screen) !== screenKey(details.currentScreen));
 }
 
+export function getAudienceScreen(preference: string): PresentationScreen | undefined {
+  return detailsOwner === window && cachedDetails ? selectAudienceScreen(cachedDetails, preference) : undefined;
+}
+
 // Open synchronously from the click, before any permission or network request.
 export function openAudienceWindow(url: string, settings = readQuickLiveSettings(), onIssue?: (message: string) => void): Window | null {
-  const target = cachedDetails && selectAudienceScreen(cachedDetails, settings.screen);
+  const target = getAudienceScreen(settings.screen);
+  // Never create a main-screen window and hope to move it after fullscreen.
+  if (!target && settings.screen !== 'current') {
+    onIssue?.('Connect and allow access to your audience display before starting. No presentation was opened on your main screen.');
+    return null;
+  }
   const audienceUrl = new URL(url, window.location.origin || 'http://localhost');
   if (settings.fullscreen) audienceUrl.searchParams.set('fullscreen', '1');
   else audienceUrl.searchParams.delete('fullscreen');
+  if (target) audienceUrl.searchParams.set('display', screenKey(target));
   const features = ['popup=yes',
     `width=${target?.availWidth ?? target?.width ?? window.screen.availWidth}`,
     `height=${target?.availHeight ?? target?.height ?? window.screen.availHeight}`,
     ...(target ? [`left=${target.availLeft ?? target.left}`, `top=${target.availTop ?? target.top}`] : []),
     ...(settings.fullscreen ? ['fullscreen=yes'] : [])].join(',');
-  const audience = window.open(audienceUrl.href, 'preachery-notes-audience', features);
+  // Named-window reuse can ignore new placement/fullscreen features.
+  const audience = window.open(audienceUrl.href, '_blank', features);
   if (!audience) return null;
   const place = (details: ScreenDetails) => {
     const screen = selectAudienceScreen(details, settings.screen);
@@ -89,12 +100,14 @@ export function openAudienceWindow(url: string, settings = readQuickLiveSettings
       audience.resizeTo(screen.availWidth ?? screen.width, screen.availHeight ?? screen.height);
     } catch { onIssue?.('Your browser prevented automatic display placement. Allow screen access in Quick Live settings.'); }
   };
-  if (cachedDetails) place(cachedDetails);
-  else {
-    void connectAudienceScreens().then(details => {
-      place(details);
-      if (settings.fullscreen) onIssue?.('Screen access is ready. Reopen the audience screen to launch with fullscreen requested from your click.');
-    }).catch(error => onIssue?.(error instanceof Error ? error.message : 'Allow screen access in Quick Live settings to use your secondary display.'));
+  if (cachedDetails && detailsOwner === window) {
+    const details = cachedDetails;
+    place(details);
+    // Placement can be ignored while a new popup is navigating. Retry after load,
+    // but never move an already fullscreen presentation to another display.
+    audience.addEventListener('load', () => {
+      if (!audience.closed && !audience.document.fullscreenElement) place(details);
+    }, { once: true });
   }
   return audience;
 }
