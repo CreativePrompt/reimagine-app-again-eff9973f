@@ -18,6 +18,7 @@ test('opens audience synchronously before requesting second-screen permission', 
   expect(openAudienceWindow('/notes/live/test?fullscreen=1')).toBe(audience);
   expect(calls.slice(0, 2)).toEqual(['open:https://preachery.example/notes/live/test?fullscreen=1', 'permission']);
   await Promise.resolve();
+  await Promise.resolve();
   expect(calls.slice(2)).toEqual(['move:1280,0', 'size:1920,1080']);
 });
 
