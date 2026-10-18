@@ -59,7 +59,8 @@ export function makeNextVerseBlocks(anchor: HTMLElement, result: FetchedVerse): 
   const source = anchor.querySelector('em,i') ?? anchor;
   const italic = document.createElement('em');
   if (source.getAttribute('style')) italic.setAttribute('style', source.getAttribute('style') ?? '');
-  italic.textContent = `“${cleanVerseText(result.text)}”`;
+  const text = cleanVerseText(result.text);
+  italic.textContent = /^[“"]/.test(text) ? text : `“${text}”`;
   quote.appendChild(italic);
   const citation = document.createElement('p');
   const label = document.createElement('em');

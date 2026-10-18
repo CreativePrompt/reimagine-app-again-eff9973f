@@ -303,6 +303,9 @@ const RichTextEditorInner = forwardRef<RichTextEditorRef, RichTextEditorProps>(
       makeNextVerseBlocks(anchor, result).forEach(block => holder.appendChild(block));
       const inserted = quill.clipboard.convert(holder.innerHTML);
       const Delta = QuillClass.import('delta');
+      // Quill's HTML converter removes the trailing paragraph newline. Restore
+      // it so the citation cannot merge with the teaching paragraph below.
+      if (!String(inserted.ops[inserted.ops.length - 1]?.insert ?? '').endsWith('\n')) inserted.insert('\n');
       quill.updateContents(new Delta().retain(index).concat(inserted), 'user');
       emit(quill.root.innerHTML);
       const [line] = quill.getLine(Math.min(index + inserted.length() - 1, quill.getLength() - 1));
