@@ -160,6 +160,16 @@ export default function NoteEditor() {
     setPresenterLiveState({ isLive, audienceCount, audienceUrl });
   }, []);
 
+  const prepareLiveReader = useCallback(() => {
+    switchViewMode('reader');
+    setHighlightMode(true);
+    setSpotlightSettings(settings => ({ ...settings, enabled: true }));
+    setBookmarksCollapsed(false);
+    setSidebarCollapsed(true);
+    setScriptureSearchOpen(false);
+    setReviewOpen(false);
+  }, [switchViewMode]);
+
   // Shared "Next Verse" handler — works across Edit, Reader, and Live modes.
   // In edit mode it delegates to the RichTextEditor's Quill instance for perfect formatting.
   // In other modes it appends the next verse to the note's HTML content directly.
@@ -975,8 +985,8 @@ export default function NoteEditor() {
       {/* Main Editor */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Editor Header */}
-        <div className="border-b bg-card p-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="border-b bg-card p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 shrink-0">
             {sidebarCollapsed && (
               <Button
                 variant="ghost"
@@ -991,8 +1001,27 @@ export default function NoteEditor() {
                 Last updated {formatDistanceToNow(new Date(currentNote.updated_at), { addSuffix: true })}
               </span>
             )}
+            {id && (
+              <PresenterModeBar
+                noteId={id}
+                noteTitle={title}
+                spotlightText={spotlightText}
+                spotlightImage={spotlightImage}
+                spotlightOpen={spotlightOpen}
+                spotlightSettings={spotlightSettings}
+                currentPage={spotlightPage}
+                totalPages={spotlightTotalPages}
+                emphasisList={emphasisList}
+                sidePanelOpen={sidePanelOpen}
+                onSidePanelToggle={() => setSidePanelOpen(!sidePanelOpen)}
+                onLiveStateChange={handleLiveStateChange}
+                suppressPopup={suppressPopup}
+                onSuppressPopupToggle={() => setSuppressPopup(!suppressPopup)}
+                onPrepareLive={prepareLiveReader}
+              />
+            )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Bookmark current selection */}
             <Button
               variant="outline"
@@ -1160,28 +1189,6 @@ export default function NoteEditor() {
                   </Button>
                 </div>
 
-                {/* Presenter Mode - Only in reader + highlight mode */}
-                {highlightMode && spotlightSettings.enabled && id && (
-                  <>
-                    <div className="h-4 w-px bg-border" />
-                    <PresenterModeBar
-                      noteId={id}
-                      noteTitle={title}
-                      spotlightText={spotlightText}
-                      spotlightImage={spotlightImage}
-                      spotlightOpen={spotlightOpen}
-                      spotlightSettings={spotlightSettings}
-                      currentPage={spotlightPage}
-                      totalPages={spotlightTotalPages}
-                      emphasisList={emphasisList}
-                      sidePanelOpen={sidePanelOpen}
-                      onSidePanelToggle={() => setSidePanelOpen(!sidePanelOpen)}
-                      onLiveStateChange={handleLiveStateChange}
-                      suppressPopup={suppressPopup}
-                      onSuppressPopupToggle={() => setSuppressPopup(!suppressPopup)}
-                    />
-                  </>
-                )}
               </>
             )}
             
