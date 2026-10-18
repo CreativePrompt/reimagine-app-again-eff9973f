@@ -163,7 +163,12 @@ export default function NoteEditor() {
   const prepareLiveReader = useCallback(() => {
     switchViewMode('reader');
     setHighlightMode(true);
-    setSpotlightSettings(settings => ({ ...settings, enabled: true }));
+    setSpotlightSettings(settings => ({
+      ...settings,
+      enabled: true,
+      mode: 'presentation',
+      textColor: settings.backgroundUrl ? settings.textColor : 'light',
+    }));
     setBookmarksCollapsed(false);
     setSidebarCollapsed(true);
     setScriptureSearchOpen(false);
