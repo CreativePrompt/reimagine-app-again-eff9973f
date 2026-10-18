@@ -4,7 +4,7 @@ import { openAudienceWindow, connectAudienceScreens, DEFAULT_QUICK_LIVE_SETTINGS
 const originalWindow = globalThis.window;
 afterEach(() => { globalThis.window = originalWindow; });
 
-test('opens audience synchronously before requesting second-screen permission', async () => {
+test('does not open on the main display before secondary-screen access is ready', () => {
   const calls: string[] = [];
   const primary = { left: 0, top: 0, width: 1280, height: 800, isPrimary: true };
   const secondary = { left: 1280, top: 0, width: 1920, height: 1080 };
@@ -15,11 +15,10 @@ test('opens audience synchronously before requesting second-screen permission', 
     open: (url: string) => { calls.push(`open:${url}`); return audience; },
     getScreenDetails: async () => { calls.push('permission'); return { screens: [primary, secondary], currentScreen: primary }; },
   } as unknown as Window & typeof globalThis;
-  expect(openAudienceWindow('/notes/live/test?fullscreen=1')).toBe(audience);
-  expect(calls.slice(0, 2)).toEqual(['open:https://preachery.example/notes/live/test?fullscreen=1', 'permission']);
-  await Promise.resolve();
-  await Promise.resolve();
-  expect(calls.slice(2)).toEqual(['move:1280,0', 'size:1920,1080']);
+  const issues: string[] = [];
+  expect(openAudienceWindow('/notes/live/test?fullscreen=1', DEFAULT_QUICK_LIVE_SETTINGS, message => issues.push(message))).toBeNull();
+  expect(calls).toEqual([]);
+  expect(issues.length).toBe(1);
 });
 
 test('a blocked popup returns null without requesting screen permission', () => {
@@ -29,7 +28,7 @@ test('a blocked popup returns null without requesting screen permission', () => 
     screen: { availWidth: 1280, availHeight: 800 }, open: () => null,
     getScreenDetails: async () => { permissionRequested = true; throw new Error('blocked'); },
   } as unknown as Window & typeof globalThis;
-  expect(openAudienceWindow('/notes/live/test')).toBeNull();
+  expect(openAudienceWindow('/notes/live/test', { screen: 'current', fullscreen: false })).toBeNull();
   expect(permissionRequested).toBe(false);
 });
 
@@ -47,20 +46,39 @@ test('matches current display by geometry, not object identity', () => {
 test('authorized secondary geometry and fullscreen are passed in the initial popup call', async () => {
   const primary = { left: 0, top: 0, width: 1280, height: 800, isPrimary: true };
   const secondary = { left: -1920, top: 0, width: 1920, height: 1080, availLeft: -1920, availTop: 24, availWidth: 1920, availHeight: 1056 };
-  const opened: Array<{ url: string; features: string }> = [];
+  const opened: Array<{ url: string; name: string; features: string }> = [];
   globalThis.window = {
     location: { origin: 'https://preachery.example' },
     screen: { availWidth: 1280, availHeight: 800 },
     getScreenDetails: async () => ({ screens: [primary, secondary], currentScreen: primary }),
-    open: (url: string, _name: string, features: string) => { opened.push({ url, features }); return { closed: false, moveTo() {}, resizeTo() {} }; },
+    open: (url: string, name: string, features: string) => { opened.push({ url, name, features }); return { closed: false, moveTo() {}, resizeTo() {}, addEventListener() {} }; },
   } as unknown as Window & typeof globalThis;
   await connectAudienceScreens();
   openAudienceWindow('/notes/live/test', DEFAULT_QUICK_LIVE_SETTINGS);
   expect(opened[0].features).toBe('popup=yes,width=1920,height=1056,left=-1920,top=24,fullscreen=yes');
-  expect(opened[0].url).toBe('https://preachery.example/notes/live/test?fullscreen=1');
+  expect(opened[0].url).toBe('https://preachery.example/notes/live/test?fullscreen=1&display=-1920%3A0%3A1920%3A1080');
+  expect(opened[0].name).toBe('_blank');
   openAudienceWindow('/notes/live/test?fullscreen=1', { screen: 'current', fullscreen: false });
   expect(opened[1].features).toBe('popup=yes,width=1280,height=800,left=0,top=0');
-  expect(opened[1].url).toBe('https://preachery.example/notes/live/test');
+  expect(opened[1].url).toBe('https://preachery.example/notes/live/test?display=0%3A0%3A1280%3A800');
+});
+
+test('a disconnected saved display does not silently select another display', () => {
+  const primary = { left: 0, top: 0, width: 1280, height: 800, isPrimary: true };
+  const secondary = { left: 1280, top: 0, width: 1920, height: 1080 };
+  expect(selectAudienceScreen({ screens: [primary, secondary], currentScreen: primary }, 'missing-display')).toBeUndefined();
+});
+
+test('a single-screen setup never creates an audience popup for secondary mode', async () => {
+  let opened = false;
+  const primary = { left: 0, top: 0, width: 1280, height: 800, isPrimary: true };
+  globalThis.window = {
+    getScreenDetails: async () => ({ screens: [primary], currentScreen: primary }),
+    open: () => { opened = true; return null; },
+  } as unknown as Window & typeof globalThis;
+  await connectAudienceScreens();
+  expect(openAudienceWindow('/notes/live/test')).toBeNull();
+  expect(opened).toBe(false);
 });
 
 test('saves and restores the audience settings', () => {
