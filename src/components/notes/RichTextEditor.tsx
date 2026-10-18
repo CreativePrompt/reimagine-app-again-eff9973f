@@ -3,6 +3,7 @@ import "react-quill/dist/quill.snow.css";
 import "./RichTextEditor.css";
 import { ScriptureToolbar } from "./ScriptureToolbar";
 import { fetchNextVerse } from "@/lib/scriptureNavigation";
+import { formatScripturePassage } from "@/lib/scripturePassageText";
 import { findClickedVerse, resolveVerseElement, makeNextVerseBlocks, elementPath, type NoteVerseTarget } from "@/lib/noteVerseTarget";
 import { getScrollParent } from "@/lib/bookmarkOffsets";
 import { useToast } from "@/hooks/use-toast";
@@ -398,16 +399,7 @@ const RichTextEditorInner = forwardRef<RichTextEditorRef, RichTextEditorProps>(
       emit(newValue);
     }, [emit]);
 
-    // Clean up ESV text - remove extra whitespace and newlines to make it a single sentence
-    const cleanVerseTextLocal = (text: string): string => {
-      return text
-        .replace(/^\s*[^\n]*\d+:\d+[^\n]*\n+/, '') // leading "1 John 2:3" header line
-        .replace(/\(ESV\)/gi, '')
-        .replace(/\n+/g, ' ')
-        .replace(/\s+/g, ' ')
-        .replace(/\[\d+\]\s*/g, '')
-        .trim();
-    };
+    const cleanVerseTextLocal = formatScripturePassage;
 
     // Handle filling scripture - insert formatted verse after the reference
     const handleFillScripture = useCallback((reference: string, verseText: string, canonical?: string) => {

@@ -21,6 +21,7 @@ import {
   Maximize2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { formatScripturePassage } from "@/lib/scripturePassageText";
 import { BIBLE_BOOKS, getAllBooks } from "@/lib/bibleBooks";
 import { useToast } from "@/hooks/use-toast";
 import { useCommentaryStore, Commentary } from "@/lib/store/commentaryStore";
@@ -423,7 +424,7 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture, ins
 
   // Copy verse to clipboard
   const handleCopy = useCallback((reference: string, text: string) => {
-    const cleanText = text.replace(/\[\d+\]\s*/g, '').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+    const cleanText = formatScripturePassage(text);
     navigator.clipboard.writeText(`${reference} — "${cleanText}" (ESV)`);
     setCopiedRef(reference);
     setTimeout(() => setCopiedRef(null), 2000);
@@ -435,7 +436,7 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture, ins
 
   // Insert verse into editor at cursor position
   const handleInsert = useCallback((reference: string, text: string) => {
-    let cleanText = text.replace(/\[\d+\]\s*/g, '').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+    let cleanText = formatScripturePassage(text);
     // The API text often starts with the reference itself — don't repeat it
     if (cleanText.toLowerCase().startsWith(reference.toLowerCase())) {
       cleanText = cleanText.slice(reference.length).trim();
@@ -464,14 +465,7 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture, ins
     return book?.chapters || 0;
   };
 
-  // Clean verse text for display (remove verse numbers, collapse whitespace)
-  const cleanVerseText = (text: string) => {
-    return text
-      .replace(/\[\d+\]\s*/g, '')
-      .replace(/\n+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  };
+  const cleanVerseText = formatScripturePassage;
 
   // Highlight search phrase in text
   const highlightPhrase = (text: string, phrase: string) => {
