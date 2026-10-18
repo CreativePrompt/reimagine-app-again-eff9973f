@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { NotePresentationState, NotePresentationUpdate } from "@/lib/notesPresentation";
 import { SpotlightSettings, EMPHASIS_COLORS, FONT_OPTIONS, DEFAULT_SPOTLIGHT_SETTINGS } from "@/components/notes/SpotlightSettingsDialog";
 import { parseScriptureFromHighlight, getVerseGroup, getTotalPages, ParsedVerse } from "@/lib/verseParser";
+import { AudienceFullscreen } from '@/components/notes/AudienceFullscreen';
 
 export default function NotesLiveView() {
   const { sessionId } = useParams();
@@ -88,10 +89,12 @@ export default function NotesLiveView() {
             return newState;
           });
         } else if (update.type === 'settings') {
+          const nextSettings = update.payload.spotlightSettings;
+          if (!nextSettings) return;
           setState(prev => {
-            const newState = prev ? { ...prev, spotlightSettings: update.payload.spotlightSettings! } : null;
+            const newState = prev ? { ...prev, spotlightSettings: nextSettings } : null;
             if (lastSpotlight) {
-              setLastSpotlight(ls => ls ? { ...ls, settings: update.payload.spotlightSettings! } : null);
+              setLastSpotlight(ls => ls ? { ...ls, settings: nextSettings } : null);
             }
             return newState;
           });
@@ -103,6 +106,8 @@ export default function NotesLiveView() {
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           setConnected(true);
+          void channel.track({ role: 'audience' });
+          void channel.send({ type: 'broadcast', event: 'request-state', payload: {} });
           console.log('Audience connected to notes presentation channel');
         }
       });
@@ -284,6 +289,7 @@ export default function NotesLiveView() {
           backgroundPosition: 'center',
         }}
       >
+        <AudienceFullscreen />
         {/* Overlay */}
         <div
           className="absolute inset-0"
@@ -316,6 +322,7 @@ export default function NotesLiveView() {
           backgroundPosition: 'center',
         }}
       >
+        <AudienceFullscreen />
         {/* Overlay */}
         <div
           className="absolute inset-0"
@@ -352,6 +359,7 @@ export default function NotesLiveView() {
         backgroundPosition: 'center',
       }}
     >
+      <AudienceFullscreen />
       {/* Overlay */}
       <div
         className="absolute inset-0 transition-all duration-500"
