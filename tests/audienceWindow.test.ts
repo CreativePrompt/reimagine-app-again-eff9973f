@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test';
-import { openAudienceWindow } from './audienceWindow';
+import { openAudienceWindow } from '../src/lib/audienceWindow';
 
 const originalWindow = globalThis.window;
 afterEach(() => { globalThis.window = originalWindow; });
