@@ -424,7 +424,7 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture, ins
 
   // Copy verse to clipboard
   const handleCopy = useCallback((reference: string, text: string) => {
-    const cleanText = text.replace(/\[\d+\]\s*/g, '').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+    const cleanText = formatScripturePassage(text);
     navigator.clipboard.writeText(`${reference} — "${cleanText}" (ESV)`);
     setCopiedRef(reference);
     setTimeout(() => setCopiedRef(null), 2000);
@@ -436,7 +436,7 @@ export function ScriptureSearchSidebar({ isOpen, onClose, onInsertScripture, ins
 
   // Insert verse into editor at cursor position
   const handleInsert = useCallback((reference: string, text: string) => {
-    let cleanText = text.replace(/\[\d+\]\s*/g, '').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+    let cleanText = formatScripturePassage(text);
     // The API text often starts with the reference itself — don't repeat it
     if (cleanText.toLowerCase().startsWith(reference.toLowerCase())) {
       cleanText = cleanText.slice(reference.length).trim();
