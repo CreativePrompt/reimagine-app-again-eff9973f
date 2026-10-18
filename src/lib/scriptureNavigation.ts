@@ -151,7 +151,10 @@ export async function fetchNextVerse(documentText: string): Promise<FetchedVerse
 
   const { primary, fallback } = getNextVerseCandidates(last);
   const primaryResult = await fetchEsvPassage(primary);
-  if (primaryResult) return primaryResult;
+  if (primaryResult) {
+    const actual = parseReference(primaryResult.reference);
+    if (actual?.book === last.book && actual.chapter === last.chapter && actual.verse === last.verse + 1) return primaryResult;
+  }
 
   if (fallback) {
     const fallbackResult = await fetchEsvPassage(fallback);
@@ -165,7 +168,10 @@ export async function fetchNextVerse(documentText: string): Promise<FetchedVerse
  * Clean ESV passage text into a single, quotable line.
  */
 export function cleanVerseText(text: string): string {
-  return text
+  const reference = parseReference(text);
+  const withoutHeader = reference && text.trimStart().startsWith(reference.raw)
+    ? text.trimStart().slice(reference.raw.length) : text;
+  return withoutHeader
     .replace(/\n+/g, " ")
     .replace(/\s+/g, " ")
     .replace(/\[\d+\]\s*/g, "")
