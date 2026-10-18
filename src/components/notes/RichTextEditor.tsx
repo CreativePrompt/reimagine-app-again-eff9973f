@@ -284,89 +284,38 @@ const RichTextEditorInner = forwardRef<RichTextEditorRef, RichTextEditorProps>(
       } catch { /* ignore */ }
     }, [getQuill]);
 
-    // Insert the next scripture verse based on the last reference in the document.
-    const handleInsertNextVerse = useCallback(async () => {
+    const handleInsertNextVerse = useCallback(async (target: NoteVerseTarget): Promise<NoteVerseTarget | null> => {
       const quill = getQuill();
-      if (!quill) return;
-
-      const plain = quill.getText() as string;
-      const last = findLastReference(plain);
-      if (!last) {
-        toast({
-          title: "No Scripture reference found",
-          description: "Select or insert a Scripture reference before using Next Verse.",
-          variant: "destructive",
-        });
-        return;
+      if (!quill) return null;
+      const anchor = resolveVerseElement(quill.root, target);
+      if (!anchor) throw new Error("PASSAGE_CHANGED");
+      const result = await fetchNextVerse(target.reference);
+      if (!result) throw new Error("End of passage");
+      // Resolve against the live editor after the request; never replace the note.
+      if (!anchor.isConnected || !quill.root.contains(anchor)) throw new Error("PASSAGE_CHANGED");
+      const scroller = getScroller();
+      const top = scroller?.scrollTop ?? 0;
+      const QuillClass = quill.constructor as any;
+      const blot = QuillClass.find(anchor);
+      if (!blot) throw new Error("PASSAGE_CHANGED");
+      const index = quill.getIndex(blot) + blot.length();
+      const holder = document.createElement('div');
+      makeNextVerseBlocks(anchor, result).forEach(block => holder.appendChild(block));
+      const inserted = quill.clipboard.convert(holder.innerHTML);
+      const Delta = QuillClass.import('delta');
+      quill.updateContents(new Delta().retain(index).concat(inserted), 'user');
+      emit(quill.root.innerHTML);
+      const [line] = quill.getLine(Math.min(index + inserted.length() - 1, quill.getLength() - 1));
+      const node = line?.domNode as HTMLElement | undefined;
+      if (scroller) {
+        scroller.scrollTop = top;
+        requestAnimationFrame(() => { scroller.scrollTop = top; });
       }
-
-      try {
-        const result = await fetchNextVerse(plain);
-        if (!result) {
-          toast({
-            title: "End of passage",
-            description: "No further verse is available after the last reference.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        const insertPos = quill.getLength();
-        const trailing = quill.getText(Math.max(0, insertPos - 2), 2);
-        let prefix = "";
-        if (!trailing.endsWith("\n\n")) {
-          prefix = trailing.endsWith("\n") ? "\n" : "\n\n";
-        }
-
-        const cleaned = cleanVerseText(result.text);
-        const verseLine = `"${cleaned}"`;
-        const citationLine = `— ${result.reference}, ESV`;
-
-        let cursor = insertPos;
-        if (prefix) {
-          quill.insertText(cursor, prefix);
-          cursor += prefix.length;
-        }
-        quill.insertText(cursor, verseLine, { italic: true });
-        cursor += verseLine.length;
-        quill.insertText(cursor, "\n");
-        cursor += 1;
-        quill.insertText(cursor, citationLine, { italic: true });
-        cursor += citationLine.length;
-        quill.insertText(cursor, "\n");
-        cursor += 1;
-
-        quill.setSelection(cursor, 0, "silent");
-        emit(quill.root.innerHTML);
-
-        const scroller = getScroller();
-        if (scroller) {
-          requestAnimationFrame(() => {
-            try {
-              const b = quill.getBounds(Math.max(0, cursor - 1));
-              const cRect = quill.container.getBoundingClientRect();
-              const sRect = scroller.getBoundingClientRect();
-              const y = cRect.top - sRect.top + scroller.scrollTop + b.top;
-              scroller.scrollTo({ top: Math.max(0, y - scroller.clientHeight / 2), behavior: "smooth" });
-            } catch { /* ignore */ }
-          });
-        }
-
-        toast({
-          title: "Next verse inserted",
-          description: `${result.reference} (ESV) added to your notes.`,
-        });
-      } catch (err: any) {
-        console.error("Next verse error:", err);
-        toast({
-          title: err?.message === "NO_REFERENCE" ? "No Scripture reference found" : "Unable to retrieve the next verse",
-          description: err?.message === "NO_REFERENCE"
-            ? "Select or insert a Scripture reference before using Next Verse."
-            : "Please try again in a moment.",
-          variant: "destructive",
-        });
-      }
-    }, [getQuill, getScroller, emit, toast]);
+      if (!node) return null;
+      const next = { reference: result.reference, path: elementPath(quill.root, node) };
+      verseTargetCallback.current?.(next, node);
+      return next;
+    }, [getQuill, getScroller, emit]);
 
     useImperativeHandle(ref, () => ({
       insertAtCursor: (text: string) => {

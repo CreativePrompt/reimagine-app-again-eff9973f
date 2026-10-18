@@ -22,7 +22,9 @@ import { BookmarksPanel, AddBookmarkDialog, pickDefaultBookmarkColor } from "@/c
 import type { NoteBookmark } from "@/lib/store/notesStore";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { computeTextOffset, findElementByTextOffset, findTextInElement, scrollElementInContainer } from "@/lib/bookmarkOffsets";
-import { fetchNextVerse, cleanVerseText } from "@/lib/scriptureNavigation";
+import { fetchNextVerse } from "@/lib/scriptureNavigation";
+import { findClickedVerse, resolveVerseElement, makeNextVerseBlocks, elementPath, type NoteVerseTarget } from "@/lib/noteVerseTarget";
+import { NextVerseAction } from "@/components/notes/NextVerseAction";
 import "@/components/notes/RichTextEditor.css";
 
 type ViewMode = 'edit' | 'reader';
@@ -175,83 +177,63 @@ export default function NoteEditor() {
     setReviewOpen(false);
   }, [switchViewMode]);
 
-  // Shared "Next Verse" handler — works across Edit, Reader, and Live modes.
-  // In edit mode it delegates to the RichTextEditor's Quill instance for perfect formatting.
-  // In other modes it appends the next verse to the note's HTML content directly.
+  const verseTargetRef = useRef<NoteVerseTarget | null>(null);
+  const nextVerseBusyRef = useRef(false);
+  const [verseAnchor, setVerseAnchor] = useState<HTMLElement | null>(null);
+  const selectVerseTarget = useCallback((target: NoteVerseTarget, anchor: HTMLElement) => {
+    verseTargetRef.current = target;
+    setVerseAnchor(anchor);
+  }, []);
+  useEffect(() => { verseTargetRef.current = null; setVerseAnchor(null); }, [id]);
+  useEffect(() => {
+    if (viewMode !== 'reader' || !verseTargetRef.current || !readerContentRef.current) return;
+    setVerseAnchor(resolveVerseElement(readerContentRef.current, verseTargetRef.current));
+  }, [viewMode, content]);
+
   const handleInsertNextVerse = useCallback(async () => {
-    if (nextVerseLoading) return;
-    // Edit mode: use the editor directly (also updates content via onChange)
-    if (viewMode === 'edit' && editorRef.current) {
-      setNextVerseLoading(true);
-      try {
-        await editorRef.current.insertNextVerse();
-      } finally {
-        setNextVerseLoading(false);
-      }
+    if (nextVerseBusyRef.current) return;
+    const target = verseTargetRef.current;
+    if (!target) {
+      toast({ title: "Choose a Scripture", description: "Click the verse or its reference, then click Next Verse." });
       return;
     }
-
-    // Reader mode (or any non-edit mode): parse the live HTML and append.
+    nextVerseBusyRef.current = true;
     setNextVerseLoading(true);
     try {
-      // Derive plain text for reference detection
-      const tmp = document.createElement("div");
-      tmp.innerHTML = contentRef.current;
-      const plain = tmp.innerText || tmp.textContent || "";
-
-      const result = await fetchNextVerse(plain);
-      if (!result) {
-        toast({
-          title: "End of passage",
-          description: "No further verse is available after the last reference.",
-          variant: "destructive",
-        });
+      if (viewMode === 'edit' && editorRef.current) {
+        const next = await editorRef.current.insertNextVerse(target);
+        if (next) verseTargetRef.current = next;
         return;
       }
-
-      const cleaned = cleanVerseText(result.text);
-      const appended =
-        `<p><em>"${cleaned.replace(/"/g, "&quot;")}"</em></p>` +
-        `<p><em>— ${result.reference}, ESV</em></p>`;
-
-      const newContent = (contentRef.current || "") + appended;
-      setContentExternal(newContent);
+      const original = contentRef.current;
+      const root = document.createElement('div');
+      root.innerHTML = original;
+      const anchor = resolveVerseElement(root, target);
+      if (!anchor) throw new Error('PASSAGE_CHANGED');
+      const result = await fetchNextVerse(target.reference);
+      if (!result) throw new Error('End of passage');
+      if (contentRef.current !== original) throw new Error('PASSAGE_CHANGED');
+      const blocks = makeNextVerseBlocks(anchor, result);
+      let last = anchor;
+      for (const block of blocks) { last.after(block); last = block; }
+      const next = { reference: result.reference, path: elementPath(root, last) };
+      // Do not overwrite a new target selected while the API request was running.
+      if (verseTargetRef.current === target) verseTargetRef.current = next;
+      const scroller = readerContainerRef.current;
+      const top = scroller?.scrollTop ?? 0;
+      setContentExternal(root.innerHTML);
       setHasUnsavedChanges(true);
-
-      // Scroll reader to the newly appended content shortly after render
       requestAnimationFrame(() => {
-        const root = readerContentRef.current;
-        if (!root) return;
-        const paras = root.querySelectorAll("p");
-        const last = paras[paras.length - 1];
-        const scroller = readerContainerRef.current;
-        if (last && scroller) scrollElementInContainer(scroller, last as HTMLElement, { block: "center" });
+        if (scroller) scroller.scrollTop = top;
+        if (readerContentRef.current && verseTargetRef.current) setVerseAnchor(resolveVerseElement(readerContentRef.current, verseTargetRef.current));
       });
-
-      toast({
-        title: "Next verse inserted",
-        description: `${result.reference} (ESV) added to your notes.`,
-      });
-    } catch (err: any) {
-      console.error("Next verse error:", err);
-      if (err?.message === "NO_REFERENCE") {
-        toast({
-          title: "No Scripture reference found",
-          description: "Select or insert a Scripture reference before using Next Verse.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Unable to retrieve the next verse",
-          description: "Please try again in a moment.",
-          variant: "destructive",
-        });
-      }
+    } catch (error) {
+      toast({ title: "Unable to insert next verse", description: error instanceof Error && error.message === 'PASSAGE_CHANGED' ? 'The passage changed. Click it again and retry.' : 'Please try again in a moment.', variant: 'destructive' });
     } finally {
+      nextVerseBusyRef.current = false;
       setNextVerseLoading(false);
     }
-  }, [nextVerseLoading, toast, viewMode, setContentExternal]);
-
+  }, [toast, viewMode, setContentExternal]);
 
   // Handle copy audience URL
   const handleCopyAudienceUrl = useCallback(() => {
@@ -1039,6 +1021,7 @@ export default function NoteEditor() {
               Bookmark
             </Button>
 
+            <NextVerseAction anchor={verseAnchor} loading={nextVerseLoading} onInsert={handleInsertNextVerse} />
             {/* Next Verse Button - visible in all view modes (Edit / Reader / Live) */}
             <Button
               variant="outline"
@@ -1046,7 +1029,8 @@ export default function NoteEditor() {
               onClick={handleInsertNextVerse}
               disabled={nextVerseLoading}
               className="border-primary/40 text-primary hover:bg-primary/5"
-              title="Insert the next Scripture verse (ESV) after the last reference in this note"
+              title="Insert the next ESV verse below the passage you clicked"
+              onMouseDown={e => e.preventDefault()}
             >
               {nextVerseLoading ? (
                 <Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -1290,6 +1274,7 @@ export default function NoteEditor() {
                   onChange={handleEditorChange}
                   placeholder="Start writing your note..."
                   scrollingContainer=".note-editor-scroll"
+                  onVerseTarget={selectVerseTarget}
                 />
 
                 {/* Inline Next Verse Button - clearly visible in notes area */}
@@ -1310,7 +1295,7 @@ export default function NoteEditor() {
                   <div className="text-sm text-muted-foreground">
                     <span className="font-medium text-foreground">Adds the next Scripture</span>
                     <span className="mx-1">→</span>
-                    Automatically inserts the following ESV verse after your last reference.
+                    
                   </div>
                 </div>
               </motion.div>
@@ -1367,6 +1352,10 @@ export default function NoteEditor() {
                           handleReaderImageClick(e);
                           return;
                         }
+                        const root = readerContentRef.current;
+                        const target = root && findClickedVerse(root, e.target as Element);
+                        const anchor = root && target && resolveVerseElement(root, target);
+                        if (target && anchor) selectVerseTarget(target, anchor);
                         handleReaderContentClick(e);
                       }}
                       onMouseUp={handleTextSelection}
