@@ -5,7 +5,7 @@ import { Radio, Square, ExternalLink, Copy, Users, PanelRightOpen, MonitorOff, M
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { generateSessionId, createPresentationChannel, broadcastInitialState, NotePresentationState } from "@/lib/notesPresentation";
-import { openAudienceWindow, readQuickLiveSettings, restoreAudienceScreens, saveQuickLiveSettings } from "@/lib/audienceWindow";
+import { openAudienceWindow, readQuickLiveSettings, restoreAudienceScreens, saveQuickLiveSettings, getAudienceScreen, connectAudienceScreens, selectAudienceScreen } from "@/lib/audienceWindow";
 import { QuickLiveSettingsDialog } from "@/components/notes/QuickLiveSettingsDialog";
 import { SpotlightSettings } from "@/components/notes/SpotlightSettingsDialog";
 
@@ -68,17 +68,42 @@ export function PresenterModeBar({
   }, []);
 
   const openAudience = useCallback((url: string) => {
+    if (quickLiveSettings.screen !== 'current' && !getAudienceScreen(quickLiveSettings.screen)) {
+      setSettingsOpen(true);
+      toast({ title: 'Connect your audience display', description: 'Allow screen access and choose your audience display before opening the presentation.' });
+      return false;
+    }
+    windowRef.current?.close();
     windowRef.current = openAudienceWindow(url, quickLiveSettings, description => toast({ title: 'Audience display setup', description }));
     if (!windowRef.current) toast({ title: "Audience window blocked", description: "Allow popups for this site, then choose Open audience screen from the live menu.", variant: "destructive" });
+    return Boolean(windowRef.current);
   }, [toast, quickLiveSettings]);
 
   const start = () => {
     if (channelRef.current) return;
+    if (quickLiveSettings.screen !== 'current' && !getAudienceScreen(quickLiveSettings.screen)) {
+      setStarting(true);
+      void connectAudienceScreens().then(details => {
+        const target = selectAudienceScreen(details, quickLiveSettings.screen);
+        if (!target) {
+          setSettingsOpen(true);
+          toast({ title: 'Audience display not found', description: 'Connect your second display or select a connected display in Quick Live settings.', variant: 'destructive' });
+          return;
+        }
+        // A permission prompt can consume the click. A fresh click is required
+        // to open a fullscreen popup directly at the authorized coordinates.
+        toast({ title: 'Audience display connected', description: 'Click Go Live again to open the presentation on your audience display.' });
+      }).catch(error => {
+        setSettingsOpen(true);
+        toast({ title: 'Audience display access needed', description: error instanceof Error ? error.message : 'Allow screen access to use your secondary display.', variant: 'destructive' });
+      }).finally(() => setStarting(false));
+      return;
+    }
     const url = `${window.location.origin}/notes/live/${generateSessionId()}${quickLiveSettings.fullscreen ? '?fullscreen=1' : ''}`;
     const sessionId = new URL(url).pathname.split('/').pop();
     if (!sessionId) return;
     // Preserve popup permission: open before switching modes or awaiting realtime.
-    openAudience(url);
+    if (!openAudience(url)) return;
     onPrepareLive?.();
     setAudienceUrl(url);
     setStarting(true);
