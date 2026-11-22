@@ -26,6 +26,8 @@ import { fetchNextVerse } from "@/lib/scriptureNavigation";
 import { findClickedVerse, resolveVerseElement, makeNextVerseBlocks, elementPath, type NoteVerseTarget } from "@/lib/noteVerseTarget";
 import { NextVerseAction } from "@/components/notes/NextVerseAction";
 import "@/components/notes/RichTextEditor.css";
+import { LiveViewModeToggle } from "@/components/notes/LiveViewModeToggle";
+import { selectionToDocumentHtml } from "@/lib/documentExcerpt";
 
 type ViewMode = 'edit' | 'reader';
 
@@ -122,6 +124,13 @@ export default function NoteEditor() {
     return DEFAULT_SPOTLIGHT_SETTINGS;
   });
   const [spotlightText, setSpotlightText] = useState("");
+  const [spotlightHtml, setSpotlightHtml] = useState("");
+  const [liveViewMode, setLiveViewModeState] = useState<'slide' | 'document'>(() =>
+    (typeof window !== 'undefined' && window.localStorage.getItem('preachery.liveViewMode') === 'document') ? 'document' : 'slide');
+  const setLiveViewMode = useCallback((mode: 'slide' | 'document') => {
+    setLiveViewModeState(mode);
+    try { window.localStorage.setItem('preachery.liveViewMode', mode); } catch { /* ignore */ }
+  }, []);
   const [spotlightImage, setSpotlightImage] = useState<string | null>(null);
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [spotlightPage, setSpotlightPage] = useState(0);
@@ -460,6 +469,7 @@ export default function NoteEditor() {
     const range = selection.getRangeAt(0);
     if (!readerContentRef.current?.contains(range.commonAncestorContainer)) return;
 
+    setSpotlightHtml(selectionToDocumentHtml(range));
     // Clear selection after capturing text
     selection.removeAllRanges();
 
@@ -480,6 +490,7 @@ export default function NoteEditor() {
   const handleSpotlightClose = useCallback(() => {
     setSpotlightOpen(false);
     setSpotlightText("");
+    setSpotlightHtml("");
     setSpotlightImage(null);
     setEmphasisList([]);
     setSpotlightPage(0);
@@ -499,6 +510,7 @@ export default function NoteEditor() {
       return;
     }
     setSpotlightText("");
+    setSpotlightHtml("");
     setEmphasisList([]);
     setSpotlightImage(src);
     setSpotlightOpen(true);
@@ -995,6 +1007,8 @@ export default function NoteEditor() {
                 noteTitle={title}
                 spotlightText={spotlightText}
                 spotlightImage={spotlightImage}
+                spotlightHtml={spotlightHtml}
+                liveViewMode={liveViewMode}
                 spotlightOpen={spotlightOpen}
                 spotlightSettings={spotlightSettings}
                 currentPage={spotlightPage}
@@ -1007,6 +1021,9 @@ export default function NoteEditor() {
                 onSuppressPopupToggle={() => setSuppressPopup(!suppressPopup)}
                 onPrepareLive={prepareLiveReader}
               />
+            )}
+            {id && (
+              <LiveViewModeToggle value={liveViewMode} onChange={setLiveViewMode} />
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">

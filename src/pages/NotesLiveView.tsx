@@ -6,6 +6,7 @@ import { NotePresentationState, NotePresentationUpdate } from "@/lib/notesPresen
 import { SpotlightSettings, EMPHASIS_COLORS, FONT_OPTIONS, DEFAULT_SPOTLIGHT_SETTINGS } from "@/components/notes/SpotlightSettingsDialog";
 import { parseScriptureFromHighlight, getVerseGroup, getTotalPages, ParsedVerse } from "@/lib/verseParser";
 import { AudienceFullscreen } from '@/components/notes/AudienceFullscreen';
+import '@/components/notes/RichTextEditor.css';
 
 export default function NotesLiveView() {
   const { sessionId } = useParams();
@@ -16,6 +17,8 @@ export default function NotesLiveView() {
   const [lastSpotlight, setLastSpotlight] = useState<{
     text: string;
     image?: string | null;
+    html?: string;
+    viewMode?: 'slide' | 'document';
     settings: SpotlightSettings;
     emphasisList: Array<{ start: number; end: number; text: string; colorId: string }>;
     currentPage: number;
@@ -43,6 +46,8 @@ export default function NotesLiveView() {
             setLastSpotlight({
               text: newState.spotlightText,
               image: newState.spotlightImage,
+              html: newState.spotlightHtml,
+              viewMode: newState.liveViewMode,
               settings: newState.spotlightSettings,
               emphasisList: newState.emphasisList || [],
               currentPage: newState.currentPage || 0,
@@ -56,6 +61,8 @@ export default function NotesLiveView() {
               setLastSpotlight({
                 text: newState.spotlightText,
                 image: newState.spotlightImage,
+                html: newState.spotlightHtml,
+                viewMode: newState.liveViewMode,
                 settings: newState.spotlightSettings,
                 emphasisList: newState.emphasisList || [],
                 currentPage: newState.currentPage || 0,
@@ -123,6 +130,8 @@ export default function NotesLiveView() {
       return {
         text: state.spotlightText,
         image: state.spotlightImage || null,
+        html: state.spotlightHtml || '',
+        viewMode: state.liveViewMode || 'slide',
         settings: state.spotlightSettings || DEFAULT_SPOTLIGHT_SETTINGS,
         emphasisList: state.emphasisList || [],
         currentPage: state.currentPage || 0,
@@ -134,6 +143,8 @@ export default function NotesLiveView() {
       return {
         ...lastSpotlight,
         image: lastSpotlight.image || null,
+        // The presenter's current mode wins, so switching modes re-renders the last excerpt.
+        viewMode: state?.liveViewMode || lastSpotlight.viewMode || 'slide',
         isLive: false,
       };
     }
@@ -375,7 +386,7 @@ export default function NotesLiveView() {
       {/* Content */}
       <AnimatePresence mode="wait">
         <motion.div
-          key={(displayState.image || displayState.text) + displayState.currentPage}
+          key={(displayState.image || displayState.text) + displayState.currentPage + (displayState.viewMode || '')}
           {...getAnimationVariants()}
           transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
           className="relative z-10 max-w-6xl w-full flex items-center justify-center"
@@ -386,6 +397,17 @@ export default function NotesLiveView() {
               alt=""
               className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl"
             />
+          ) : displayState.viewMode === 'document' && displayState.html ? (
+            <div className="w-full max-w-5xl max-h-[88vh] overflow-y-auto rounded-2xl bg-white text-gray-900 shadow-2xl px-10 py-8 md:px-14 md:py-10">
+              {state?.noteTitle && (
+                <p className="text-sm uppercase tracking-widest text-gray-500 mb-4">{state.noteTitle}</p>
+              )}
+              <div
+                className="reader-content audience-document"
+                style={{ fontSize: `${Math.max(1.15, (settings.fontSize || 1) * 1.35)}rem` }}
+                dangerouslySetInnerHTML={{ __html: displayState.html }}
+              />
+            </div>
           ) : (
           <div className="w-full">
           {/* Scripture Reference (if applicable) */}

@@ -14,6 +14,8 @@ interface PresenterModeBarProps {
   noteTitle: string;
   spotlightText: string;
   spotlightImage?: string | null;
+  spotlightHtml?: string;
+  liveViewMode?: 'slide' | 'document';
   spotlightOpen: boolean;
   spotlightSettings: SpotlightSettings;
   currentPage: number;
@@ -28,7 +30,7 @@ interface PresenterModeBarProps {
 }
 
 export function PresenterModeBar({
-  noteId, noteTitle, spotlightText, spotlightImage = null, spotlightOpen,
+  noteId, noteTitle, spotlightText, spotlightImage = null, spotlightHtml = '', liveViewMode = 'slide', spotlightOpen,
   spotlightSettings, currentPage, totalPages, emphasisList, sidePanelOpen = false,
   onSidePanelToggle, onLiveStateChange, suppressPopup = false, onSuppressPopupToggle,
   onPrepareLive,
@@ -43,9 +45,9 @@ export function PresenterModeBar({
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const windowRef = useRef<Window | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const stateRef = useRef<NotePresentationState>({ noteId, noteTitle, spotlightText, spotlightImage,
+  const stateRef = useRef<NotePresentationState>({ noteId, noteTitle, spotlightText, spotlightImage, spotlightHtml, liveViewMode,
     spotlightOpen, spotlightSettings, currentPage, totalPages, emphasisList });
-  stateRef.current = { noteId, noteTitle, spotlightText, spotlightImage, spotlightOpen,
+  stateRef.current = { noteId, noteTitle, spotlightText, spotlightImage, spotlightHtml, liveViewMode, spotlightOpen,
     spotlightSettings, currentPage, totalPages, emphasisList };
 
   useEffect(() => { void restoreAudienceScreens(); }, []);
@@ -143,7 +145,7 @@ export function PresenterModeBar({
 
   useEffect(() => {
     if (isLive && channelRef.current) broadcastInitialState(channelRef.current, stateRef.current);
-  }, [isLive, noteId, noteTitle, spotlightText, spotlightImage, spotlightOpen, spotlightSettings, currentPage, totalPages, emphasisList]);
+  }, [isLive, noteId, noteTitle, spotlightText, spotlightImage, spotlightHtml, liveViewMode, spotlightOpen, spotlightSettings, currentPage, totalPages, emphasisList]);
 
   useEffect(() => () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);

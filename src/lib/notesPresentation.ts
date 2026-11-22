@@ -9,6 +9,10 @@ export interface NotePresentationState {
   noteTitle: string;
   spotlightText: string;
   spotlightImage?: string | null;
+  /** Presenter-only choice: 'slide' (classic sermon slide) or 'document' (formatted excerpt). */
+  liveViewMode?: 'slide' | 'document';
+  /** Sanitized HTML of the highlighted excerpt, used by Document View. */
+  spotlightHtml?: string;
   spotlightOpen: boolean;
   spotlightSettings: SpotlightSettings;
   currentPage: number;
