@@ -68,7 +68,7 @@ export function DocumentSpotlightPopup({ isOpen, html, title, settings, emphasis
         >
           <motion.div
             initial={{ scale: 0.97, y: 8 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.97, y: 8 }}
-            className="w-full max-w-5xl flex flex-col gap-3"
+            className="flex flex-col items-center gap-3"
           >
             <div className="flex items-center gap-2 rounded-xl border bg-background px-3 py-2 shadow-lg">
               <FileText className="h-4 w-4 text-primary" />
@@ -83,14 +83,14 @@ export function DocumentSpotlightPopup({ isOpen, html, title, settings, emphasis
               <Button size="sm" variant="outline" disabled={emphasisList.length === 0} onClick={() => onEmphasisChange([])}><Eraser className="h-4 w-4 mr-1" />Clear</Button>
               <Button size="icon" variant="ghost" aria-label="Close" onClick={onClose}><X className="h-4 w-4" /></Button>
             </div>
-            <div onClick={handleClick}>
+            <div onClick={handleClick} className="flex justify-center">
               <DocumentExcerptView
                 ref={scrollRef}
                 html={html}
                 title={title}
                 emphasis={emphasisList}
                 zoom={zoom}
-                maxHeightVh={78}
+                maxHeightVh={82}
                 onScroll={onScrollChange}
                 onMouseUp={handleMouseUp}
               />

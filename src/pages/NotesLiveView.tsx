@@ -17,7 +17,7 @@ function AudienceDocument({ html, title, emphasis, zoom, scroll }: { html: strin
     if (!el) return;
     el.scrollTo({ top: scroll * (el.scrollHeight - el.clientHeight), behavior: 'smooth' });
   }, [scroll, zoom, html]);
-  return <div className="w-full max-w-5xl"><DocumentExcerptView ref={ref} html={html} title={title} emphasis={emphasis} zoom={zoom} maxHeightVh={88} /></div>;
+  return <div className="flex w-full justify-center"><DocumentExcerptView ref={ref} html={html} title={title} emphasis={emphasis} zoom={zoom} maxHeightVh={94} /></div>;
 }
 
 export default function NotesLiveView() {
@@ -373,7 +373,7 @@ export default function NotesLiveView() {
   // Presentation View
   return (
     <div 
-      className="min-h-screen flex items-center justify-center p-8 md:p-12 relative"
+      className={`min-h-screen flex items-center justify-center relative ${displayState?.viewMode === 'document' ? 'p-2' : 'p-8 md:p-12'}`}
       style={{
         backgroundImage: settings.backgroundUrl
           ? `url(${settings.backgroundUrl})`
