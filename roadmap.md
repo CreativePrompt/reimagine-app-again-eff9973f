@@ -1,5 +1,7 @@
 # Tasks
 
+- [x] Fix Document View live zoom, Fit, Full size and Compact audience updates; verified signed-in presenter controls on a separate 1920×1080 audience window, with two regression tests and no page errors.
+
 - [x] Preserve verse numbers across Scripture search, Fill, Context, Next Verse, and ESV conversion; verified actual ESV Ephesians 4:1–6 numbers in Reader and after saving/reopening, with five passing tests.
 
 - [x] Add accurate ESV labels and question marks to note conversion.

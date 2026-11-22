@@ -1,0 +1,9 @@
+/* Document-only typography scales with smart fit and the presenter's live zoom. */
+.audience-document h1 { font-size: 2em; }
+.audience-document h2 { font-size: 1.55em; }
+.audience-document h3 { font-size: 1.22em; }
+.audience-document h4 { font-size: 1em; }
+.audience-document [style*="font-size"] { font-size: inherit !important; }
+.audience-document .ql-size-small { font-size: 0.75em; }
+.audience-document .ql-size-large { font-size: 1.5em; }
+.audience-document .ql-size-huge { font-size: 2em; }

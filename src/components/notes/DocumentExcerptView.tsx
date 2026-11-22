@@ -2,9 +2,10 @@ import { forwardRef, useLayoutEffect, useMemo, useRef, useState, useImperativeHa
 import { applyEmphasisToHtml, type DocumentEmphasis } from "@/lib/documentExcerpt";
 import { EMPHASIS_COLORS } from "@/components/notes/SpotlightSettingsDialog";
 import "@/components/notes/RichTextEditor.css";
+import "@/components/notes/DocumentExcerptView.css";
+import { measureDocumentFit } from "@/lib/documentFit";
 
 const hex = (id: string) => EMPHASIS_COLORS.find((c) => c.id === id)?.hex ?? '#fbbf24';
-const MIN_FIT = 1, MAX_FIT = 4;
 
 interface Props {
   html: string;
@@ -39,20 +40,13 @@ export const DocumentExcerptView = forwardRef<HTMLDivElement, Props>(function Do
     const scroller = scrollRef.current, body = bodyRef.current;
     if (!scroller || !body) return;
     const measure = () => {
-      const avail = scroller.clientHeight || (window.innerHeight * maxHeightVh) / 100;
-      let lo = MIN_FIT, hi = MAX_FIT;
-      for (let i = 0; i < 8; i++) {
-        const mid = (lo + hi) / 2;
-        body.style.fontSize = `${mid}rem`;
-        if (scroller.scrollHeight <= avail + 1) lo = mid; else hi = mid;
-      }
-      setFit(lo);
+      setFit(measureDocumentFit(scroller, body));
     };
     measure();
     const ro = new ResizeObserver(() => measure());
     ro.observe(scroller);
     return () => ro.disconnect();
-  }, [html, maxHeightVh]);
+  }, [html, maxHeightVh, size]);
 
   return (
     <div
@@ -60,7 +54,7 @@ export const DocumentExcerptView = forwardRef<HTMLDivElement, Props>(function Do
       className="overflow-y-auto rounded-2xl bg-white text-gray-900 shadow-2xl px-8 py-6 md:px-12 md:py-8"
       style={size === 'full'
         ? { width: '96vw', height: `${maxHeightVh}vh` }
-        : { width: `min(98vw, ${maxHeightVh * 16 / 9}vh)`, aspectRatio: '16 / 9', maxHeight: `${maxHeightVh}vh` }}
+        : { width: `min(90vw, 1200px, ${maxHeightVh * 16 / 9}vh)`, aspectRatio: '16 / 9', maxHeight: `${maxHeightVh}vh` }}
       onScroll={(e) => {
         const el = e.currentTarget;
         const max = el.scrollHeight - el.clientHeight;
