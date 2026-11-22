@@ -401,7 +401,7 @@ export default function NotesLiveView() {
           key={(displayState.image || displayState.text) + displayState.currentPage + (displayState.viewMode || '')}
           {...getAnimationVariants()}
           transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-          className="relative z-10 max-w-6xl w-full flex items-center justify-center"
+          className={`relative z-10 w-full flex items-center justify-center ${displayState.viewMode === 'document' && !displayState.image ? '' : 'max-w-6xl'}`}
         >
           {displayState.image ? (
             <img

@@ -56,7 +56,7 @@ export const DocumentExcerptView = forwardRef<HTMLDivElement, Props>(function Do
     <div
       ref={scrollRef}
       className="overflow-y-auto rounded-2xl bg-white text-gray-900 shadow-2xl px-8 py-6 md:px-12 md:py-8"
-      style={{ width: `min(98vw, ${maxHeightVh * 16 / 9}vh)`, aspectRatio: '16 / 9', maxHeight: `${maxHeightVh}vh` }}
+      style={{ width: '96vw', height: `${maxHeightVh}vh` }}
       onScroll={(e) => {
         const el = e.currentTarget;
         const max = el.scrollHeight - el.clientHeight;
