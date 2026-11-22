@@ -13,6 +13,10 @@ export interface NotePresentationState {
   liveViewMode?: 'slide' | 'document';
   /** Sanitized HTML of the highlighted excerpt, used by Document View. */
   spotlightHtml?: string;
+  /** Document View zoom multiplier on top of smart-fit (1 = fit). */
+  documentZoom?: number;
+  /** Document View scroll position, 0..1. */
+  documentScroll?: number;
   spotlightOpen: boolean;
   spotlightSettings: SpotlightSettings;
   currentPage: number;

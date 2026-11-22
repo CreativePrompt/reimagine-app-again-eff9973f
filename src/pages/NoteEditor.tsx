@@ -26,6 +26,7 @@ import { fetchNextVerse } from "@/lib/scriptureNavigation";
 import { findClickedVerse, resolveVerseElement, makeNextVerseBlocks, elementPath, type NoteVerseTarget } from "@/lib/noteVerseTarget";
 import { NextVerseAction } from "@/components/notes/NextVerseAction";
 import "@/components/notes/RichTextEditor.css";
+import { DocumentSpotlightPopup } from "@/components/notes/DocumentSpotlightPopup";
 import { LiveViewModeToggle } from "@/components/notes/LiveViewModeToggle";
 import { selectionToDocumentHtml } from "@/lib/documentExcerpt";
 
@@ -125,6 +126,13 @@ export default function NoteEditor() {
   });
   const [spotlightText, setSpotlightText] = useState("");
   const [spotlightHtml, setSpotlightHtml] = useState("");
+  const [documentZoom, setDocumentZoom] = useState(1);
+  const [documentScroll, setDocumentScroll] = useState(0);
+  const scrollThrottleRef = useRef<number | null>(null);
+  const handleDocumentScroll = useCallback((ratio: number) => {
+    if (scrollThrottleRef.current) window.clearTimeout(scrollThrottleRef.current);
+    scrollThrottleRef.current = window.setTimeout(() => setDocumentScroll(Math.round(ratio * 1000) / 1000), 80);
+  }, []);
   const [liveViewMode, setLiveViewModeState] = useState<'slide' | 'document'>(() =>
     (typeof window !== 'undefined' && window.localStorage.getItem('preachery.liveViewMode') === 'document') ? 'document' : 'slide');
   const setLiveViewMode = useCallback((mode: 'slide' | 'document') => {
@@ -470,6 +478,8 @@ export default function NoteEditor() {
     if (!readerContentRef.current?.contains(range.commonAncestorContainer)) return;
 
     setSpotlightHtml(selectionToDocumentHtml(range));
+    setDocumentScroll(0);
+    setEmphasisList([]);
     // Clear selection after capturing text
     selection.removeAllRanges();
 
@@ -1009,6 +1019,8 @@ export default function NoteEditor() {
                 spotlightImage={spotlightImage}
                 spotlightHtml={spotlightHtml}
                 liveViewMode={liveViewMode}
+                documentZoom={documentZoom}
+                documentScroll={documentScroll}
                 spotlightOpen={spotlightOpen}
                 spotlightSettings={spotlightSettings}
                 currentPage={spotlightPage}
@@ -1421,7 +1433,21 @@ export default function NoteEditor() {
       />
 
       {/* Spotlight Popup - Only render if not suppressed */}
-      {!suppressPopup && (
+      {!suppressPopup && liveViewMode === 'document' && (
+        <DocumentSpotlightPopup
+          isOpen={spotlightOpen && !spotlightImage}
+          html={spotlightHtml}
+          title={title}
+          settings={spotlightSettings}
+          emphasisList={emphasisList}
+          onEmphasisChange={setEmphasisList}
+          zoom={documentZoom}
+          onZoomChange={setDocumentZoom}
+          onScrollChange={handleDocumentScroll}
+          onClose={handleSpotlightClose}
+        />
+      )}
+      {!suppressPopup && liveViewMode === 'slide' && (
         <SpotlightPopup
           text={spotlightText}
           isOpen={spotlightOpen}

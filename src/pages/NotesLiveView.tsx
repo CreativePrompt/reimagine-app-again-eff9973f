@@ -7,6 +7,18 @@ import { SpotlightSettings, EMPHASIS_COLORS, FONT_OPTIONS, DEFAULT_SPOTLIGHT_SET
 import { parseScriptureFromHighlight, getVerseGroup, getTotalPages, ParsedVerse } from "@/lib/verseParser";
 import { AudienceFullscreen } from '@/components/notes/AudienceFullscreen';
 import '@/components/notes/RichTextEditor.css';
+import { DocumentExcerptView } from '@/components/notes/DocumentExcerptView';
+import { useRef } from 'react';
+
+function AudienceDocument({ html, title, emphasis, zoom, scroll }: { html: string; title?: string; emphasis: Array<{ text: string; colorId: string }>; zoom: number; scroll: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.scrollTo({ top: scroll * (el.scrollHeight - el.clientHeight), behavior: 'smooth' });
+  }, [scroll, zoom, html]);
+  return <div className="w-full max-w-5xl"><DocumentExcerptView ref={ref} html={html} title={title} emphasis={emphasis} zoom={zoom} maxHeightVh={88} /></div>;
+}
 
 export default function NotesLiveView() {
   const { sessionId } = useParams();
@@ -398,16 +410,13 @@ export default function NotesLiveView() {
               className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl"
             />
           ) : displayState.viewMode === 'document' && displayState.html ? (
-            <div className="w-full max-w-5xl max-h-[88vh] overflow-y-auto rounded-2xl bg-white text-gray-900 shadow-2xl px-10 py-8 md:px-14 md:py-10">
-              {state?.noteTitle && (
-                <p className="text-sm uppercase tracking-widest text-gray-500 mb-4">{state.noteTitle}</p>
-              )}
-              <div
-                className="reader-content audience-document"
-                style={{ fontSize: `${Math.max(1.15, (settings.fontSize || 1) * 1.35)}rem` }}
-                dangerouslySetInnerHTML={{ __html: displayState.html }}
-              />
-            </div>
+            <AudienceDocument
+              html={displayState.html}
+              title={state?.noteTitle}
+              emphasis={displayState.emphasisList || []}
+              zoom={state?.documentZoom ?? 1}
+              scroll={state?.documentScroll ?? 0}
+            />
           ) : (
           <div className="w-full">
           {/* Scripture Reference (if applicable) */}

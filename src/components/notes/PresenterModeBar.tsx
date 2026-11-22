@@ -16,6 +16,8 @@ interface PresenterModeBarProps {
   spotlightImage?: string | null;
   spotlightHtml?: string;
   liveViewMode?: 'slide' | 'document';
+  documentZoom?: number;
+  documentScroll?: number;
   spotlightOpen: boolean;
   spotlightSettings: SpotlightSettings;
   currentPage: number;
@@ -30,7 +32,7 @@ interface PresenterModeBarProps {
 }
 
 export function PresenterModeBar({
-  noteId, noteTitle, spotlightText, spotlightImage = null, spotlightHtml = '', liveViewMode = 'slide', spotlightOpen,
+  noteId, noteTitle, spotlightText, spotlightImage = null, spotlightHtml = '', liveViewMode = 'slide', documentZoom = 1, documentScroll = 0, spotlightOpen,
   spotlightSettings, currentPage, totalPages, emphasisList, sidePanelOpen = false,
   onSidePanelToggle, onLiveStateChange, suppressPopup = false, onSuppressPopupToggle,
   onPrepareLive,
@@ -45,9 +47,9 @@ export function PresenterModeBar({
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const windowRef = useRef<Window | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const stateRef = useRef<NotePresentationState>({ noteId, noteTitle, spotlightText, spotlightImage, spotlightHtml, liveViewMode,
+  const stateRef = useRef<NotePresentationState>({ noteId, noteTitle, spotlightText, spotlightImage, spotlightHtml, liveViewMode, documentZoom, documentScroll,
     spotlightOpen, spotlightSettings, currentPage, totalPages, emphasisList });
-  stateRef.current = { noteId, noteTitle, spotlightText, spotlightImage, spotlightHtml, liveViewMode, spotlightOpen,
+  stateRef.current = { noteId, noteTitle, spotlightText, spotlightImage, spotlightHtml, liveViewMode, documentZoom, documentScroll, spotlightOpen,
     spotlightSettings, currentPage, totalPages, emphasisList };
 
   useEffect(() => { void restoreAudienceScreens(); }, []);
@@ -145,7 +147,7 @@ export function PresenterModeBar({
 
   useEffect(() => {
     if (isLive && channelRef.current) broadcastInitialState(channelRef.current, stateRef.current);
-  }, [isLive, noteId, noteTitle, spotlightText, spotlightImage, spotlightHtml, liveViewMode, spotlightOpen, spotlightSettings, currentPage, totalPages, emphasisList]);
+  }, [isLive, noteId, noteTitle, spotlightText, spotlightImage, spotlightHtml, liveViewMode, documentZoom, documentScroll, spotlightOpen, spotlightSettings, currentPage, totalPages, emphasisList]);
 
   useEffect(() => () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);

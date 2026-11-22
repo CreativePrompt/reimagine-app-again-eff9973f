@@ -45,3 +45,61 @@ export function selectionToDocumentHtml(range: Range): string {
   holder.appendChild(expanded.cloneContents());
   return sanitizeExcerpt(holder);
 }
+
+export interface DocumentEmphasis { text: string; colorId: string }
+
+/**
+ * Wraps each emphasis phrase (matched across inline text nodes, whitespace-
+ * insensitive) in a <mark>. Shared by presenter popup and audience so both
+ * show identical highlights.
+ */
+export function applyEmphasisToHtml(html: string, list: DocumentEmphasis[], colorHex: (id: string) => string): string {
+  if (!html || list.length === 0) return html;
+  const root = document.createElement('div');
+  root.innerHTML = html;
+  for (const emp of list) {
+    const needle = emp.text.replace(/\s+/g, ' ').trim();
+    if (!needle) continue;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const nodes: Text[] = [];
+    let n: Node | null;
+    while ((n = walker.nextNode())) nodes.push(n as Text);
+    // Build a whitespace-normalized string with a map back to (node, offset).
+    let flat = '';
+    const map: Array<[Text, number]> = [];
+    let lastSpace = true;
+    for (const t of nodes) {
+      const v = t.data;
+      for (let i = 0; i < v.length; i++) {
+        const isSpace = /\s/.test(v[i]);
+        if (isSpace && lastSpace) continue;
+        flat += isSpace ? ' ' : v[i];
+        map.push([t, i]);
+        lastSpace = isSpace;
+      }
+      if (!lastSpace) { flat += ' '; map.push([t, v.length]); lastSpace = true; }
+    }
+    const idx = flat.indexOf(needle);
+    if (idx < 0) continue;
+    const [sNode, sOff] = map[idx];
+    const [eNode, eOff] = map[idx + needle.length - 1];
+    const range = document.createRange();
+    range.setStart(sNode, sOff);
+    range.setEnd(eNode, Math.min(eOff + 1, eNode.length));
+    // Wrap each text node segment inside the range separately so blocks stay intact.
+    const segs = nodes.filter((t) => range.intersectsNode(t));
+    for (const t of segs) {
+      const start = t === sNode ? sOff : 0;
+      const end = t === eNode ? Math.min(eOff + 1, t.length) : t.length;
+      if (end <= start) continue;
+      const mid = t.splitText(start);
+      mid.splitText(end - start);
+      const mark = document.createElement('mark');
+      mark.setAttribute('data-emphasis', emp.colorId);
+      mark.setAttribute('style', `background-color:${colorHex(emp.colorId)};color:inherit;border-radius:3px;padding:0 2px;box-decoration-break:clone;-webkit-box-decoration-break:clone;`);
+      mid.parentNode?.insertBefore(mark, mid);
+      mark.appendChild(mid);
+    }
+  }
+  return root.innerHTML;
+}
