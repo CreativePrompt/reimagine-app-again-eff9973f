@@ -17,6 +17,8 @@ export interface NotePresentationState {
   documentZoom?: number;
   /** Document View scroll position, 0..1. */
   documentScroll?: number;
+  /** Document View page size: 'full' fills the screen edge to edge, 'compact' keeps a 16:9 page. */
+  documentSize?: 'full' | 'compact';
   spotlightOpen: boolean;
   spotlightSettings: SpotlightSettings;
   currentPage: number;

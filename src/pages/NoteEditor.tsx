@@ -128,6 +128,12 @@ export default function NoteEditor() {
   const [spotlightHtml, setSpotlightHtml] = useState("");
   const [documentZoom, setDocumentZoom] = useState(1);
   const [documentScroll, setDocumentScroll] = useState(0);
+  const [documentSize, setDocumentSizeState] = useState<'full' | 'compact'>(() =>
+    (typeof window !== 'undefined' && window.localStorage.getItem('preachery.documentSize') === 'full') ? 'full' : 'compact');
+  const setDocumentSize = useCallback((size: 'full' | 'compact') => {
+    setDocumentSizeState(size);
+    try { window.localStorage.setItem('preachery.documentSize', size); } catch { /* ignore */ }
+  }, []);
   const scrollThrottleRef = useRef<number | null>(null);
   const handleDocumentScroll = useCallback((ratio: number) => {
     if (scrollThrottleRef.current) window.clearTimeout(scrollThrottleRef.current);
@@ -1021,6 +1027,7 @@ export default function NoteEditor() {
                 liveViewMode={liveViewMode}
                 documentZoom={documentZoom}
                 documentScroll={documentScroll}
+                documentSize={documentSize}
                 spotlightOpen={spotlightOpen}
                 spotlightSettings={spotlightSettings}
                 currentPage={spotlightPage}
@@ -1443,6 +1450,8 @@ export default function NoteEditor() {
           onEmphasisChange={setEmphasisList}
           zoom={documentZoom}
           onZoomChange={setDocumentZoom}
+          size={documentSize}
+          onSizeChange={setDocumentSize}
           onScrollChange={handleDocumentScroll}
           onClose={handleSpotlightClose}
         />

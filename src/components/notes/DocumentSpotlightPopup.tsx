@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ZoomIn, ZoomOut, Maximize2, Eraser, FileText } from "lucide-react";
+import { X, ZoomIn, ZoomOut, Maximize2, Eraser, FileText, Expand, Shrink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DocumentExcerptView } from "@/components/notes/DocumentExcerptView";
 import { EMPHASIS_COLORS, type SpotlightSettings } from "@/components/notes/SpotlightSettingsDialog";
@@ -18,12 +18,14 @@ interface Props {
   onEmphasisChange: (list: Emphasis[]) => void;
   zoom: number;
   onZoomChange: (zoom: number) => void;
+  size: 'full' | 'compact';
+  onSizeChange: (size: 'full' | 'compact') => void;
   onScrollChange: (ratio: number) => void;
   onClose: () => void;
 }
 
 /** Presenter copy of the audience Document View: same card, plus zoom and live highlight tools. */
-export function DocumentSpotlightPopup({ isOpen, html, title, settings, emphasisList, onEmphasisChange, zoom, onZoomChange, onScrollChange, onClose }: Props) {
+export function DocumentSpotlightPopup({ isOpen, html, title, settings, emphasisList, onEmphasisChange, zoom, onZoomChange, size, onSizeChange, onScrollChange, onClose }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const clamp = (z: number) => Math.round(Math.min(DOC_ZOOM_MAX, Math.max(DOC_ZOOM_MIN, z)) * 10) / 10;
 
@@ -80,6 +82,15 @@ export function DocumentSpotlightPopup({ isOpen, html, title, settings, emphasis
               <span className="w-12 text-center text-sm tabular-nums">{Math.round(zoom * 100)}%</span>
               <Button size="icon" variant="outline" aria-label="Zoom in" onClick={() => onZoomChange(clamp(zoom + DOC_ZOOM_STEP))}><ZoomIn className="h-4 w-4" /></Button>
               <Button size="sm" variant="outline" onClick={() => onZoomChange(1)}><Maximize2 className="h-4 w-4 mr-1" />Fit</Button>
+              <Button
+                size="sm"
+                variant={size === 'full' ? 'default' : 'outline'}
+                onClick={() => onSizeChange(size === 'full' ? 'compact' : 'full')}
+                title={size === 'full' ? 'Switch to the compact page size' : 'Stretch the page to fill the screen'}
+              >
+                {size === 'full' ? <Shrink className="h-4 w-4 mr-1" /> : <Expand className="h-4 w-4 mr-1" />}
+                {size === 'full' ? 'Compact' : 'Full size'}
+              </Button>
               <Button size="sm" variant="outline" disabled={emphasisList.length === 0} onClick={() => onEmphasisChange([])}><Eraser className="h-4 w-4 mr-1" />Clear</Button>
               <Button size="icon" variant="ghost" aria-label="Close" onClick={onClose}><X className="h-4 w-4" /></Button>
             </div>
@@ -90,6 +101,7 @@ export function DocumentSpotlightPopup({ isOpen, html, title, settings, emphasis
                 title={title}
                 emphasis={emphasisList}
                 zoom={zoom}
+                size={size}
                 maxHeightVh={82}
                 onScroll={onScrollChange}
                 onMouseUp={handleMouseUp}

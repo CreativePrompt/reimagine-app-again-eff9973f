@@ -10,14 +10,14 @@ import '@/components/notes/RichTextEditor.css';
 import { DocumentExcerptView } from '@/components/notes/DocumentExcerptView';
 import { useRef } from 'react';
 
-function AudienceDocument({ html, title, emphasis, zoom, scroll }: { html: string; title?: string; emphasis: Array<{ text: string; colorId: string }>; zoom: number; scroll: number }) {
+function AudienceDocument({ html, title, emphasis, zoom, scroll, size }: { html: string; title?: string; emphasis: Array<{ text: string; colorId: string }>; zoom: number; scroll: number; size: 'full' | 'compact' }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     el.scrollTo({ top: scroll * (el.scrollHeight - el.clientHeight), behavior: 'smooth' });
-  }, [scroll, zoom, html]);
-  return <div className="flex w-full justify-center"><DocumentExcerptView ref={ref} html={html} title={title} emphasis={emphasis} zoom={zoom} maxHeightVh={94} /></div>;
+  }, [scroll, zoom, html, size]);
+  return <div className="flex w-full justify-center"><DocumentExcerptView ref={ref} html={html} title={title} emphasis={emphasis} zoom={zoom} size={size} maxHeightVh={94} /></div>;
 }
 
 export default function NotesLiveView() {
@@ -416,6 +416,7 @@ export default function NotesLiveView() {
               emphasis={displayState.emphasisList || []}
               zoom={state?.documentZoom ?? 1}
               scroll={state?.documentScroll ?? 0}
+              size={state?.documentSize ?? 'compact'}
             />
           ) : (
           <div className="w-full">

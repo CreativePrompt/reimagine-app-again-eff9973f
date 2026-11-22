@@ -18,6 +18,7 @@ interface PresenterModeBarProps {
   liveViewMode?: 'slide' | 'document';
   documentZoom?: number;
   documentScroll?: number;
+  documentSize?: 'full' | 'compact';
   spotlightOpen: boolean;
   spotlightSettings: SpotlightSettings;
   currentPage: number;
@@ -32,7 +33,7 @@ interface PresenterModeBarProps {
 }
 
 export function PresenterModeBar({
-  noteId, noteTitle, spotlightText, spotlightImage = null, spotlightHtml = '', liveViewMode = 'slide', documentZoom = 1, documentScroll = 0, spotlightOpen,
+  noteId, noteTitle, spotlightText, spotlightImage = null, spotlightHtml = '', liveViewMode = 'slide', documentZoom = 1, documentScroll = 0, documentSize = 'compact', spotlightOpen,
   spotlightSettings, currentPage, totalPages, emphasisList, sidePanelOpen = false,
   onSidePanelToggle, onLiveStateChange, suppressPopup = false, onSuppressPopupToggle,
   onPrepareLive,
@@ -47,9 +48,9 @@ export function PresenterModeBar({
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const windowRef = useRef<Window | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const stateRef = useRef<NotePresentationState>({ noteId, noteTitle, spotlightText, spotlightImage, spotlightHtml, liveViewMode, documentZoom, documentScroll,
+  const stateRef = useRef<NotePresentationState>({ noteId, noteTitle, spotlightText, spotlightImage, spotlightHtml, liveViewMode, documentZoom, documentScroll, documentSize,
     spotlightOpen, spotlightSettings, currentPage, totalPages, emphasisList });
-  stateRef.current = { noteId, noteTitle, spotlightText, spotlightImage, spotlightHtml, liveViewMode, documentZoom, documentScroll, spotlightOpen,
+  stateRef.current = { noteId, noteTitle, spotlightText, spotlightImage, spotlightHtml, liveViewMode, documentZoom, documentScroll, documentSize, spotlightOpen,
     spotlightSettings, currentPage, totalPages, emphasisList };
 
   useEffect(() => { void restoreAudienceScreens(); }, []);
@@ -147,7 +148,7 @@ export function PresenterModeBar({
 
   useEffect(() => {
     if (isLive && channelRef.current) broadcastInitialState(channelRef.current, stateRef.current);
-  }, [isLive, noteId, noteTitle, spotlightText, spotlightImage, spotlightHtml, liveViewMode, documentZoom, documentScroll, spotlightOpen, spotlightSettings, currentPage, totalPages, emphasisList]);
+  }, [isLive, noteId, noteTitle, spotlightText, spotlightImage, spotlightHtml, liveViewMode, documentZoom, documentScroll, documentSize, spotlightOpen, spotlightSettings, currentPage, totalPages, emphasisList]);
 
   useEffect(() => () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);

@@ -14,6 +14,8 @@ interface Props {
   zoom: number;
   /** Max height of the card as a fraction of the window height (vh). */
   maxHeightVh: number;
+  /** 'full' stretches the page edge to edge; 'compact' keeps a centered 16:9 page. */
+  size?: 'full' | 'compact';
   onScroll?: (ratio: number) => void;
   onMouseUp?: () => void;
 }
@@ -24,7 +26,7 @@ interface Props {
  * (within limits); zoom multiplies it; anything taller scrolls.
  */
 export const DocumentExcerptView = forwardRef<HTMLDivElement, Props>(function DocumentExcerptView(
-  { html, title, emphasis, zoom, maxHeightVh, onScroll, onMouseUp }, ref,
+  { html, title, emphasis, zoom, maxHeightVh, size = 'compact', onScroll, onMouseUp }, ref,
 ) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -56,7 +58,9 @@ export const DocumentExcerptView = forwardRef<HTMLDivElement, Props>(function Do
     <div
       ref={scrollRef}
       className="overflow-y-auto rounded-2xl bg-white text-gray-900 shadow-2xl px-8 py-6 md:px-12 md:py-8"
-      style={{ width: '96vw', height: `${maxHeightVh}vh` }}
+      style={size === 'full'
+        ? { width: '96vw', height: `${maxHeightVh}vh` }
+        : { width: `min(98vw, ${maxHeightVh * 16 / 9}vh)`, aspectRatio: '16 / 9', maxHeight: `${maxHeightVh}vh` }}
       onScroll={(e) => {
         const el = e.currentTarget;
         const max = el.scrollHeight - el.clientHeight;
